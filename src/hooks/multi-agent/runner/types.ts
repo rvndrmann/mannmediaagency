@@ -15,7 +15,7 @@ export interface BaseAgent {
 export interface AgentOptions {
   config?: AgentConfig;
   model?: string;
-  context?: RunnerContext;
+  context: RunnerContext;
   traceId?: string;
 }
 

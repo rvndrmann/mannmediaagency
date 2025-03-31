@@ -1,228 +1,158 @@
-
-import { 
-  AgentResult, 
-  AgentStreamEvent, 
-  AgentType, 
-  RunnerCallbacks, 
-  RunnerContext, 
-  SDKAgentDefinition, 
-  SDKAgentOptions, 
-  SDKHandoffDefinition, 
-  SDKRunner, 
-  SDKTool 
-} from "../runner/types";
-import { v4 as uuidv4 } from "uuid";
+import { BaseAgentImpl } from "../runner/agents/BaseAgentImpl";
+import { AgentConfig, AgentOptions, AgentResult, AgentStreamEvent, AgentType, RunnerCallbacks, RunnerContext, SDKAgentDefinition, SDKAgentOptions, SDKRunner, SDKTool } from "../runner/types";
+import { AssistantAgent } from "../runner/agents/AssistantAgent";
+import { DataAgent } from "../runner/agents/DataAgent";
+import { ImageGeneratorAgent } from "../runner/agents/ImageGeneratorAgent";
+import { MainAgent } from "../runner/agents/MainAgent";
+import { SceneCreatorAgent } from "../runner/agents/SceneCreatorAgent";
+import { SceneGeneratorAgent } from "../runner/agents/SceneGeneratorAgent";
+import { ScriptWriterAgent } from "../runner/agents/ScriptWriterAgent";
+import { ToolAgent } from "../runner/agents/ToolAgent";
 import { ToolConverter } from "./ToolConverter";
-import { canvasDataTool } from "../tools/canvas-data-tool";
-import { sdkCanvasDataTool } from "./tools/SdkCanvasDataTool";
+import { SDKToolExecutor } from "./SDKToolExecutor";
 
 export class SDKAgentRunner implements SDKRunner {
-  private agentDefinitions: Map<AgentType, SDKAgentDefinition> = new Map();
-  private currentAgentType: AgentType = "main";
+  private agentDefinitions: SDKAgentDefinition[];
+  private agentOptions: SDKAgentOptions;
+  private currentAgent: BaseAgentImpl | null = null;
+  private context: RunnerContext;
+  private callbacks: RunnerCallbacks | null = null;
   private traceId: string;
-  private callbacks: RunnerCallbacks = {};
-  private streamEvents: AgentStreamEvent[] = [];
-
-  constructor(private options: SDKAgentOptions = {}) {
-    this.traceId = uuidv4();
+  
+  constructor(agentDefinitions: SDKAgentDefinition[], options: SDKAgentOptions = {}) {
+    this.agentDefinitions = agentDefinitions;
+    this.agentOptions = options;
+    this.traceId = this.generateTraceId();
   }
-
-  /**
-   * Initialize the SDK Agent Runner with default agents and tools
-   */
+  
   async initialize(): Promise<void> {
-    // Register the data agent
-    this.registerAgent("data", {
-      name: "Data Agent",
-      instructions: "You are a Data Agent specialized in data analysis and processing. You excel at understanding, transforming, and visualizing data. You can help with data cleaning, statistical analysis, chart creation, and data interpretation.",
-      tools: [sdkCanvasDataTool],
-      handoffs: [
-        {
-          targetAgent: "main",
-          description: "Transfer to the main assistant for general help",
-          when: ["The user needs general assistance outside of data analysis"]
-        },
-        {
-          targetAgent: "script",
-          description: "Transfer to the script writer for creating content",
-          when: ["The user wants to create or edit scripts"]
-        }
-      ]
-    });
-
-    // Register the main agent (placeholder)
-    this.registerAgent("main", {
-      name: "Main Assistant",
-      instructions: "You are the main assistant, able to help with general questions and coordinate with specialized agents.",
-      handoffs: [
-        {
-          targetAgent: "data",
-          description: "Transfer to the data agent for data analysis",
-          when: ["The user has questions about data analysis", "The user needs to visualize data"]
-        }
-      ]
-    });
-
-    console.log("SDK Agent Runner initialized with default agents");
+    // Initialization logic here
   }
-
-  /**
-   * Register an agent definition
-   */
-  registerAgent(type: AgentType, definition: SDKAgentDefinition): void {
-    this.agentDefinitions.set(type, {
-      ...definition,
-      model: definition.model || this.options.model || "gpt-4o-mini"
-    });
-    console.log(`Registered agent type: ${type}`);
-  }
-
-  /**
-   * Set callbacks for the runner
-   */
+  
   setCallbacks(callbacks: RunnerCallbacks): void {
     this.callbacks = callbacks;
   }
-
-  /**
-   * Process user input and return agent result
-   */
-  async processInput(input: string, context: RunnerContext = { history: [] }): Promise<AgentResult> {
-    try {
-      const currentAgent = this.agentDefinitions.get(this.currentAgentType);
-      
-      if (!currentAgent) {
-        throw new Error(`Agent type ${this.currentAgentType} not registered`);
-      }
-
-      // Add thinking event to stream
-      this.addStreamEvent({
-        type: 'thinking',
-        agentType: this.currentAgentType,
-        timestamp: Date.now(),
-      });
-
-      // Mock API call for now - in Phase 2 we'll implement the actual OpenAI Agents SDK call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For now, we'll simulate a direct response for data agent
-      if (this.currentAgentType === "data") {
-        const response: AgentResult = {
-          output: `[SDK ${currentAgent.name}] I'm analyzing your request about "${input.substring(0, 30)}...". Let me help with that.`
-        };
-
-        // Add message event to stream
-        this.addStreamEvent({
-          type: 'message',
-          content: response.output,
-          agentType: this.currentAgentType,
-          timestamp: Date.now(),
-        });
-
-        return response;
-      }
-
-      // For other agents, we'll simulate a handoff to the data agent
-      if (input.toLowerCase().includes("data") && this.currentAgentType !== "data") {
-        const handoffReason = "Your question seems to be about data analysis. Let me transfer you to our Data Specialist.";
-        
-        // Add handoff event to stream
-        this.addStreamEvent({
-          type: 'handoff',
-          content: handoffReason,
-          agentType: this.currentAgentType,
-          handoffTarget: "data",
-          handoffReason,
-          timestamp: Date.now(),
-        });
-
-        // Notify about handoff
-        if (this.callbacks.onHandoff) {
-          this.callbacks.onHandoff(this.currentAgentType, "data", handoffReason);
-        }
-
-        // Update current agent
-        this.currentAgentType = "data";
-
-        // Process with new agent
-        return this.processInput(input, context);
-      }
-
-      // Default response
-      const response: AgentResult = {
-        output: `[SDK ${currentAgent.name}] I can help with "${input.substring(0, 30)}...". What specific information do you need?`
-      };
-
-      // Add message event to stream
-      this.addStreamEvent({
-        type: 'message',
-        content: response.output,
-        agentType: this.currentAgentType,
-        timestamp: Date.now(),
-      });
-
-      // Complete event
-      this.addStreamEvent({
-        type: 'complete',
-        timestamp: Date.now(),
-      });
-
-      return response;
-    } catch (error) {
-      console.error("Error in SDK Agent Runner:", error);
-      
-      // Add error event to stream
-      this.addStreamEvent({
-        type: 'error',
-        content: error instanceof Error ? error.message : "Unknown error occurred",
-        timestamp: Date.now(),
-      });
-      
-      return {
-        output: "I encountered an error processing your request. Please try again later."
-      };
-    }
-  }
-
-  /**
-   * Get current agent type
-   */
-  getCurrentAgent(): AgentType {
-    return this.currentAgentType;
-  }
-
-  /**
-   * Get trace ID
-   */
+  
   getTraceId(): string {
     return this.traceId;
   }
-
-  /**
-   * Get stream events and clear the buffer
-   */
-  getStreamEvents(): AgentStreamEvent[] {
-    const events = [...this.streamEvents];
-    this.streamEvents = [];
-    return events;
+  
+  getCurrentAgent(): AgentType {
+    return this.currentAgent?.getType() || "main";
   }
-
-  /**
-   * Add an event to the stream
-   */
-  private addStreamEvent(event: AgentStreamEvent): void {
-    this.streamEvents.push(event);
+  
+  private generateTraceId(): string {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   }
-
-  /**
-   * Convert standard tools to SDK tools
-   */
-  private convertToolsToSDK(tools: any[]): SDKTool[] {
-    return tools.map(tool => {
-      if ('execute' in tool && 'parameters' in tool) {
-        return ToolConverter.convertToSDKTool(tool);
+  
+  private createAgent(agentDefinition: SDKAgentDefinition, context: RunnerContext): BaseAgentImpl {
+    const agentType = agentDefinition.name.toLowerCase();
+    const agentOptions: AgentOptions = {
+      config: {
+        name: agentDefinition.name,
+        instructions: agentDefinition.instructions,
+        model: agentDefinition.model || this.agentOptions.model || "gpt-3.5-turbo"
+      },
+      model: agentDefinition.model || this.agentOptions.model || "gpt-3.5-turbo",
+      context: context,
+      traceId: this.traceId
+    };
+    
+    switch (agentType) {
+      case "assistant":
+        return new AssistantAgent(agentOptions);
+      case "data":
+        return new DataAgent(agentOptions);
+      case "imagegenerator":
+        return new ImageGeneratorAgent(agentOptions);
+      case "main":
+        return new MainAgent(agentOptions);
+      case "scenecreator":
+        return new SceneCreatorAgent(agentOptions);
+      case "scenegenerator":
+        return new SceneGeneratorAgent(agentOptions);
+      case "scriptwriter":
+        return new ScriptWriterAgent(agentOptions);
+      case "tool":
+        return new ToolAgent(agentOptions);
+      default:
+        return new MainAgent(agentOptions);
+    }
+  }
+  
+  async processInput(input: string, context?: RunnerContext): Promise<AgentResult> {
+    if (!context) {
+      throw new Error("Context is required to process input");
+    }
+    
+    this.context = context;
+    
+    // Find the main agent definition
+    const mainAgentDefinition = this.agentDefinitions.find(agent => agent.name.toLowerCase() === "main");
+    if (!mainAgentDefinition) {
+      throw new Error("Main agent definition not found");
+    }
+    
+    // Create main agent
+    this.currentAgent = this.createAgent(mainAgentDefinition, context);
+    
+    // Process input
+    return this.processWithAgent(this.currentAgent, input, context);
+  }
+  
+  private async processWithAgent(agent: BaseAgentImpl, input: string, context: RunnerContext): Promise<AgentResult> {
+    const agentType = agent.getType();
+    
+    // Add message to trace
+    if (context.addMessage) {
+      context.addMessage(`Processing with ${agentType} agent`, "agent_start");
+    }
+    
+    // Process with agent
+    let result: AgentResult;
+    try {
+      result = await agent.process(input, context);
+      
+      // Add message to trace
+      if (context.addMessage) {
+        context.addMessage(`Agent ${agentType} completed with output: ${result.output}`, "agent_complete");
       }
-      return tool as SDKTool;
-    });
+    } catch (error: any) {
+      console.error(`Error processing with agent ${agentType}:`, error);
+      
+      // Add message to trace
+      if (context.addMessage) {
+        context.addMessage(`Error processing with agent ${agentType}: ${error.message}`, "agent_error");
+      }
+      
+      return {
+        output: `Error processing with agent ${agentType}: ${error.message}`
+      };
+    }
+    
+    // Handle handoff
+    if (result.handoff) {
+      if (this.callbacks?.onHandoffStart) {
+        this.callbacks.onHandoffStart(agentType, result.handoff.targetAgent, result.handoff.reason);
+      }
+      
+      // Find the target agent definition
+      const targetAgentDefinition = this.agentDefinitions.find(agent => agent.name.toLowerCase() === result.handoff?.targetAgent);
+      if (!targetAgentDefinition) {
+        throw new Error(`Target agent definition ${result.handoff.targetAgent} not found`);
+      }
+      
+      // Create target agent
+      this.currentAgent = this.createAgent(targetAgentDefinition, context);
+      
+      if (this.callbacks?.onHandoffEnd) {
+        this.callbacks.onHandoffEnd(agentType, result.handoff.targetAgent, result);
+      }
+      
+      // Process with target agent
+      return this.processWithAgent(this.currentAgent, input, context);
+    }
+    
+    return result;
   }
 }

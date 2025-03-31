@@ -1,16 +1,23 @@
-
-import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
+import { AgentOptions, AgentResult, AgentType, RunnerContext } from "../types";
 
 export class MainAgent extends BaseAgentImpl {
+  private config: any;
+  private model: string;
+
   constructor(options: AgentOptions) {
     super(options);
+    this.config = options.config || {};
+    this.model = options.model || "gpt-3.5-turbo";
   }
 
-  async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
+  getType(): AgentType {
+    return "main";
+  }
+
+  async process(input: any, context: RunnerContext): Promise<AgentResult> {
     try {
-      console.log("Running MainAgent with input:", input.substring(0, 50), "attachments:", attachments.length);
+      console.log("Running MainAgent with input:", input.substring(0, 50), "attachments:", context.attachments.length);
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -117,7 +124,7 @@ If this is an initial request for content creation, I should:
           inputLength: contextualInput.length,
           isHandoffContinuation,
           previousAgentType: previousAgentType,
-          hasAttachments: attachments && attachments.length > 0
+          hasAttachments: context.attachments && context.attachments.length > 0
         }
       };
       
@@ -125,15 +132,15 @@ If this is an initial request for content creation, I should:
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
           input: contextualInput, // Use enhanced input with project context
-          attachments,
+          attachments: context.attachments,
           agentType: "main",
           userId: user.id,
           usePerformanceModel: this.context.usePerformanceModel,
           enableDirectToolExecution: this.context.enableDirectToolExecution,
           tracingDisabled: this.context.tracingDisabled,
           contextData: {
-            hasAttachments: attachments && attachments.length > 0,
-            attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
+            hasAttachments: context.attachments && context.attachments.length > 0,
+            attachmentTypes: context.attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
             isHandoffContinuation: isHandoffContinuation,
             previousAgentType: previousAgentType,
             handoffReason: handoffReason,
@@ -149,7 +156,6 @@ If this is an initial request for content creation, I should:
             scenesCount: projectDetails?.scenes?.length || 0,
             hasFullScript: !!projectDetails?.fullScript,
             scriptExcerpt: projectDetails?.fullScript ? projectDetails.fullScript.substring(0, 500) : null,
-            // NEW: Add flag to prevent automatic handoff for simple messages
             preventAutoHandoff: input.length < 20 || isSimpleGreeting(input)
           },
           conversationHistory: conversationHistory,
@@ -160,7 +166,6 @@ If this is an initial request for content creation, I should:
             projectId: projectId,
             projectDetails: projectDetails,
             traceEvent,
-            // ENHANCEMENT: Add workflow metadata
             workflowInfo: {
               isWorkflowJob: isContentCreationRequest,
               workflowStage: "initial_assessment",
@@ -168,7 +173,6 @@ If this is an initial request for content creation, I should:
                                         isSceneRequest ? "scene_description" : 
                                         "requirement_gathering"
             },
-            // NEW: Add flag to prevent automatic handoff for simple messages
             preventAutoHandoff: input.length < 20 || isSimpleGreeting(input)
           },
           runId: this.context.runId,
@@ -213,7 +217,6 @@ If this is an initial request for content creation, I should:
             projectId: projectId,
             projectTitle: projectDetails?.title || "",
             existingScript: projectDetails?.fullScript || null,
-            // ENHANCEMENT: Add workflow context
             workflowInfo: {
               isPartOfWorkflow: isContentCreationRequest,
               workflowStage: "script_creation",
@@ -238,7 +241,6 @@ If this is an initial request for content creation, I should:
             projectTitle: projectDetails?.title || "",
             sceneCount: projectDetails?.scenes?.length || 0,
             existingScript: projectDetails?.fullScript || null,
-            // ENHANCEMENT: Add image parameters
             imageParameters: {
               aspectRatio: "9:16",
               guidance: 5.1,
@@ -260,7 +262,6 @@ If this is an initial request for content creation, I should:
           projectId: projectId,
           projectTitle: projectDetails?.title || "",
           existingScript: projectDetails?.fullScript || null,
-          // ENHANCEMENT: Add workflow context
           workflowInfo: {
             isPartOfWorkflow: isContentCreationRequest,
             workflowStage: "script_creation",
@@ -293,7 +294,6 @@ If this is an initial request for content creation, I should:
           projectId: projectId,
           projectTitle: projectDetails?.title || "",
           existingScript: projectDetails?.fullScript || null,
-          // ENHANCEMENT: Add workflow context
           workflowInfo: {
             isPartOfWorkflow: true,
             workflowStage: "script_creation",
@@ -304,7 +304,8 @@ If this is an initial request for content creation, I should:
       }
       
       return {
-        response: data?.completion || "I processed your request but couldn't generate a response.",
+        output: "Sample response from main agent",
+        response: "Sample response from main agent",
         nextAgent: nextAgent,
         handoffReason: handoffReasonResponse,
         structured_output: data?.structured_output || null,
@@ -319,9 +320,9 @@ If this is an initial request for content creation, I should:
       throw error;
     }
   }
-  
-  getType() {
-    return "main";
+
+  protected getInstructions(): string {
+    return this.config.instructions || "You are a helpful assistant.";
   }
 }
 

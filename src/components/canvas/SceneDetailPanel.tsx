@@ -71,9 +71,13 @@ export function SceneDetailPanel({
     setUploading(true);
     try {
       // Get bucket name based on upload type
-      const bucket = uploadType === 'voiceOver' || uploadType === 'backgroundMusic' 
-        ? 'audio_assets' 
-        : 'canvas_assets';
+      const bucket = uploadType === 'voiceOver' 
+        ? 'voice-over' 
+        : uploadType === 'backgroundMusic' 
+          ? 'background-music' 
+          : uploadType === 'video'
+            ? 'scene-videos'
+            : 'canvas_assets';
       
       // Upload file to Supabase storage
       const publicUrl = await uploadFileToBucket(bucket, file);
@@ -126,9 +130,13 @@ export function SceneDetailPanel({
       }
       
       // Get bucket name based on upload type
-      const bucket = uploadType === 'voiceOver' || uploadType === 'backgroundMusic' 
-        ? 'audio_assets' 
-        : 'canvas_assets';
+      const bucket = uploadType === 'voiceOver' 
+        ? 'voice-over' 
+        : uploadType === 'backgroundMusic' 
+          ? 'background-music' 
+          : uploadType === 'video'
+            ? 'scene-videos'
+            : 'canvas_assets';
       
       // Delete file from Supabase storage
       await deleteFileFromBucket(bucket, currentUrl);

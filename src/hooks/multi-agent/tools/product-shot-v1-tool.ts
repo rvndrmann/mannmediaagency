@@ -1,224 +1,188 @@
-import { ToolContext, ToolExecutionResult } from "../types";
+
 import { v4 as uuidv4 } from "uuid";
+import { supabase } from "@/integrations/supabase/client";
+import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 
 export const productShotV1Tool: ToolDefinition = {
-  name: "product-shot-v1",
-  description: "Generate a professional product shot from an uploaded image with customizable parameters",
+  name: "product_shot_v1",
+  description: "Generate a professional product photo with customizable settings",
   parameters: {
     type: "object",
     properties: {
-      style: {
-        type: "string",
-        description: "The style of the product shot (e.g., 'studio', 'lifestyle', 'minimalist')"
-      },
-      background: {
-        type: "string",
-        description: "Description of the desired background"
-      },
-      lighting: {
-        type: "string",
-        description: "The lighting style (e.g., 'soft', 'dramatic', 'natural')"
-      },
-      aspectRatio: {
-        type: "string",
-        description: "Aspect ratio of the output image (e.g., '1:1', '4:3', '16:9', '9:16')",
-        default: "9:16"
-      },
-      guidance: {
-        type: "number",
-        description: "Guidance scale for the image generation (1.0-10.0)",
-        default: 5.1
-      },
-      steps: {
-        type: "number",
-        description: "Number of inference steps (4-50)",
-        default: 13
-      },
       prompt: {
         type: "string",
-        description: "Detailed prompt for image generation"
+        description: "Description of the product photo to generate"
       },
-      sceneId: {
+      image_url: {
         type: "string",
-        description: "Optional Canvas scene ID to associate this image with"
+        description: "URL of the product image to use as a reference"
       },
-      projectId: {
+      bg_type: {
         type: "string",
-        description: "Optional Canvas project ID to associate this image with"
+        description: "Background type ('gradient', 'studio', 'lifestyle')",
+        enum: ["gradient", "studio", "lifestyle"]
       },
-      scriptContent: {
+      bg_color: {
         type: "string",
-        description: "Optional script content to include with this product shot"
+        description: "Background color (for gradient background)"
+      },
+      scene: {
+        type: "string",
+        description: "Scene description (for lifestyle background)"
       }
     },
-    required: ["style"]
+    required: ["prompt"]
   },
-  requiredCredits: 1.5,
-  
+  requiredCredits: 1,
+  metadata: {
+    category: "image",
+    displayName: "Product Shot",
+    icon: "Image"
+  },
   execute: async (params: {
-    style: string;
-    background?: string;
-    lighting?: string;
-    aspectRatio?: string;
-    guidance?: number;
-    steps?: number;
-    prompt?: string;
-    sceneId?: string;
-    projectId?: string;
-    scriptContent?: string;
+    prompt: string;
+    image_url?: string;
+    bg_type?: string;
+    bg_color?: string;
+    scene?: string;
   }, context: ToolContext): Promise<ToolExecutionResult> => {
     try {
-      // Check if we have attachments (we need an image to enhance)
-      if (!context.attachments || context.attachments.length === 0) {
-        throw new Error("No product image provided. Please upload an image of your product.");
+      // Verify the tool is available
+      if (!context.toolAvailable) {
+        return {
+          success: false,
+          message: "Product shot generation is not available in your current plan",
+          error: "Tool unavailable"
+        };
       }
       
-      // Find the first image attachment
-      const imageAttachment = context.attachments.find(a => 
-        a.type === 'image' || 
-        (a.contentType && a.contentType.startsWith('image/'))
-      );
+      // Check if there's an attachment
+      let imageUrl = params.image_url;
       
-      if (!imageAttachment) {
-        throw new Error("No suitable product image found in attachments. Please upload an image.");
+      // Generate a unique id for this job
+      const jobId = uuidv4();
+      console.log(`Starting product shot generation with ID: ${jobId}`);
+      
+      // Add message to the conversation log
+      if (context.addMessage) {
+        context.addMessage(`Starting product shot generation: ${params.prompt}`, "tool_start");
       }
       
-      // Set default parameters if not provided
-      const aspectRatio = params.aspectRatio || "9:16";
-      const guidance = params.guidance || 5.1;
-      const steps = params.steps || 13;
-      
-      // Add processing message with detailed parameters
-      context.addMessage(
-        `Processing your product shot request with style: ${params.style}, ` +
-        `aspect ratio: ${aspectRatio}, guidance: ${guidance}, steps: ${steps}...`, 
-        'tool'
-      );
-      
-      // Build enhanced prompt combining user prompt with parameters
-      const enhancedPrompt = params.prompt ? 
-        `${params.prompt} | Style: ${params.style}` : 
-        `Professional product shot in ${params.style} style`;
-      
-      const backgroundInfo = params.background ? ` with ${params.background} background` : '';
-      const lightingInfo = params.lighting ? ` with ${params.lighting} lighting` : '';
-      
-      const fullPrompt = `${enhancedPrompt}${backgroundInfo}${lightingInfo}. High quality, detailed, professional product photography.`;
-      
-      console.log("Product shot generation with params:", {
-        prompt: fullPrompt,
-        aspectRatio,
-        guidance,
-        steps,
-        imageUrl: imageAttachment.url,
-        sceneId: params.sceneId,
-        projectId: params.projectId,
-        hasScriptContent: !!params.scriptContent,
-        scriptContentLength: params.scriptContent ? params.scriptContent.length : 0
+      // Call the edge function to generate the product shot
+      const { data, error } = await supabase.functions.invoke("product-shot-generator", {
+        body: {
+          prompt: params.prompt,
+          image_url: imageUrl,
+          bg_type: params.bg_type || "gradient",
+          bg_color: params.bg_color || "#FFFFFF",
+          scene: params.scene || "",
+          job_id: jobId,
+          user_id: context.userId
+        }
       });
       
-      let savedScriptContent = params.scriptContent || '';
-      let scriptSaved = false;
+      if (error) {
+        console.error("Error generating product shot:", error);
+        return {
+          success: false,
+          message: `Error generating product shot: ${error.message}`,
+          error: error.message
+        };
+      }
       
-      // Check if script content was provided
-      if (params.scriptContent && params.projectId) {
+      // Check if we received a valid result
+      if (!data || !data.request_id) {
+        console.error("Invalid response from product shot generator:", data);
+        return {
+          success: false,
+          message: "Failed to start product shot generation",
+          error: "Invalid response from service"
+        };
+      }
+      
+      // Now we poll for the result
+      let result = null;
+      let attempts = 0;
+      const maxAttempts = 30; // 5 minutes (10 seconds * 30)
+      
+      while (!result && attempts < maxAttempts) {
+        attempts++;
+        
+        // Wait 10 seconds between checks
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        // Check if the job is complete
+        const { data: statusData, error: statusError } = await supabase.functions.invoke("product-shot-status", {
+          body: {
+            request_id: data.request_id,
+            job_id: jobId
+          }
+        });
+        
+        if (statusError) {
+          console.error("Error checking product shot status:", statusError);
+          continue;
+        }
+        
+        // If the job is complete, get the result
+        if (statusData && statusData.status === "completed" && statusData.result_url) {
+          result = statusData;
+        }
+      }
+      
+      // If we reached max attempts, consider it timed out
+      if (!result) {
+        return {
+          success: false,
+          message: "Product shot generation timed out",
+          error: "Generation timeout"
+        };
+      }
+      
+      // Add message to the conversation log
+      if (context.addMessage) {
+        context.addMessage(`Completed product shot generation in ${attempts * 10} seconds`, "tool_complete");
+      }
+      
+      // Save to the user's history if requested
+      if (context.userId) {
         try {
-          console.log("Saving script content to project", {
-            projectId: params.projectId,
-            contentPreview: params.scriptContent.substring(0, 100) + '...'
+          await supabase.from("product_shot_history").insert({
+            user_id: context.userId,
+            source_image_url: imageUrl || "",
+            result_url: result.result_url,
+            scene_description: params.prompt,
+            settings: {
+              bg_type: params.bg_type || "gradient",
+              bg_color: params.bg_color || "#FFFFFF",
+              scene: params.scene || ""
+            }
           });
-          
-          // Display script content in chat before saving
-          context.addMessage(
-            `📝 Script content received:\n\n${params.scriptContent.substring(0, 500)}${params.scriptContent.length > 500 ? '...' : ''}`,
-            'tool'
-          );
-          
-          const { error } = await context.supabase
-            .from('canvas_projects')
-            .update({ full_script: params.scriptContent })
-            .eq('id', params.projectId);
-            
-          if (error) {
-            console.error("Error saving script to Canvas project:", error);
-            context.addMessage("Failed to save script content to project.", "error");
-          } else {
-            console.log("Successfully saved script to Canvas project");
-            scriptSaved = true;
-            savedScriptContent = params.scriptContent;
-            
-            // Add success message to chat
-            context.addMessage("✓ Script content saved to Canvas project successfully.", "tool");
-          }
-        } catch (error) {
-          console.error("Failed to save script to Canvas project:", error);
-          context.addMessage("Failed to save script content to project due to an error.", "error");
+        } catch (saveError) {
+          console.error("Error saving product shot to history:", saveError);
+          // Continue anyway, this is not critical
         }
       }
       
-      // In a real implementation, this would call an API to generate enhanced product shots
-      // For now, we'll simulate a successful generation
-      
-      // Simulate API processing time
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Create mock result URLs (in reality, these would be returned from the API)
-      const resultId = uuidv4();
-      const mockResults = [
-        `https://example.com/product-shots/${resultId}-1.jpg`,
-        `https://example.com/product-shots/${resultId}-2.jpg`,
-        `https://example.com/product-shots/${resultId}-3.jpg`
-      ];
-      
-      // If we have a Canvas scene ID, save this image to the scene
-      if (params.sceneId && params.projectId) {
-        try {
-          const { error } = await context.supabase
-            .from('canvas_scenes')
-            .update({ 
-              image_url: mockResults[0],
-              product_image_url: imageAttachment.url
-            })
-            .eq('id', params.sceneId)
-            .eq('project_id', params.projectId);
-            
-          if (error) {
-            console.error("Error saving image to Canvas scene:", error);
-          } else {
-            console.log("Successfully saved image to Canvas scene:", params.sceneId);
-          }
-        } catch (error) {
-          console.error("Failed to save image to Canvas scene:", error);
-        }
-      }
-      
+      // Return the successful result
       return {
         success: true,
+        message: "Product shot generated successfully",
         data: {
-          originalImage: imageAttachment.url,
-          enhancedImages: mockResults,
-          style: params.style,
-          background: params.background || "Automatic",
-          lighting: params.lighting || "Studio",
-          parameters: {
-            aspectRatio: aspectRatio,
-            guidance: guidance,
-            steps: steps,
-            prompt: fullPrompt
-          },
-          scriptSaved: scriptSaved,
-          scriptContent: savedScriptContent
+          result_url: result.result_url,
+          prompt: params.prompt
         },
-        message: `Generated ${mockResults.length} product shots with aspect ratio ${aspectRatio}, guidance ${guidance}, and ${steps} steps.${params.sceneId ? " Image has been automatically saved to your Canvas scene." : ""}${scriptSaved ? " Script has been saved to your Canvas project." : ""}`,
         usage: {
-          creditsUsed: 1.5
+          creditsUsed: 1
         }
       };
-    } catch (error) {
-      console.error("Error in productShotV1Tool:", error);
+    } catch (error: any) {
+      console.error("Error in product shot tool:", error);
+      
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error in product shot generation"
+        message: `Product shot generation error: ${error.message}`,
+        error: error.message
       };
     }
   }

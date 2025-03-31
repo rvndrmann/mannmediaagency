@@ -1,97 +1,155 @@
 
-import { RunnerContext } from "../runner/types";
-import { ToolExecutionResult, ToolDefinition, ToolContext } from "../types";
+import { v4 as uuidv4 } from "uuid";
+import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
+import { BrowserAgentService } from "../browser-automation/BrowserAgentService";
 
 export const browserUseTool: ToolDefinition = {
   name: "browser_use",
-  description: "Run browser automation tasks using the browser-use.com API",
-  requiredCredits: 5,
+  description: "Use a browser to navigate websites and perform actions. This tool can open websites, fill forms, click on elements, and take screenshots.",
   parameters: {
     type: "object",
     properties: {
       task: {
         type: "string",
-        description: "The browser automation task to execute"
+        description: "A clear, detailed instruction for what should be done in the browser."
       },
-      save_browser_data: {
+      url: {
+        type: "string",
+        description: "Optional starting URL. If not provided, the tool will start from a blank page or decide where to go based on the task."
+      },
+      saveSession: {
         type: "boolean",
-        description: "Whether to save browser session data (cookies, etc.)"
+        description: "Whether to save cookies and session data for later use."
       }
     },
     required: ["task"]
   },
+  requiredCredits: 1,
   metadata: {
-    category: "automation",
+    category: "browser",
     displayName: "Browser Automation",
-    icon: "Browser"
+    icon: "Globe"
   },
-  execute: async (params: { 
+  execute: async (params: {
     task: string;
-    save_browser_data?: boolean;
+    url?: string;
+    saveSession?: boolean;
   }, context: ToolContext): Promise<ToolExecutionResult> => {
     try {
-      // Check if API token is available
-      const apiToken = context.metadata?.browserUseApiToken;
-      
-      if (!apiToken) {
+      // Verify the tool is available
+      if (!context.toolAvailable) {
         return {
           success: false,
-          message: "Browser-use API token not configured",
-          error: "Missing API token",
-          data: null
+          message: "Browser automation is not available in your current plan",
+          error: "Tool unavailable"
         };
       }
       
-      // Validate task input
-      if (!params.task || params.task.trim() === '') {
+      // Verify required context
+      if (!context.userId) {
         return {
           success: false,
-          message: "Task description is required",
-          error: "Missing task description",
-          data: null
+          message: "User ID is required to run browser automation",
+          error: "Missing user ID in context"
         };
       }
       
-      // Call the browser-use API through Supabase Edge Function
-      const { data, error } = await context.supabase.functions.invoke('browser-use-api', {
-        body: {
-          operation: 'run-task',
-          task: params.task,
-          save_browser_data: params.save_browser_data ?? true,
-          userId: context.userId
+      // Initialize browser agent service
+      const browserService = BrowserAgentService.getInstance();
+      
+      // Track start time for logging
+      const startTime = Date.now();
+      console.log(`Starting browser task: ${params.task}`);
+      
+      // Add message to the conversation log
+      if (context.addMessage) {
+        context.addMessage(`Starting browser automation task: ${params.task}`, "tool_start");
+      }
+      
+      // Start the browser task
+      const result = await browserService.startBrowserTask(
+        params.task,
+        context.userId,
+        {
+          saveSessionData: params.saveSession ?? true,
+          environment: "browser"
         }
-      });
+      );
       
-      if (error) {
-        console.error("Browser-use API error:", error);
+      if (!result) {
+        throw new Error("Failed to start browser task");
+      }
+      
+      const { taskId } = result;
+      
+      // Poll for completion (simplified version)
+      let taskComplete = false;
+      let taskResult = null;
+      let taskError = null;
+      let attempts = 0;
+      const maxAttempts = 30; // 5 minutes (10 seconds * 30)
+      
+      while (!taskComplete && attempts < maxAttempts) {
+        attempts++;
+        
+        // Wait 10 seconds between checks
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        // Check task status
+        const status = await browserService.checkTaskStatus(taskId);
+        
+        if (status.status === 'completed') {
+          taskComplete = true;
+          taskResult = status.output;
+        } else if (status.status === 'failed' || status.status === 'stopped') {
+          taskComplete = true;
+          taskError = status.error || "Task failed or was stopped";
+        }
+      }
+      
+      // If we reached max attempts, consider it timed out
+      if (!taskComplete) {
         return {
           success: false,
-          message: `Failed to execute browser task: ${error.message}`,
-          error: error.message,
-          data: null
+          message: "Browser automation task timed out",
+          error: "Task timeout"
         };
       }
       
+      // If there was an error
+      if (taskError) {
+        return {
+          success: false,
+          message: `Browser automation task failed: ${taskError}`,
+          error: taskError
+        };
+      }
+      
+      // Log completion time
+      const completionTime = (Date.now() - startTime) / 1000;
+      console.log(`Browser task completed in ${completionTime.toFixed(1)}s`);
+      
+      // Add message to the conversation log
+      if (context.addMessage) {
+        context.addMessage(`Completed browser automation task in ${completionTime.toFixed(1)} seconds`, "tool_complete");
+      }
+      
+      // Return the successful result
       return {
         success: true,
-        message: "Browser automation task initiated successfully",
-        data: {
-          taskId: data.taskId,
-          liveUrl: data.liveUrl,
-          message: data.message,
-          status: data.status
-        },
+        message: "Browser automation task completed successfully",
+        data: taskResult,
         usage: {
-          creditsUsed: data.creditsUsed || 5
+          creditsUsed: 1
         }
       };
-    } catch (error) {
-      console.error("Error in browser-use tool:", error);
+    } catch (error: any) {
+      console.error("Error in browser use tool:", error);
+      
       return {
         success: false,
-        message: `An error occurred during browser automation: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        data: null
+        message: `Browser automation error: ${error.message}`,
+        error: error.message
       };
     }
   }

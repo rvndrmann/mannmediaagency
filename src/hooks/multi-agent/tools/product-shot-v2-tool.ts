@@ -1,199 +1,198 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { ToolContext, ToolResult } from "../types";
-import { Command } from "@/types/message";
+import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 
-interface ProductShotParams {
-  prompt: string;
-  style?: string;
-  background?: string;
-  angle?: string;
-  lighting?: string;
-  resolution?: string;
-  format?: string;
-}
-
-interface ProductShotResponse {
-  success: boolean;
-  resultUrl?: string;
-  error?: string;
-}
-
-/**
- * Tool for generating product shots using AI
- */
-export const productShotV2Tool = {
+export const productShotV2Tool: ToolDefinition = {
   name: "product_shot_v2",
-  description: "Generate professional product photography using AI",
-  version: "2.0",
-  requiredCredits: 1,
-  
-  parameters: [
-    {
-      name: "prompt",
-      type: "string",
-      description: "Description of the product to generate",
-      required: true
+  description: "Generate an enhanced product photo with advanced customization options",
+  parameters: {
+    type: "object",
+    properties: {
+      prompt: {
+        type: "string",
+        description: "Detailed description of the product photo to generate"
+      },
+      image_url: {
+        type: "string",
+        description: "URL of the product image to use as a reference"
+      },
+      style: {
+        type: "string",
+        description: "Visual style for the output (e.g., 'modern', 'vintage', 'minimalist')"
+      },
+      aspect_ratio: {
+        type: "string",
+        description: "Aspect ratio of the output image (e.g., '1:1', '16:9', '4:5')",
+        enum: ["1:1", "16:9", "4:5", "3:2"]
+      },
+      background: {
+        type: "string",
+        description: "Background description (e.g., 'gradient blue to white', 'studio lighting', 'beach scene')"
+      }
     },
-    {
-      name: "style",
-      type: "string",
-      description: "Visual style (e.g., minimalist, luxury, vintage)",
-      required: false
-    },
-    {
-      name: "background",
-      type: "string",
-      description: "Background setting (e.g., white, gradient, studio)",
-      required: false
-    },
-    {
-      name: "angle",
-      type: "string",
-      description: "Camera angle (e.g., front, 45-degree, top-down)",
-      required: false
-    },
-    {
-      name: "lighting",
-      type: "string",
-      description: "Lighting setup (e.g., soft, dramatic, natural)",
-      required: false
-    },
-    {
-      name: "resolution",
-      type: "string",
-      description: "Image resolution (e.g., 1024x1024, 1024x1792)",
-      required: false
-    },
-    {
-      name: "format",
-      type: "string",
-      description: "Image format (e.g., square, portrait, landscape)",
-      required: false
-    }
-  ],
-  
-  async execute(command: Command, context: ToolContext): Promise<ToolResult> {
+    required: ["prompt", "image_url"]
+  },
+  requiredCredits: 2,
+  metadata: {
+    category: "image",
+    displayName: "Pro Product Shot",
+    icon: "ImagePlus"
+  },
+  execute: async (params: {
+    prompt: string;
+    image_url: string;
+    style?: string;
+    aspect_ratio?: string;
+    background?: string;
+  }, context: ToolContext): Promise<ToolExecutionResult> => {
     try {
-      // Extract parameters
-      const params: ProductShotParams = {
-        prompt: command.parameters?.prompt || "",
-        style: command.parameters?.style,
-        background: command.parameters?.background,
-        angle: command.parameters?.angle,
-        lighting: command.parameters?.lighting,
-        resolution: command.parameters?.resolution,
-        format: command.parameters?.format
-      };
-      
-      // Validate required parameters
-      if (!params.prompt) {
+      // Verify the tool is available and user has credits
+      if (!context.toolAvailable) {
         return {
           success: false,
-          message: "Product description is required"
+          message: "Pro product shot generation is not available in your current plan",
+          error: "Tool unavailable"
         };
       }
       
-      // Build the full prompt
-      let fullPrompt = `Product: ${params.prompt}`;
-      
-      if (params.style) {
-        fullPrompt += `\nStyle: ${params.style}`;
-      }
-      
-      if (params.background) {
-        fullPrompt += `\nBackground: ${params.background}`;
-      }
-      
-      if (params.angle) {
-        fullPrompt += `\nAngle: ${params.angle}`;
-      }
-      
-      if (params.lighting) {
-        fullPrompt += `\nLighting: ${params.lighting}`;
-      }
-      
-      // Generate the product shot
-      const result = await generateProductShot(
-        fullPrompt,
-        params.resolution || "1024x1024",
-        params.format || "square",
-        context.userId
-      );
-      
-      if (!result.success) {
+      if (context.userCredits !== undefined && context.userCredits < 2) {
         return {
           success: false,
-          message: result.error || "Failed to generate product shot"
+          message: `Insufficient credits for Pro product shot. Required: 2, Available: ${context.userCredits}`,
+          error: "Insufficient credits"
         };
       }
       
+      // Generate a unique id for this job
+      const jobId = uuidv4();
+      console.log(`Starting enhanced product shot generation with ID: ${jobId}`);
+      
+      // Add message to the conversation log
+      if (context.addMessage) {
+        context.addMessage(`Starting enhanced product shot generation: ${params.prompt}`, "tool_start");
+      }
+      
+      // Call the edge function to generate the enhanced product shot
+      const { data, error } = await supabase.functions.invoke("product-shot-v2-generator", {
+        body: {
+          prompt: params.prompt,
+          image_url: params.image_url,
+          style: params.style || "modern",
+          aspect_ratio: params.aspect_ratio || "1:1",
+          background: params.background || "gradient white to light gray",
+          job_id: jobId,
+          user_id: context.userId
+        }
+      });
+      
+      if (error) {
+        console.error("Error generating enhanced product shot:", error);
+        return {
+          success: false,
+          message: `Error generating enhanced product shot: ${error.message}`,
+          error: error.message
+        };
+      }
+      
+      // Check if we received a valid result
+      if (!data || !data.request_id) {
+        console.error("Invalid response from enhanced product shot generator:", data);
+        return {
+          success: false,
+          message: "Failed to start enhanced product shot generation",
+          error: "Invalid response from service"
+        };
+      }
+      
+      // Now we poll for the result
+      let result = null;
+      let attempts = 0;
+      const maxAttempts = 40; // ~6.5 minutes (10 seconds * 40)
+      
+      while (!result && attempts < maxAttempts) {
+        attempts++;
+        
+        // Wait 10 seconds between checks
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        // Check if the job is complete
+        const { data: statusData, error: statusError } = await supabase.functions.invoke("product-shot-status", {
+          body: {
+            request_id: data.request_id,
+            job_id: jobId,
+            version: "v2"
+          }
+        });
+        
+        if (statusError) {
+          console.error("Error checking enhanced product shot status:", statusError);
+          continue;
+        }
+        
+        // If the job is complete, get the result
+        if (statusData && statusData.status === "completed" && statusData.result_url) {
+          result = statusData;
+        }
+      }
+      
+      // If we reached max attempts, consider it timed out
+      if (!result) {
+        return {
+          success: false,
+          message: "Enhanced product shot generation timed out",
+          error: "Generation timeout"
+        };
+      }
+      
+      // Add message to the conversation log
+      if (context.addMessage) {
+        context.addMessage(`Completed enhanced product shot generation in ${attempts * 10} seconds`, "tool_complete");
+      }
+      
+      // Save to the user's history if requested
+      if (context.userId) {
+        try {
+          await supabase.from("product_shot_history").insert({
+            user_id: context.userId,
+            source_image_url: params.image_url,
+            result_url: result.result_url,
+            scene_description: params.prompt,
+            settings: {
+              style: params.style || "modern",
+              aspect_ratio: params.aspect_ratio || "1:1",
+              background: params.background || "gradient white to light gray"
+            },
+            visibility: "private"
+          });
+        } catch (saveError) {
+          console.error("Error saving enhanced product shot to history:", saveError);
+          // Continue anyway, this is not critical
+        }
+      }
+      
+      // Return the successful result
       return {
         success: true,
-        message: `Product shot generated successfully. Image URL: ${result.resultUrl}`,
+        message: "Enhanced product shot generated successfully",
         data: {
-          imageUrl: result.resultUrl,
-          prompt: params.prompt
+          result_url: result.result_url,
+          prompt: params.prompt,
+          style: params.style || "modern",
+          aspect_ratio: params.aspect_ratio || "1:1"
+        },
+        usage: {
+          creditsUsed: 2
         }
       };
+    } catch (error: any) {
+      console.error("Error in enhanced product shot tool:", error);
       
-    } catch (error) {
-      console.error("Error in product shot tool:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Unknown error occurred"
+        message: `Enhanced product shot generation error: ${error.message}`,
+        error: error.message
       };
     }
   }
 };
-
-/**
- * Generate a product shot using the AI image generation service
- */
-async function generateProductShot(
-  prompt: string,
-  resolution: string = "1024x1024",
-  format: string = "square",
-  userId: string
-): Promise<ProductShotResponse> {
-  try {
-    // Call the image generation edge function
-    const { data, error } = await supabase.functions.invoke("ai-image-generation", {
-      body: {
-        prompt,
-        resolution,
-        format,
-        model: "product-shot-v2",
-        userId
-      }
-    });
-    
-    if (error) {
-      console.error("Error calling image generation:", error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-    
-    if (!data.success || !data.imageUrl) {
-      return {
-        success: false,
-        error: data.error || "No image was generated"
-      };
-    }
-    
-    return {
-      success: true,
-      resultUrl: data.imageUrl
-    };
-    
-  } catch (error) {
-    console.error("Error in generateProductShot:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error in image generation"
-    };
-  }
-}

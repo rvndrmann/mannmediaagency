@@ -1,6 +1,5 @@
 
-import { CommandExecutionState } from "../types";
-import { ToolDefinition, ToolContext } from "../types";
+import { CommandExecutionState, ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 import { getAvailableTools } from "./tool-registry";
 
 export const executeTool = async (toolName: string, parameters: any, context: ToolContext): Promise<any> => {
@@ -47,17 +46,19 @@ export const executeTool = async (toolName: string, parameters: any, context: To
     console.error(`Error executing tool ${toolName}:`, error);
     return {
       state: CommandExecutionState.FAILED,
-      message: `Error executing tool ${toolName}: ${error.message || error}`
+      message: error.message || `Error executing tool ${toolName}`,
+      error: error
     };
   }
 };
 
-// Export service as a class
+// Tool Executor Service class
 export class ToolExecutorService {
-  // Singleton instance
   private static instance: ToolExecutorService;
   
-  private constructor() {}
+  private constructor() {
+    // Private constructor for singleton pattern
+  }
   
   public static getInstance(): ToolExecutorService {
     if (!ToolExecutorService.instance) {
@@ -66,7 +67,11 @@ export class ToolExecutorService {
     return ToolExecutorService.instance;
   }
   
-  public async executeTool(toolName: string, parameters: any, context: ToolContext): Promise<any> {
+  public async executeTool(
+    toolName: string, 
+    parameters: any, 
+    context: ToolContext
+  ): Promise<ToolExecutionResult> {
     return executeTool(toolName, parameters, context);
   }
   

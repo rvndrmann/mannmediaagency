@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from "uuid";
 import { AgentType, RunnerCallbacks, RunnerContext, AgentResult, BaseAgent, BaseAgentImpl } from "./types";
 import { SDKRunner } from "../sdk/types";
@@ -207,5 +206,13 @@ class MockAgent extends BaseAgentImpl {
     return {
       output: "This is a mock response while all agents are being implemented."
     };
+  }
+  
+  run(input: string, context: RunnerContext): Promise<AgentResult> {
+    return this.process(input, context);
+  }
+  
+  getType(): AgentType {
+    return "main";
   }
 }

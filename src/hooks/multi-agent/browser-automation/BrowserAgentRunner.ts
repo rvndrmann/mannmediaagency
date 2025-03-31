@@ -1,6 +1,7 @@
 
 import { v4 as uuidv4 } from "uuid";
-import { BrowserAgentService, BrowserAutomationTask } from "./BrowserAgentService";
+import { BrowserAgentService } from "./BrowserAgentService";
+import { BrowserAutomationTask } from "@/types/browser-automation";
 import { RunnerContext } from "../runner/types";
 
 export interface BrowserAgentRunnerOptions {
@@ -37,16 +38,20 @@ export class BrowserAgentRunner {
   async runTask(task: string, context?: RunnerContext): Promise<string> {
     try {
       // Start the task
-      const taskId = await this.service.runTask(task, {
+      const result = await this.service.startBrowserTask(task, {
         save_browser_data: this.options.save_browser_data
       });
       
-      this.currentTaskId = taskId;
+      if (!result) {
+        throw new Error("Failed to start browser task");
+      }
+      
+      this.currentTaskId = result.taskId;
       
       // Start polling for status
-      this.startPolling(taskId);
+      this.startPolling(result.taskId);
       
-      return taskId;
+      return result.taskId;
     } catch (error) {
       if (this.options.onError) {
         this.options.onError(error as Error);
@@ -65,21 +70,21 @@ export class BrowserAgentRunner {
     // Start new polling interval
     this.taskPollingInterval = setInterval(async () => {
       try {
-        const task = await this.service.getTask(taskId);
+        const taskResult = await this.service.checkTaskStatus(taskId);
         
         // Notify of status change
         if (this.options.onStatusChange) {
-          this.options.onStatusChange(task.status);
+          this.options.onStatusChange(taskResult.status);
         }
         
         // Handle task completion
-        if (task.status === 'finished' || task.status === 'failed' || task.status === 'stopped') {
+        if (taskResult.status === 'completed' || taskResult.status === 'failed' || taskResult.status === 'stopped') {
           this.stopPolling();
           
-          if (task.status === 'finished' && this.options.onComplete) {
-            this.options.onComplete(task.output);
-          } else if (task.status === 'failed' && this.options.onError) {
-            this.options.onError(new Error("Browser automation task failed"));
+          if (taskResult.status === 'completed' && this.options.onComplete) {
+            this.options.onComplete(taskResult.output);
+          } else if (taskResult.status === 'failed' && this.options.onError) {
+            this.options.onError(new Error(taskResult.error || "Browser automation task failed"));
           }
         }
       } catch (error) {

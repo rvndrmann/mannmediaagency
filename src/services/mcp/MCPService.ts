@@ -1,10 +1,11 @@
+
 import { MCPClient } from "./MCPClient";
 
 const servers = [
   {
     id: "mcp-server-01",
     url: process.env.NEXT_PUBLIC_MCP_SERVER_URL || "ws://localhost:8000",
-    updateInterval: process.env.NEXT_PUBLIC_SERVER_UPDATE_INTERVAL || "30000",
+    updateInterval: 30000, // Using a number instead of a string
   },
 ];
 
@@ -16,15 +17,15 @@ export const getMcpClients = () => {
 
 export const initConnections = async (currentProjectId: string): Promise<boolean> => {
   try {
-    // Convert the server update interval from string to number
-    const serverUpdateIntervalMs = 30000; // Use a hardcoded number value instead of a string
+    // Close any existing connections first to prevent duplicates
+    await closeConnections();
     
     mcpClients = servers.map((server) => {
       const client = new MCPClient(
         server.id,
         server.url,
         currentProjectId,
-        serverUpdateIntervalMs
+        server.updateInterval
       );
       client.connect();
       return client;
@@ -37,8 +38,10 @@ export const initConnections = async (currentProjectId: string): Promise<boolean
 };
 
 export const closeConnections = async (): Promise<void> => {
-  mcpClients.forEach((client) => {
+  // Close each client connection
+  for (const client of mcpClients) {
     client.close();
-  });
+  }
+  // Clear the clients array
   mcpClients = [];
 };

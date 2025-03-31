@@ -5,6 +5,7 @@ import App from './App.tsx'
 import './index.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/toaster'
+import { ChatSessionProvider } from '@/contexts/ChatSessionContext'
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -17,8 +18,10 @@ if (!rootElement) throw new Error("Failed to find the root element");
 createRoot(rootElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
-      <Toaster />
+      <ChatSessionProvider>
+        <App />
+        <Toaster />
+      </ChatSessionProvider>
     </QueryClientProvider>
   </React.StrictMode>
 );

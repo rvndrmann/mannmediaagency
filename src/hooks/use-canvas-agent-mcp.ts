@@ -6,7 +6,7 @@ import { SceneUpdateType } from "@/types/canvas";
 import { Message } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 
-interface UseCanvasAgentMcpProps {
+interface UseCanvasAgentMCPProps {
   projectId?: string;
   sceneId?: string;
   updateScene?: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
@@ -16,7 +16,7 @@ export const useCanvasAgentMcp = ({
   projectId,
   sceneId,
   updateScene
-}: UseCanvasAgentMcpProps) => {
+}: UseCanvasAgentMCPProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);

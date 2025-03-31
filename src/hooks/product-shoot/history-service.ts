@@ -62,3 +62,9 @@ export const getHistory = async (): Promise<GeneratedImage[]> => {
     return [];
   }
 };
+
+// Create a historyService object that includes all the functions
+export const historyService = {
+  saveToHistory,
+  getHistory
+};

@@ -1,92 +1,27 @@
-import React, { useState, useEffect } from "react";
+
+import React from "react";
 import {
   BrowserRouter as Router,
   Route,
   Routes,
-  Link,
-  useNavigate,
 } from "react-router-dom";
-import { useUser } from "@/hooks/use-user";
-import { useCanvasProjects } from "@/hooks/use-canvas-projects";
-import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  Home,
-  LayoutDashboard,
-  Settings,
-  Canvas,
-  Login,
-  UserPlus,
-  KeyRound,
-  Image,
-  Video,
-  Bot,
-  HelpCircle,
-  Logout,
-  CreditCard,
+import { Layout } from "@/components/Layout";
+import { 
+  Home, 
+  LayoutDashboard, 
+  Settings, 
+  PanelTopClose, 
+  LogIn, 
+  UserPlus, 
+  KeyRound, 
+  Image, 
+  Video, 
+  Bot, 
+  HelpCircle, 
+  LogOut, 
+  CreditCard 
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-
-import { MainLayout } from "@/components/layout/MainLayout";
-import { AuthLayout } from "@/components/layout/AuthLayout";
-import { Navbar } from "@/components/layout/Navbar";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Footer } from "@/components/layout/Footer";
-
-import { CanvasPage } from "@/pages/CanvasPage";
-import { DashboardPage } from "@/pages/DashboardPage";
-import { SettingsPage } from "@/pages/SettingsPage";
-import { LoginPage } from "@/pages/LoginPage";
-import { RegisterPage } from "@/pages/RegisterPage";
-import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
-import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
-import { PricingPage } from "@/pages/PricingPage";
-import { ImageToVideo } from "@/pages/ImageToVideo";
-import { VideoCreatorPage } from "@/pages/VideoCreatorPage";
-import { AIAgentPage } from "@/pages/AIAgentPage";
-import { HelpPage } from "@/pages/HelpPage";
 import ProductShot from "./pages/ProductShot";
 
 const App = () => {
@@ -96,113 +31,141 @@ const App = () => {
         <Route
           path="/"
           element={
-            <MainLayout>
-              <DashboardPage />
-            </MainLayout>
+            <Layout>
+              <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
+                <p>Welcome to your dashboard</p>
+              </div>
+            </Layout>
           }
         />
         <Route
           path="/dashboard"
           element={
-            <MainLayout>
-              <DashboardPage />
-            </MainLayout>
-          }
-        />
-        <Route
-          path="/canvas/:projectId"
-          element={
-            <MainLayout>
-              <CanvasPage />
-            </MainLayout>
+            <Layout>
+              <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
+                <p>Welcome to your dashboard</p>
+              </div>
+            </Layout>
           }
         />
         <Route
           path="/settings"
           element={
-            <MainLayout>
-              <SettingsPage />
-            </MainLayout>
+            <Layout>
+              <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">Settings</h1>
+                <p>Manage your settings</p>
+              </div>
+            </Layout>
           }
         />
         <Route
           path="/plans"
           element={
-            <MainLayout>
-              <PricingPage />
-            </MainLayout>
+            <Layout>
+              <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">Pricing Plans</h1>
+                <p>Choose your plan</p>
+              </div>
+            </Layout>
           }
         />
         <Route
           path="/image-to-video"
           element={
-            <MainLayout>
-              <ImageToVideo />
-            </MainLayout>
+            <Layout>
+              <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">Image to Video</h1>
+                <p>Convert your images to videos</p>
+              </div>
+            </Layout>
           }
         />
         <Route
           path="/video-creator"
           element={
-            <MainLayout>
-              <VideoCreatorPage />
-            </MainLayout>
+            <Layout>
+              <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">Video Creator</h1>
+                <p>Create your videos</p>
+              </div>
+            </Layout>
           }
         />
         <Route
           path="/ai-agent"
           element={
-            <MainLayout>
-              <AIAgentPage />
-            </MainLayout>
+            <Layout>
+              <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">AI Agent</h1>
+                <p>Interact with our AI agent</p>
+              </div>
+            </Layout>
           }
         />
         <Route
           path="/help"
           element={
-            <MainLayout>
-              <HelpPage />
-            </MainLayout>
+            <Layout>
+              <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">Help Center</h1>
+                <p>Get help and support</p>
+              </div>
+            </Layout>
           }
         />
         <Route
           path="/auth/login"
           element={
-            <AuthLayout>
-              <LoginPage />
-            </AuthLayout>
+            <div className="min-h-screen flex items-center justify-center bg-gray-900">
+              <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+                <h1 className="text-2xl font-bold text-white mb-6 text-center">Login</h1>
+                <p className="text-gray-300 mb-4 text-center">Sign in to your account</p>
+              </div>
+            </div>
           }
         />
         <Route
           path="/auth/register"
           element={
-            <AuthLayout>
-              <RegisterPage />
-            </AuthLayout>
+            <div className="min-h-screen flex items-center justify-center bg-gray-900">
+              <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+                <h1 className="text-2xl font-bold text-white mb-6 text-center">Register</h1>
+                <p className="text-gray-300 mb-4 text-center">Create a new account</p>
+              </div>
+            </div>
           }
         />
         <Route
           path="/auth/forgot-password"
           element={
-            <AuthLayout>
-              <ForgotPasswordPage />
-            </AuthLayout>
+            <div className="min-h-screen flex items-center justify-center bg-gray-900">
+              <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+                <h1 className="text-2xl font-bold text-white mb-6 text-center">Forgot Password</h1>
+                <p className="text-gray-300 mb-4 text-center">Reset your password</p>
+              </div>
+            </div>
           }
         />
         <Route
           path="/auth/reset-password"
           element={
-            <AuthLayout>
-              <ResetPasswordPage />
-            </AuthLayout>
+            <div className="min-h-screen flex items-center justify-center bg-gray-900">
+              <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+                <h1 className="text-2xl font-bold text-white mb-6 text-center">Reset Password</h1>
+                <p className="text-gray-300 mb-4 text-center">Create a new password</p>
+              </div>
+            </div>
           }
         />
         <Route
           path="/product-shot"
           element={
-            <MainLayout>
+            <Layout>
               <ProductShot />
-            </MainLayout>
+            </Layout>
           }
         />
       </Routes>

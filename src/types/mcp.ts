@@ -27,18 +27,30 @@ export interface MCPToolExecutionParams {
   tool_id: string;
   parameters: Record<string, any>;
   timeout_ms?: number;
+  // Additional parameters used in various implementations
+  projectId?: string;
+  sceneId?: string;
+  imageAnalysis?: string;
+  useDescription?: boolean;
+  productShotVersion?: string;
+  aspectRatio?: string;
+  contextPrompt?: string;
+  data?: any;
 }
 
 export interface MCPToolExecutionResult {
   success: boolean;
   result?: any;
   error?: string;
+  data?: any; // Added to support existing implementations
 }
 
 export interface MCPConnectionRecord {
   projectId: string;
   server: MCPServer;
   lastActive: number;
+  id?: string; // Added to support existing implementations
+  connectionUrl?: string; // Added to support existing implementations
 }
 
 export interface MCPServer {
@@ -53,6 +65,8 @@ export interface MCPServer {
   executeToolById: (params: MCPToolExecutionParams) => Promise<MCPToolExecutionResult>;
   callTool: (toolId: string, parameters: Record<string, any>) => Promise<any>;
   projectId: string;
+  cleanup?: () => Promise<void>; // Optional method for compatibility
+  executeTool?: (toolId: string, params: any) => Promise<any>; // Optional alias for executeToolById
 }
 
 // Configuration constants

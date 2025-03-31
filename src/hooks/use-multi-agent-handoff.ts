@@ -169,7 +169,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
         let hasChanges = false;
         
         Object.entries(updated).forEach(([id, handoffData]) => {
-          // Use type assertion to handle the unknown type
           const handoff = handoffData as HandoffRequest;
           const handoffDate = new Date(handoff.timestamp);
           if (handoff.status === 'complete' && handoffDate < oneDayAgo) {

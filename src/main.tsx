@@ -8,13 +8,23 @@ import { Toaster } from '@/components/ui/toaster'
 import { ChatSessionProvider } from '@/contexts/ChatSessionContext'
 import { BrowserRouter } from 'react-router-dom'
 
-// Create a client for React Query
+// Create a client for React Query with proper error handling and retry configuration
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      onError: (error) => {
+        console.error('Query error:', error);
+      }
     },
+    mutations: {
+      retry: 0,
+      onError: (error) => {
+        console.error('Mutation error:', error);
+      }
+    }
   },
 });
 

@@ -1,4 +1,3 @@
-
 import React, { memo } from 'react';
 import { ArrowRightCircle, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +13,15 @@ interface HandoffIndicatorProps {
   handoffId?: string;
   visible?: boolean;
 }
+
+const agentLabels: Record<AgentType, string> = {
+  main: "Main Assistant",
+  script: "Script Writer",
+  image: "Image Generator",
+  tool: "Tool Specialist",
+  scene: "Scene Creator",
+  data: "Data Specialist"
+};
 
 export const HandoffIndicator = memo(function HandoffIndicator({
   fromAgent,

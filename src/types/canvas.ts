@@ -11,17 +11,18 @@ export interface SceneData {
   sceneOrder?: number;
   createdAt?: string;
   updatedAt?: string;
+  voiceOver?: string;
 }
 
 export interface CanvasProject {
   id: string;
   title: string;
   description?: string;
-  userId: string;
-  fullScript?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  scenes?: CanvasScene[];
+  cover_image_url?: string;
+  created_at?: string;
+  updated_at?: string;
+  user_id: string;
+  full_script?: string;
 }
 
 export interface CanvasScene {
@@ -34,25 +35,9 @@ export interface CanvasScene {
   imageUrl?: string;
   videoUrl?: string;
   sceneOrder?: number;
-  order?: number; // Adding this for backward compatibility
-  productImageUrl?: string;
-  voiceOverText?: string;
-  voiceOverUrl?: string;
-  backgroundMusicUrl?: string;
-  duration?: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface SceneMedia {
-  id: string;
-  sceneId: string;
-  type: 'image' | 'video' | 'audio';
-  url: string;
-  fileName?: string;
-  fileSize?: number;
-  contentType?: string;
-  createdAt?: string;
+  created_at?: string;
+  updated_at?: string;
+  voice_over_text?: string;
 }
 
 export interface SceneUpdateParams {
@@ -73,33 +58,22 @@ export interface VideoGenerationParams {
   aspectRatio?: string;
 }
 
-// Adding SceneUpdateType
-export type SceneUpdateType = 'script' | 'description' | 'imagePrompt' | 'image' | 'video' | 'voiceOver';
+// Update SceneUpdateType to include all possible update types and standardize on voiceOver
+export type SceneUpdateType = 
+  | 'description' 
+  | 'script' 
+  | 'image' 
+  | 'video' 
+  | 'imagePrompt' 
+  | 'voiceOver'  
+  | 'imageUrl'
+  | 'videoUrl'
+  | 'productImage'
+  | 'backgroundMusic';
 
-// Adding WorkflowStage type for our multi-agent workflow
-export type WorkflowStage = 
-  'script_generation' | 
-  'scene_splitting' | 
-  'image_generation' | 
-  'scene_description' | 
-  'video_generation' | 
-  'final_assembly';
-
-// Adding WorkflowState interface to track workflow progress
-export interface WorkflowState {
-  projectId: string;
-  currentStage: WorkflowStage;
-  completedStages: WorkflowStage[];
-  sceneStatuses: Record<string, {
-    sceneId: string;
-    scriptComplete: boolean;
-    imageComplete: boolean;
-    descriptionComplete: boolean;
-    videoComplete: boolean;
-    errors?: string[];
-  }>;
-  startedAt: string;
-  completedAt?: string;
-  status: 'in_progress' | 'completed' | 'failed';
-  errorMessage?: string;
-}
+// Define update function type with the complete SceneUpdateType
+export type UpdateSceneFunction = (
+  sceneId: string,
+  type: SceneUpdateType,
+  value: string
+) => Promise<void>;

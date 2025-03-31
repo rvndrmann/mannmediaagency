@@ -4,12 +4,14 @@ export interface MCPServer {
   id: string;
   url: string;
   updateInterval: number;
+  isConnected: () => boolean;
 }
 
 export interface MCPConnectionMetrics {
   successCount: number;
   failureCount: number;
   averageConnectTime: number;
+  lastAttemptTime?: number;
 }
 
 export interface MCPConnectionStats {
@@ -29,6 +31,12 @@ export interface MCPContext {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   connectionMetrics: MCPConnectionMetrics;
   connectionStats: MCPConnectionStats;
+  isConnected: boolean;
+  availableTools: MCPTool[];
+  connectToMCP: (projectId: string) => Promise<boolean>;
+  disconnectFromMCP: () => void;
+  listAvailableTools: () => Promise<MCPTool[]>;
+  callTool: (toolName: string, parameters: any) => Promise<MCPResponse>;
 }
 
 export interface MCPProviderProps {
@@ -41,3 +49,48 @@ export const CONNECTION_CONFIG = {
   maxRetries: 3,
   connectionTimeout: 10000
 };
+
+export interface MCPTool {
+  name: string;
+  description: string;
+  parameters: any;
+}
+
+export interface MCPResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  data?: any;
+}
+
+export interface MCPToolCallParams {
+  toolName: string;
+  parameters: any;
+  projectId?: string;
+}
+
+export interface MCPListToolsParams {
+  projectId?: string;
+}
+
+export interface MCPToolExecutionResult {
+  success: boolean;
+  result?: string;
+  data?: any;
+  error?: string;
+  [key: string]: any;
+}
+
+export interface MCPToolDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, {
+      type: string;
+      description: string;
+      enum?: string[];
+    }>;
+    required: string[];
+  };
+}

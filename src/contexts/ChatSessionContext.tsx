@@ -21,17 +21,21 @@ interface ChatSessionContextType {
   updateChatSession: (sessionId: string, messages: Message[]) => void;
   deleteChatSession: (sessionId: string) => void;
   renameSession: (sessionId: string, newTitle: string) => void;
+  createChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
+  chatSessions: ChatSession[]; // Alias for sessions to maintain compatibility
 }
 
 const defaultContext: ChatSessionContextType = {
   sessions: [],
+  chatSessions: [], // Add chatSessions as alias
   activeChatId: null,
   activeSession: null,
   setActiveChatId: () => {},
   getOrCreateChatSession: () => "",
   updateChatSession: () => {},
   deleteChatSession: () => {},
-  renameSession: () => {}
+  renameSession: () => {},
+  createChatSession: () => ""
 };
 
 const ChatSessionContext = createContext<ChatSessionContextType>(defaultContext);
@@ -88,18 +92,8 @@ export const ChatSessionProvider: React.FC<{ children: React.ReactNode }> = ({
     ? sessions.find(session => session.id === activeChatId) || null
     : null;
   
-  // Get or create a chat session for a project
-  const getOrCreateChatSession = useCallback((projectId: string | null, initialMessages: Message[] = []): string => {
-    // First, try to find an existing session for this project
-    if (projectId) {
-      const existingSession = sessions.find(session => session.projectId === projectId);
-      if (existingSession) {
-        setActiveChatId(existingSession.id);
-        return existingSession.id;
-      }
-    }
-    
-    // Create a new session
+  // Create a new chat session (added for compatibility)
+  const createChatSession = useCallback((projectId: string | null, initialMessages: Message[] = []): string => {
     const newSessionId = uuidv4();
     const now = new Date().toISOString();
     
@@ -116,7 +110,22 @@ export const ChatSessionProvider: React.FC<{ children: React.ReactNode }> = ({
     setActiveChatId(newSessionId);
     
     return newSessionId;
-  }, [sessions]);
+  }, []);
+  
+  // Get or create a chat session for a project
+  const getOrCreateChatSession = useCallback((projectId: string | null, initialMessages: Message[] = []): string => {
+    // First, try to find an existing session for this project
+    if (projectId) {
+      const existingSession = sessions.find(session => session.projectId === projectId);
+      if (existingSession) {
+        setActiveChatId(existingSession.id);
+        return existingSession.id;
+      }
+    }
+    
+    // Create a new session
+    return createChatSession(projectId, initialMessages);
+  }, [sessions, createChatSession]);
   
   // Update a chat session's messages
   const updateChatSession = useCallback((sessionId: string, messages: Message[]) => {
@@ -155,13 +164,15 @@ export const ChatSessionProvider: React.FC<{ children: React.ReactNode }> = ({
   
   const contextValue: ChatSessionContextType = {
     sessions,
+    chatSessions: sessions, // Add chatSessions as alias
     activeChatId,
     activeSession,
     setActiveChatId,
     getOrCreateChatSession,
     updateChatSession,
     deleteChatSession,
-    renameSession
+    renameSession,
+    createChatSession
   };
   
   return (

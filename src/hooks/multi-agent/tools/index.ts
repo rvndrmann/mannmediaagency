@@ -1,49 +1,136 @@
-
-import { ToolDefinition } from "../runner/types";
-import ToolRegistry from "./tool-registry";
 import { ToolExecutorService } from "./tool-executor-service";
-import { defaultTools } from "./default-tools";
+import ToolRegistry from "./tool-registry";
+import { CommandExecutionState, ToolContext, ToolDefinition } from "../types";
+import { canvasTool } from "./canvas-tool";
 
-// Initialize the tool system
+// Other default tools will be imported and added here
+import { RunnerContext } from "../runner/types";
+
+// Singleton instances
+let toolRegistry: ToolRegistry | null = null;
+let toolExecutorService: ToolExecutorService | null = null;
+
+/**
+ * Initialize the tool system
+ */
 export function initializeToolSystem(): void {
-  const registry = ToolRegistry.getInstance();
-  const executor = ToolExecutorService.getInstance();
+  // Create/get tool registry
+  toolRegistry = ToolRegistry.getInstance();
   
-  // Register all default tools
-  registry.registerTools(defaultTools);
+  // Create/get tool executor
+  toolExecutorService = ToolExecutorService.getInstance();
   
-  console.log(`Tool system initialized with ${defaultTools.length} default tools`);
+  // Register default tools
+  registerDefaultTools();
 }
 
-// Get all available tools
+/**
+ * Register default tools
+ */
+function registerDefaultTools(): void {
+  if (!toolRegistry) return;
+  
+  const defaultTools: ToolDefinition[] = [
+    {
+      name: canvasTool.name,
+      description: canvasTool.description,
+      version: canvasTool.version || "1.0",
+      requiredCredits: canvasTool.requiredCredits || 0,
+      execute: canvasTool.execute,
+      parameters: canvasTool.parameters,
+      metadata: {
+        category: "canvas",
+        displayName: "Canvas Tool",
+        icon: "layers"
+      }
+    }
+  ];
+  
+  toolRegistry.registerTools(defaultTools);
+}
+
+/**
+ * Get available tools
+ */
 export function getAvailableTools(): ToolDefinition[] {
-  return ToolRegistry.getInstance().getTools();
+  if (!toolRegistry) {
+    toolRegistry = ToolRegistry.getInstance();
+  }
+  return toolRegistry.getTools();
 }
 
-// Get a specific tool by name
-export function getTool(name: string): ToolDefinition | undefined {
-  return ToolRegistry.getInstance().getTool(name);
+/**
+ * Get available tools by category
+ */
+export function getToolsByCategory(category: string): ToolDefinition[] {
+  if (!toolRegistry) {
+    toolRegistry = ToolRegistry.getInstance();
+  }
+  return toolRegistry.getToolsByCategory(category);
 }
 
-// Register a new tool
-export function registerTool(tool: ToolDefinition): void {
-  ToolRegistry.getInstance().registerTool(tool);
+/**
+ * Get a tool by name
+ */
+export function getTool(toolName: string): ToolDefinition | undefined {
+  if (!toolRegistry) {
+    toolRegistry = ToolRegistry.getInstance();
+  }
+  return toolRegistry.getTool(toolName);
 }
 
-// Execute a tool
+/**
+ * Execute a tool
+ */
 export async function executeTool(
-  toolName: string, 
+  toolName: string,
   parameters: Record<string, any>,
-  context: any
-): Promise<any> {
-  return ToolExecutorService.getInstance().executeTool(toolName, parameters, context);
+  context: RunnerContext
+): Promise<{
+  state: CommandExecutionState;
+  message: string;
+  data?: any;
+  error?: string;
+}> {
+  if (!toolExecutorService) {
+    toolExecutorService = ToolExecutorService.getInstance();
+  }
+  
+  try {
+    const result = await toolExecutorService.executeTool(toolName, parameters, context);
+    
+    return {
+      state: result.state || CommandExecutionState.COMPLETED,
+      message: result.message || "Tool executed successfully",
+      data: result.data,
+      error: result.error
+    };
+  } catch (error) {
+    console.error(`Error executing tool ${toolName}:`, error);
+    return {
+      state: CommandExecutionState.FAILED,
+      message: `Failed to execute tool ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
 }
 
-// Default export to initialize the tool system
-export default {
-  initializeToolSystem,
-  getAvailableTools,
-  getTool,
-  registerTool,
-  executeTool
-};
+/**
+ * Register a new tool
+ */
+export function registerTool(tool: ToolDefinition): void {
+  if (!toolRegistry) {
+    toolRegistry = ToolRegistry.getInstance();
+  }
+  toolRegistry.registerTool(tool);
+}
+
+/**
+ * Register multiple tools
+ */
+export function registerTools(tools: ToolDefinition[]): void {
+  if (!toolRegistry) {
+    toolRegistry = ToolRegistry.getInstance();
+  }
+  toolRegistry.registerTools(tools);
+}

@@ -1,5 +1,5 @@
 
-import { ToolDefinition } from "../runner/types";
+import { ToolDefinition } from "../types";
 
 class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -35,7 +35,10 @@ class ToolRegistry {
 
   public getToolsByCategory(category: string): ToolDefinition[] {
     return this.getTools().filter(tool => 
-      tool.metadata && tool.metadata.category === category
+      tool.metadata && 
+      typeof tool.metadata === 'object' && 
+      'category' in tool.metadata && 
+      tool.metadata.category === category
     );
   }
 

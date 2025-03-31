@@ -48,12 +48,12 @@ export class ToolExecutorService {
       if (
         typeof tool.requiredCredits === 'number' && 
         tool.requiredCredits > 0 &&
-        context.userCredits !== undefined &&
-        context.userCredits < tool.requiredCredits
+        context.credits !== undefined &&
+        context.credits < tool.requiredCredits
       ) {
         return {
           state: CommandExecutionState.FAILED,
-          message: `Insufficient credits to execute tool "${toolName}". Required: ${tool.requiredCredits}, Available: ${context.userCredits || 0}`,
+          message: `Insufficient credits to execute tool "${toolName}". Required: ${tool.requiredCredits}, Available: ${context.credits || 0}`,
           error: 'Insufficient credits'
         };
       }

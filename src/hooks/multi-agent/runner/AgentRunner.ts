@@ -82,7 +82,7 @@ export class AgentRunner {
       case "scene":
         return new SceneCreatorAgent(baseOptions);
       case "data":
-        return new DataAgent({ config: { name: "Data Agent", instructions: "", model: "gpt-4o" }, context, traceId: this.traceId });
+        return new DataAgent(baseOptions);
       default:
         return new MainAgent(baseOptions);
     }
@@ -108,9 +108,9 @@ export class AgentRunner {
       const result = await agent.process(input, enrichedContext);
 
       // Handle potential handoff
-      if (result.handoff || result.nextAgent) {
-        const targetAgent = result.handoff?.targetAgent || result.nextAgent;
-        const reason = result.handoff?.reason || result.handoffReason || "Handoff requested";
+      if (result.nextAgent) {
+        const targetAgent = result.nextAgent;
+        const reason = result.handoffReason || "Handoff requested";
         
         if (targetAgent && targetAgent !== agentType) {
           // Notify about handoff if callback exists
@@ -133,7 +133,7 @@ export class AgentRunner {
                 ...enrichedContext.metadata,
                 handoffReason: reason,
                 previousAgent: agentType,
-                additionalContext: result.handoff?.additionalContext || result.additionalContext
+                additionalContext: result.additionalContext
               }
             }
           );

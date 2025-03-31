@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,6 +31,8 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
     `agent-handoffs-${sessionId || 'global'}`,
     {}
   );
+  const [currentHandoff, setCurrentHandoff] = useState<HandoffRequest | null>(null);
+  const [isProcessingHandoff, setIsProcessingHandoff] = useState<boolean>(false);
   
   const requestHandoff = useCallback((
     fromAgent: AgentType,
@@ -48,7 +51,7 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
       status: 'pending'
     };
     
-    setHandoffs(prev => ({
+    setHandoffs((prev) => ({
       ...prev,
       [handoffId]: handoffRequest
     }));
@@ -67,7 +70,7 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
       return null;
     }
     
-    setHandoffs(prev => ({
+    setHandoffs((prev) => ({
       ...prev,
       [handoffId]: {
         ...prev[handoffId],
@@ -101,7 +104,7 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
         }
       }
       
-      setHandoffs(prev => ({
+      setHandoffs((prev) => ({
         ...prev,
         [handoffId]: {
           ...prev[handoffId],
@@ -124,7 +127,7 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
     } catch (error) {
       console.error(`Handoff processing error:`, error);
       
-      setHandoffs(prev => ({
+      setHandoffs((prev) => ({
         ...prev,
         [handoffId]: {
           ...prev[handoffId],
@@ -161,11 +164,13 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
       const now = new Date();
       const oneDayAgo = new Date(now.setDate(now.getDate() - 1));
       
-      setHandoffs(prev => {
+      setHandoffs((prev) => {
         const updated = { ...prev };
         let hasChanges = false;
         
-        Object.entries(updated).forEach(([id, handoff]) => {
+        Object.entries(updated).forEach(([id, handoffData]) => {
+          // Use type assertion to handle the unknown type
+          const handoff = handoffData as HandoffRequest;
           const handoffDate = new Date(handoff.timestamp);
           if (handoff.status === 'complete' && handoffDate < oneDayAgo) {
             delete updated[id];

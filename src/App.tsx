@@ -1,111 +1,213 @@
+import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Link,
+  useNavigate,
+} from "react-router-dom";
+import { useUser } from "@/hooks/use-user";
+import { useCanvasProjects } from "@/hooks/use-canvas-projects";
+import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Home,
+  LayoutDashboard,
+  Settings,
+  Canvas,
+  Login,
+  UserPlus,
+  KeyRound,
+  Image,
+  Video,
+  Bot,
+  HelpCircle,
+  Logout,
+  CreditCard,
+} from "lucide-react";
 
-import React from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as SonnerToaster } from "sonner";
-import { ThemeProvider } from "@/components/theme-provider";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import AuthCallback from "@/components/auth/AuthCallback";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ChatSessionProvider } from "@/contexts/ChatSessionContext";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
-import Index from './pages/Index';
-import Auth from './pages/Auth';
-import AboutUs from './pages/AboutUs';
-import Contact from './pages/Contact';
-import Terms from './pages/Terms';
-import Privacy from './pages/Privacy';
-import BrowserUse from './pages/BrowserUse';
-import ProductShoot from './pages/ProductShoot';
-import ProductShootV2 from './pages/ProductShootV2';
-import ImageToVideo from './pages/ImageToVideo';
-import ProductAd from './pages/ProductAd';
-import Plans from './pages/Plans';
-import CreateVideo from './pages/CreateVideo';
-import ProfileSettings from './pages/ProfileSettings';
-import Integrations from './pages/Integrations';
-import PaymentSuccess from './pages/PaymentSuccess';
-import PaymentFailure from './pages/PaymentFailure';
-import PaymentCancel from './pages/PaymentCancel';
-import Payment from './pages/Payment';
-import Metadata from './pages/Metadata';
-import CustomOrders from './pages/CustomOrders';
-import CustomOrderForm from './pages/CustomOrderForm';
-import TraceAnalytics from './pages/TraceAnalytics';
-import MultiAgentChat from './pages/MultiAgentChat';
-import Explore from './pages/Explore';
-import Canvas from './pages/Canvas';
-import VideoCreator from './pages/VideoCreator';
-import LoginForm from './components/auth/LoginForm';
-import SignupForm from './components/auth/SignupForm';
-import Admin from './pages/Admin';
+import { MainLayout } from "@/components/layout/MainLayout";
+import { AuthLayout } from "@/components/layout/AuthLayout";
+import { Navbar } from "@/components/layout/Navbar";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Footer } from "@/components/layout/Footer";
 
-// Create a client for React Query
-const queryClient = new QueryClient();
+import { CanvasPage } from "@/pages/CanvasPage";
+import { DashboardPage } from "@/pages/DashboardPage";
+import { SettingsPage } from "@/pages/SettingsPage";
+import { LoginPage } from "@/pages/LoginPage";
+import { RegisterPage } from "@/pages/RegisterPage";
+import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
+import { PricingPage } from "@/pages/PricingPage";
+import { ImageToVideo } from "@/pages/ImageToVideo";
+import { VideoCreatorPage } from "@/pages/VideoCreatorPage";
+import { AIAgentPage } from "@/pages/AIAgentPage";
+import { HelpPage } from "@/pages/HelpPage";
+import ProductShot from "./pages/ProductShot";
 
-export default function App() {
+const App = () => {
   return (
-    <div>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-          <ChatSessionProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/auth/login" element={<LoginForm />} />
-                <Route path="/auth/signup" element={<SignupForm />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/about" element={<AboutUs />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/browser-use" element={<BrowserUse />} />
-                <Route path="/product-shoot" element={<ProductShoot />} />
-                <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
-                <Route path="/image-to-video" element={<ImageToVideo />} />
-                <Route path="/product-ad" element={<ProductAd />} />
-                <Route path="/plans" element={<Plans />} />
-                <Route path="/create-video" element={<CreateVideo />} />
-                <Route path="/video-creator" element={
-                  <ProtectedRoute>
-                    <VideoCreator />
-                  </ProtectedRoute>
-                } />
-                <Route path="/settings" element={
-                  <ProtectedRoute>
-                    <ProfileSettings />
-                  </ProtectedRoute>
-                } />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <ProfileSettings />
-                  </ProtectedRoute>
-                } />
-                <Route path="/integrations" element={<Integrations />} />
-                <Route path="/payment-success" element={<PaymentSuccess />} />
-                <Route path="/payment-failure" element={<PaymentFailure />} />
-                <Route path="/payment-cancel" element={<PaymentCancel />} />
-                <Route path="/payment" element={<Payment />} />
-                <Route path="/metadata" element={<Metadata />} />
-                <Route path="/custom-orders" element={<CustomOrders />} />
-                <Route path="/custom-order" element={<CustomOrderForm />} />
-                <Route path="/trace-analytics" element={<TraceAnalytics />} />
-                <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
-                <Route path="/explore" element={<Explore />} />
-                <Route path="/canvas" element={<Canvas />} />
-                <Route path="/admin" element={
-                  <ProtectedRoute>
-                    <Admin />
-                  </ProtectedRoute>
-                } />
-              </Routes>
-            </BrowserRouter>
-            <Toaster />
-            <SonnerToaster position="top-right" richColors />
-          </ChatSessionProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </div>
+    <Router>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <MainLayout>
+              <DashboardPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <MainLayout>
+              <DashboardPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/canvas/:projectId"
+          element={
+            <MainLayout>
+              <CanvasPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <MainLayout>
+              <SettingsPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/plans"
+          element={
+            <MainLayout>
+              <PricingPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/image-to-video"
+          element={
+            <MainLayout>
+              <ImageToVideo />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/video-creator"
+          element={
+            <MainLayout>
+              <VideoCreatorPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/ai-agent"
+          element={
+            <MainLayout>
+              <AIAgentPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/help"
+          element={
+            <MainLayout>
+              <HelpPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/auth/login"
+          element={
+            <AuthLayout>
+              <LoginPage />
+            </AuthLayout>
+          }
+        />
+        <Route
+          path="/auth/register"
+          element={
+            <AuthLayout>
+              <RegisterPage />
+            </AuthLayout>
+          }
+        />
+        <Route
+          path="/auth/forgot-password"
+          element={
+            <AuthLayout>
+              <ForgotPasswordPage />
+            </AuthLayout>
+          }
+        />
+        <Route
+          path="/auth/reset-password"
+          element={
+            <AuthLayout>
+              <ResetPasswordPage />
+            </AuthLayout>
+          }
+        />
+        <Route
+          path="/product-shot"
+          element={
+            <MainLayout>
+              <ProductShot />
+            </MainLayout>
+          }
+        />
+      </Routes>
+    </Router>
   );
-}
+};
+
+export default App;

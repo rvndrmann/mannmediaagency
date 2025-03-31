@@ -33,11 +33,6 @@ export {
   executeTool,
   ToolExecutorService,
   
-  // Tool types
-  ToolDefinition,
-  ToolContext,
-  ToolExecutionResult,
-  
   // Individual tools
   dataTool,
   webSearchTool,
@@ -47,6 +42,9 @@ export {
   browserUseTool,
   imageToVideoTool
 };
+
+// Re-export types
+export type { ToolDefinition, ToolContext, ToolExecutionResult };
 
 // Export default tools collection
 export const availableTools = [

@@ -1,7 +1,6 @@
 
 import { RunnerContext } from "../runner/types";
-import { ToolExecutionResult } from "../types";
-import { ToolDefinition } from "../types";
+import { ToolExecutionResult, ToolDefinition, ToolContext } from "../types";
 
 export const imageToVideoTool: ToolDefinition = {
   name: "image_to_video",
@@ -37,7 +36,7 @@ export const imageToVideoTool: ToolDefinition = {
     image_url: string;
     motion_type?: string;
     duration_seconds?: number;
-  }, context: RunnerContext): Promise<ToolExecutionResult> => {
+  }, context: ToolContext): Promise<ToolExecutionResult> => {
     try {
       // Default values
       const motion = params.motion_type || "ken_burns";

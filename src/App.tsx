@@ -1,4 +1,3 @@
-
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -22,27 +21,21 @@ import {
   CreditCard 
 } from "lucide-react";
 
+import Index from "./pages/Index";
 import ProductShot from "./pages/ProductShot";
 import Explore from "./pages/Explore";
 import MultiAgentChat from "./pages/MultiAgentChat";
 import { MCPProvider } from "./contexts/MCPContext";
 
-const App = () => {
+/**
+ * Main application component defining the routing structure
+ */
+const App: React.FC = () => {
   return (
     <MCPProvider>
       <Router>
         <Routes>
-          <Route
-            path="/"
-            element={
-              <Layout>
-                <div className="p-8">
-                  <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
-                  <p>Welcome to your dashboard</p>
-                </div>
-              </Layout>
-            }
-          />
+          <Route path="/" element={<Index />} />
           <Route
             path="/dashboard"
             element={

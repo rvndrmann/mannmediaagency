@@ -1,4 +1,5 @@
 
+import React from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -7,8 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Auth from "./Auth";
 
-const Index = () => {
+/**
+ * Main index page component that displays either the dashboard or authentication form
+ * based on user's session status
+ */
+const Index: React.FC = () => {
   const isMobile = useIsMobile();
+  
   const { data: session } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {

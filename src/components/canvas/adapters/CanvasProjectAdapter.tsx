@@ -128,7 +128,11 @@ export const CanvasWorkspaceAdapter = ({
       selectedScene={selectedScene}
       selectedSceneId={selectedSceneId}
       setSelectedSceneId={setSelectedSceneId}
-      addScene={addScene}
+      addScene={async () => {
+        // Convert Promise<string> to Promise<void> by discarding the returned string
+        await addScene();
+        // Return nothing (void)
+      }}
       deleteScene={deleteScene}
       updateScene={updateScene}
       divideScriptToScenes={divideScriptToScenes}

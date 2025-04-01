@@ -19,13 +19,34 @@ interface CreateSceneParams {
   description?: string;
 }
 
+export interface ExtendedToolContext extends ToolContext {
+  updateScene?: (sceneId: string, field: string, value: string) => Promise<void>;
+  createScene?: (projectId: string, data: any) => Promise<string>;
+  scenes?: any[];
+}
+
 class SdkCanvasDataTool implements SDKTool {
   name = "canvas_data";
   description = "Get or update canvas project data like scenes, scripts, etc.";
   version = "1.0";
+  parameters = {
+    type: "object",
+    properties: {
+      action: {
+        type: "string",
+        enum: ["updateScene", "listScenes", "createScene"],
+        description: "The action to perform on canvas data"
+      },
+      params: {
+        type: "object",
+        description: "Parameters for the selected action"
+      }
+    },
+    required: ["action", "params"]
+  };
   
   // Static methods to be referenced in the schema
-  static async updateScene(params: UpdateSceneParams, context: ToolContext) {
+  static async updateScene(params: UpdateSceneParams, context: ExtendedToolContext) {
     const { sceneId, field, value } = params;
     
     if (!sceneId) {
@@ -49,7 +70,7 @@ class SdkCanvasDataTool implements SDKTool {
     }
   }
   
-  static async listScenes(params: ListScenesParams, context: ToolContext) {
+  static async listScenes(params: ListScenesParams, context: ExtendedToolContext) {
     const { projectId } = params;
     
     if (!projectId) {
@@ -67,7 +88,7 @@ class SdkCanvasDataTool implements SDKTool {
     }
   }
   
-  static async createScene(params: CreateSceneParams, context: ToolContext) {
+  static async createScene(params: CreateSceneParams, context: ExtendedToolContext) {
     const { projectId, title, description } = params;
     
     if (!projectId) {
@@ -119,7 +140,7 @@ class SdkCanvasDataTool implements SDKTool {
     }
   };
   
-  async execute(parameters: any, context: ToolContext) {
+  async execute(parameters: any, context: ExtendedToolContext) {
     const { action, params } = parameters;
     
     if (!action) {

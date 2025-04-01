@@ -1,22 +1,25 @@
 
 import React from 'react';
-import { CanvasHeader, CanvasHeaderProps } from '../CanvasHeader';
-import { CanvasEmptyState } from '../CanvasEmptyState';
-import { CanvasSidebar } from '../CanvasSidebar';
-import { CanvasWorkspace } from '../CanvasWorkspace';
-import { CanvasDetailPanel } from '../CanvasDetailPanel';
-import { CanvasScriptPanel } from '../CanvasScriptPanel';
 import { CanvasProject, CanvasScene } from '@/types/canvas';
+import { CanvasSidebar } from '@/components/canvas/CanvasSidebar';
+import { CanvasWorkspace } from '@/components/canvas/CanvasWorkspace';
+import { CanvasDetailPanel } from '@/components/canvas/CanvasDetailPanel';
+import { CanvasScriptPanel } from '@/components/canvas/CanvasScriptPanel';
+import { CanvasHeader } from '@/components/canvas/CanvasHeader';
+import { CanvasEmptyState } from '@/components/canvas/CanvasEmptyState';
 
-// Adapter components that map between the core components and whatever 
-// data structures/contexts your app uses
-
-export const CanvasEmptyStateAdapter = ({ createProject }: { 
-  createProject: (title: string, description?: string) => Promise<string> 
+// Adapter for CanvasEmptyState
+export const CanvasEmptyStateAdapter = ({ 
+  createProject 
+}: { 
+  createProject: (title: string, description?: string) => Promise<any> 
 }) => {
-  return <CanvasEmptyState onCreateProject={createProject} />;
+  return (
+    <CanvasEmptyState onCreateProject={createProject} />
+  );
 };
 
+// Adapter for CanvasHeader
 export const CanvasHeaderAdapter = ({ 
   project, 
   updateProject,
@@ -26,7 +29,7 @@ export const CanvasHeaderAdapter = ({
   showChatButton = true
 }: { 
   project: CanvasProject | null;
-  updateProject: (id: string, data: Partial<CanvasProject>) => Promise<void>;
+  updateProject: (id: string, updates: Partial<CanvasProject>) => Promise<any>;
   onToggleScriptPanel?: () => void;
   onToggleDetailPanel?: () => void;
   onToggleChatPanel?: () => void;
@@ -35,54 +38,62 @@ export const CanvasHeaderAdapter = ({
   const handleUpdateTitle = async (title: string) => {
     if (project) {
       await updateProject(project.id, { title });
-      return title; // Return the title to satisfy the promise type
     }
-    return '';
   };
-
-  const headerProps: CanvasHeaderProps = {
-    title: project?.title || 'Untitled Project',
-    onUpdateTitle: handleUpdateTitle,
-    onToggleDetailPanel,
-    onToggleChatPanel,
-    onToggleScriptPanel,
-    showChatButton
-  };
-
-  return <CanvasHeader {...headerProps} />;
+  
+  return (
+    <CanvasHeader 
+      title={project?.title} 
+      onUpdateTitle={handleUpdateTitle}
+      onToggleScriptPanel={onToggleScriptPanel}
+      onToggleDetailPanel={onToggleDetailPanel}
+      onToggleChatPanel={onToggleChatPanel}
+      showChatButton={showChatButton}
+    />
+  );
 };
 
-export const CanvasSidebarAdapter = ({
+// Adapter for CanvasSidebar
+export const CanvasSidebarAdapter = ({ 
   project,
   selectedSceneId,
   setSelectedSceneId,
   createScene,
   deleteScene,
-  loading
-}: {
+  loading = false
+}: { 
   project: CanvasProject | null;
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string | null) => void;
   createScene: (projectId: string, data: any) => Promise<any>;
   deleteScene: (id: string) => Promise<void>;
-  loading: boolean;
+  loading?: boolean;
 }) => {
-  if (!project) return null;
+  const handleAddScene = async () => {
+    if (project) {
+      await createScene(project.id, { title: 'New Scene' });
+    }
+  };
+  
+  const handleSetSelectedScene = (id: string) => {
+    setSelectedSceneId(id);
+  };
   
   return (
-    <CanvasSidebar
-      projectId={project.id}
-      scenes={project.scenes || []}
+    <CanvasSidebar 
+      project={project}
       selectedSceneId={selectedSceneId}
-      onSelectScene={setSelectedSceneId}
-      onCreateScene={() => createScene(project.id, { title: 'New Scene' })}
-      onDeleteScene={deleteScene}
+      setSelectedSceneId={handleSetSelectedScene}
+      addScene={handleAddScene}
+      deleteScene={deleteScene}
+      collapsed={false}
       loading={loading}
     />
   );
 };
 
-export const CanvasWorkspaceAdapter = ({
+// Adapter for CanvasWorkspace
+export const CanvasWorkspaceAdapter = ({ 
   project,
   selectedScene,
   selectedSceneId,
@@ -95,95 +106,87 @@ export const CanvasWorkspaceAdapter = ({
   createNewProject,
   updateProjectTitle,
   agent
-}: {
+}: { 
   project: CanvasProject | null;
   selectedScene: CanvasScene | null;
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string | null) => void;
-  updateScene: (id: string, field: string, value: string) => Promise<void>;
-  addScene: () => Promise<string | undefined>;
+  updateScene: (id: string, type: string, value: string) => Promise<void>;
+  addScene: () => Promise<any>;
   deleteScene: (id: string) => Promise<void>;
   divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;
-  agent: any;
+  agent?: any;
 }) => {
-  if (!project) return null;
-  
-  // Ensure addScene returns void to match the expected type
-  const handleAddScene = async (): Promise<void> => {
-    await addScene();
-  };
-  
   return (
-    <CanvasWorkspace
+    <CanvasWorkspace 
       project={project}
       selectedScene={selectedScene}
-      onSelectScene={setSelectedSceneId}
-      onUpdateScene={updateScene}
-      onAddScene={handleAddScene}
-      onDeleteScene={deleteScene}
-      onDivideScriptToScenes={divideScriptToScenes}
-      onSaveFullScript={saveFullScript}
-      onCreateProject={createNewProject}
-      onUpdateProjectTitle={updateProjectTitle}
+      selectedSceneId={selectedSceneId}
+      setSelectedSceneId={setSelectedSceneId}
+      addScene={addScene}
+      deleteScene={deleteScene}
+      updateScene={updateScene}
+      divideScriptToScenes={divideScriptToScenes}
+      saveFullScript={saveFullScript}
+      createNewProject={createNewProject}
+      updateProjectTitle={updateProjectTitle}
       agent={agent}
     />
   );
 };
 
-export const CanvasDetailPanelAdapter = ({
+// Adapter for CanvasDetailPanel
+export const CanvasDetailPanelAdapter = ({ 
   scene,
   projectId,
-  updateScene,
+  updateScene: onUpdateScene,
   collapsed,
   setCollapsed
-}: {
+}: { 
   scene: CanvasScene | null;
   projectId: string;
   updateScene: (id: string, field: string, value: string) => Promise<void>;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 }) => {
-  if (!scene) return null;
-  
   return (
-    <CanvasDetailPanel
+    <CanvasDetailPanel 
       scene={scene}
       projectId={projectId}
-      onUpdateScene={updateScene}
+      updateScene={onUpdateScene}
       collapsed={collapsed}
       setCollapsed={setCollapsed}
     />
   );
 };
 
-export const CanvasScriptPanelAdapter = ({
+// Adapter for CanvasScriptPanel
+export const CanvasScriptPanelAdapter = ({ 
   project,
   projectId,
   onUpdateScene,
   onClose,
-  saveFullScript,
-  divideScriptToScenes
-}: {
+  onSaveFullScript: saveFullScript,
+  onDivideScriptToScenes: divideScriptToScenes
+}: { 
   project: CanvasProject | null;
   projectId: string;
   onUpdateScene: (id: string, field: string, value: string) => Promise<void>;
   onClose: () => void;
-  saveFullScript: (script: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
+  onSaveFullScript: (script: string) => Promise<void>;
+  onDivideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
 }) => {
-  if (!project) return null;
-  
   return (
-    <CanvasScriptPanel
+    <CanvasScriptPanel 
       project={project}
       projectId={projectId}
-      onUpdateScene={onUpdateScene}
+      updateScene={onUpdateScene}
       onClose={onClose}
-      onSaveFullScript={saveFullScript}
-      onDivideScriptToScenes={divideScriptToScenes}
+      saveFullScript={saveFullScript}
+      divideScriptToScenes={divideScriptToScenes}
     />
   );
 };

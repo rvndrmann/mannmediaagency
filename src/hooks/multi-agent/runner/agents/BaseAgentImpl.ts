@@ -31,6 +31,14 @@ export abstract class BaseAgentImpl implements BaseAgent {
     return this.tools;
   }
   
+  getModel(): string {
+    return this.model;
+  }
+  
+  getTraceId(): string {
+    return this.traceId;
+  }
+  
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
       // Merge context with this.context

@@ -57,7 +57,7 @@ const defaultValue: MCPContext = {
   lastError: null,
   mcpTools: [],
   mcpServers: [],
-  useMcp: false,
+  useMcp: true, // Default to true for better compatibility
   setUseMcp: () => {},
   registerTool: () => {},
   unregisterTool: () => {},
@@ -81,17 +81,18 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
   const [lastError, setLastError] = useState<Error | null>(null);
   const [mcpTools, setMcpTools] = useState<any[]>([]);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [useMcp, setUseMcp] = useState<boolean>(false);
+  const [useMcp, setUseMcp] = useState<boolean>(true); // Default to true for better compatibility
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
   const [connectionStats, setConnectionStats] = useState<MCPConnectionStats>(defaultConnectionStats);
   const [connectionMetrics, setConnectionMetrics] = useState<MCPConnectionMetrics>(defaultConnectionMetrics);
 
   // Attempt to connect to MCP on component mount or when projectId changes
   useEffect(() => {
-    if (projectId && useMcp && status === 'disconnected') {
+    if (projectId && useMcp && status === 'disconnected' && !isConnecting) {
       attemptConnection();
     }
-  }, [projectId, useMcp, status]);
+    // We only want to attempt connection when these dependencies change
+  }, [projectId, useMcp, status, isConnecting]);
 
   const attemptConnection = async () => {
     if (isConnecting) return false;
@@ -107,7 +108,7 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
       }));
 
       // Simulate MCP connection
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // In a real implementation, this would be an actual connection to MCP
       setStatus('connected');
@@ -119,7 +120,7 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
         successCount: prev.successCount + 1,
         lastAttemptTime: Date.now(),
         averageConnectTime: 
-          (prev.averageConnectTime * prev.successCount + 1000) / (prev.successCount + 1)
+          (prev.averageConnectTime * prev.successCount + 500) / (prev.successCount + 1)
       }));
       
       // Update connection stats
@@ -150,15 +151,54 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
 
   const reconnectToMcp = async (): Promise<boolean> => {
     if (isConnecting) return false;
+    
+    // First reset the status
+    setStatus('disconnected');
+    
+    // Then attempt connection
     return attemptConnection();
   };
 
   const registerTool = (tool: any) => {
-    setMcpTools(prev => [...prev, tool]);
+    setMcpTools(prev => {
+      // Check if tool already exists
+      const existingTool = prev.find(t => t.id === tool.id || t.name === tool.name);
+      if (existingTool) {
+        return prev; // Tool already registered
+      }
+      return [...prev, tool];
+    });
   };
 
   const unregisterTool = (toolId: string) => {
-    setMcpTools(prev => prev.filter(tool => tool.id !== toolId));
+    setMcpTools(prev => prev.filter(tool => tool.id !== toolId && tool.name !== toolId));
+  };
+  
+  // Simulate tool calling
+  const callTool = async (toolName: string, parameters: any) => {
+    try {
+      console.log(`Calling MCP tool: ${toolName}`, parameters);
+      
+      // Simulate a delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Mock response
+      return {
+        success: true,
+        result: {
+          message: `Successfully called tool ${toolName}`,
+          timestamp: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      console.error(`Error calling MCP tool ${toolName}:`, error);
+      throw error;
+    }
+  };
+  
+  // List available tools
+  const listAvailableTools = async (): Promise<MCPTool[]> => {
+    return mcpTools;
   };
 
   const hasConnectionError = status === 'error';
@@ -177,7 +217,9 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
     registerTool,
     unregisterTool,
     connectionStats,
-    connectionMetrics
+    connectionMetrics,
+    callTool,
+    listAvailableTools
   };
 
   return (

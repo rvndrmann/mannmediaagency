@@ -52,7 +52,7 @@ export default function Canvas() {
     // If the selected scene is being updated, also update that state
     if (selectedScene && selectedScene.id === sceneId) {
       setSelectedScene(prevScene => ({
-        ...prevScene,
+        ...prevScene!,
         [type]: value
       }));
     }
@@ -85,14 +85,23 @@ export default function Canvas() {
     const newScene = { 
       id: newSceneId, 
       title: data.title || 'New Scene', 
-      projectId,
+      project_id: projectId,
+      description: '',
+      script: '',
+      image_prompt: '',
+      image_url: '',
+      voice_over_text: '',
+      duration: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      status: 'draft',
       ...data 
     };
     
     // Add to local state
     setScenes(prev => [...prev, newScene]);
     
-    return newScene;
+    return newSceneId;
   };
   
   const deleteScene = async (sceneId: string) => {
@@ -114,7 +123,11 @@ export default function Canvas() {
     const dummyProject = {
       id,
       title: 'Project ' + id,
+      description: '',
       user_id: 'user-1',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      full_script: '',
       scenes: []
     };
     
@@ -126,14 +139,14 @@ export default function Canvas() {
   const addScene = async () => {
     if (!project) return;
     
-    const newScene = await createScene(project.id, { title: 'New Scene' });
-    return newScene.id;
+    const newSceneId = await createScene(project.id, { title: 'New Scene' });
+    return newSceneId;
   };
   
   const saveFullScript = async (script: string) => {
     console.log('Saving full script', script);
     if (project) {
-      setProject(prev => prev ? {...prev, fullScript: script} : null);
+      setProject(prev => prev ? {...prev, full_script: script} : null);
       toast.success("Script saved successfully");
     }
   };
@@ -154,10 +167,10 @@ export default function Canvas() {
   const createNewProject = async (title: string, description?: string) => {
     console.log('Creating new project', title, description);
     try {
-      const newProject = await createProject(title, description);
-      if (newProject && newProject.id) {
-        setProjectId(newProject.id);
-        return newProject.id;
+      const newProjectData = await createProject(title, description);
+      if (newProjectData && newProjectData.id) {
+        setProjectId(newProjectData.id);
+        return newProjectData.id;
       }
       return "";
     } catch (error) {
@@ -244,7 +257,7 @@ export default function Canvas() {
   
   // Project creation if no project exists
   if (!project && !loading) {
-    return <CanvasEmptyStateAdapter createProject={createProject} />;
+    return <CanvasEmptyStateAdapter createProject={createNewProject} />;
   }
   
   return (
@@ -301,8 +314,8 @@ export default function Canvas() {
             projectId={project?.id || ''}
             onUpdateScene={updateScene}
             onClose={() => setShowScriptPanel(false)}
-            saveFullScript={saveFullScript}
-            divideScriptToScenes={divideScriptToScenes}
+            onSaveFullScript={saveFullScript}
+            onDivideScriptToScenes={divideScriptToScenes}
           />
         )}
         

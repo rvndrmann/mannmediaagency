@@ -15,6 +15,10 @@ export interface ProjectContextType {
   scenes: Record<string, CanvasScene[]>;
   isSDKMode: boolean;
   toggleSDKMode: () => void;
+  // Add these properties to support multi-agent chat
+  projectDetails?: any;
+  projectContent?: any;
+  fetchProjectDetails?: (projectId: string) => Promise<any>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -29,6 +33,8 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
   const [projects, setProjects] = useState<CanvasProject[]>([]);
   const [scenes, setScenes] = useState<Record<string, CanvasScene[]>>({});
   const [isSDKMode, setIsSDKMode] = useState<boolean>(true);
+  const [projectDetails, setProjectDetails] = useState<any>(null);
+  const [projectContent, setProjectContent] = useState<any>(null);
 
   // Load projects on mount
   useEffect(() => {
@@ -84,7 +90,6 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
       project_id: scene.projectId || scene.project_id || '',
       created_at: scene.createdAt || scene.created_at || new Date().toISOString(),
       updated_at: scene.updatedAt || scene.updated_at || new Date().toISOString(),
-      sequence: scene.sequence || 0,
       status: scene.status || 'draft'
     };
   };
@@ -182,6 +187,34 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
     setIsSDKMode(prev => !prev);
   };
 
+  // Add fetchProjectDetails method to support multi-agent chat
+  const fetchProjectDetails = async (projectId: string): Promise<any> => {
+    try {
+      // Mock implementation
+      console.log(`Fetching project details for ${projectId}`);
+      
+      // In a real app, this would fetch project details from an API
+      setProjectDetails({
+        id: projectId,
+        title: 'Sample Project',
+        description: 'A sample project for testing',
+      });
+      
+      setProjectContent({
+        files: [],
+        dependencies: {}
+      });
+      
+      return {
+        details: projectDetails,
+        content: projectContent
+      };
+    } catch (error) {
+      console.error('Error fetching project details:', error);
+      throw error;
+    }
+  };
+
   return (
     <ProjectContext.Provider
       value={{
@@ -196,7 +229,10 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
         projects,
         scenes,
         isSDKMode,
-        toggleSDKMode
+        toggleSDKMode,
+        projectDetails,
+        projectContent,
+        fetchProjectDetails
       }}
     >
       {children}

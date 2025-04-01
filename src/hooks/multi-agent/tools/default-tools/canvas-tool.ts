@@ -81,7 +81,7 @@ export const canvasTool: ToolDefinition = {
       },
       updateType: {
         type: "string",
-        enum: ["script", "imagePrompt", "description", "image", "imageUrl", "productImage", "video", "voiceOver", "backgroundMusic", "voiceOverText"],
+        enum: ["script", "imagePrompt", "description", "image", "productImage", "video", "voiceOver", "backgroundMusic", "voiceOverText"],
         description: "The type of update to perform"
       },
       content: {

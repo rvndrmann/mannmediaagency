@@ -30,6 +30,7 @@ export interface Message {
     currentStage?: WorkflowStage;
     progress?: number;
   };
+  canvasContent?: any; // Added this property for use-canvas-messages.ts
 }
 
 export type MessageType = 'text' | 'canvas' | 'system' | 'tool' | 'image' | 'video' | 'handoff' | 'error' | 'context';
@@ -46,7 +47,7 @@ export interface Attachment {
 
 export interface Task {
   id: string;
-  type: string;
+  type: string; // Added this required property
   status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'error' | 'working';
   result?: any;
   error?: string;

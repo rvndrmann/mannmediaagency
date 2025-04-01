@@ -14,14 +14,9 @@ export class AgentSDKWorkflowManager {
   private projectId: string | null = null;
   private currentWorkflowState: WorkflowState | null = null;
   
-  constructor(projectId?: string) {
+  constructor() {
     this.videoWorkflowService = VideoWorkflowService.getInstance();
     this.workflowRPC = WorkflowRPC.getInstance();
-    
-    if (projectId) {
-      this.projectId = projectId;
-      this.loadWorkflowState();
-    }
   }
   
   /**

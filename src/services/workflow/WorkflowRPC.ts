@@ -169,6 +169,10 @@ export class WorkflowRPC {
    * Map database record to WorkflowState
    */
   private mapToWorkflowState(data: any): WorkflowState {
+    if (!data) {
+      throw new Error("Cannot map null data to WorkflowState");
+    }
+    
     return {
       projectId: data.project_id,
       status: data.status,
@@ -176,7 +180,7 @@ export class WorkflowRPC {
       stageResults: data.stage_results,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
-      completedStages: data.completed_stages,
+      completedStages: Array.isArray(data.completed_stages) ? data.completed_stages : [],
       errorMessage: data.error_message,
       startedAt: data.started_at,
       completedAt: data.completed_at,

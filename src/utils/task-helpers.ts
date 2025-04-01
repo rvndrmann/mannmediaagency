@@ -4,10 +4,10 @@ import { Task } from "@/types/message";
 /**
  * Create a new task with required fields
  */
-export function createTask(name: string, status: Task['status'] = 'pending'): Task {
+export function createTask(name: string, status: Task['status'] = 'pending', type: string = 'task'): Task {
   return {
     id: crypto.randomUUID(),
-    type: 'task',
+    type,
     name,
     status
   };

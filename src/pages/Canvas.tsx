@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
@@ -93,9 +92,9 @@ export default function Canvas() {
   ): Promise<void> => {
     for (const sceneScript of sceneScripts) {
       if (sceneScript.id) {
-        await updateScene(sceneScript.id, 'script' as SceneUpdateType, sceneScript.content || '');
+        await updateScene(sceneScript.id, 'script', sceneScript.content || '');
         if (sceneScript.voiceOverText) {
-          await updateScene(sceneScript.id, 'voiceOverText' as SceneUpdateType, sceneScript.voiceOverText);
+          await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText);
         }
       }
     }

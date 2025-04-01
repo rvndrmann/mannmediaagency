@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CanvasProject } from "@/types/canvas";
 import { CanvasService } from "@/services/canvas/CanvasService";
@@ -25,17 +26,8 @@ export const ProjectHistory = () => {
     const fetchProjects = async () => {
       setIsLoading(true);
       try {
-        const projects = await canvasService.getProjects();
-        // Format projects to ensure they have both user_id and userId for compatibility
-        const formattedProjects = projects.map(project => ({
-          ...project,
-          user_id: project.user_id || project.userId,
-          userId: project.userId || project.user_id,
-          fullScript: project.fullScript || project.full_script,
-          createdAt: project.createdAt || project.created_at,
-          updatedAt: project.updatedAt || project.updated_at
-        }));
-        setProjects(formattedProjects);
+        const projects = await canvasService.fetchProjects();
+        setProjects(projects);
       } catch (error) {
         console.error("Error fetching projects:", error);
         toast.error("Failed to load projects");

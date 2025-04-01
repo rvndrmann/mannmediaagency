@@ -1,9 +1,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CanvasProject, CanvasScene, SceneData } from '@/types/canvas';
+import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from '@/types/canvas';
 import { toast } from 'sonner';
 import { CanvasService } from '@/services/canvas/CanvasService';
+import { normalizeProject, normalizeScene } from '@/utils/canvas-data-utils';
 
 export const useCanvas = (projectId?: string) => {
   const [project, setProject] = useState<CanvasProject | null>(null);
@@ -27,27 +28,14 @@ export const useCanvas = (projectId?: string) => {
       setLoading(true);
       
       // Get project data
-      const projectData = await canvasService.getProject(projectId);
+      const projectData = await canvasService.fetchProject(projectId);
       
       if (!projectData) {
         setError("Project not found");
         return;
       }
       
-      // Ensure user_id compatibility
-      const project = {
-        id: projectData.id,
-        title: projectData.title,
-        description: projectData.description || "",
-        userId: projectData.userId || projectData.user_id,
-        user_id: projectData.user_id || projectData.userId,
-        fullScript: projectData.fullScript || projectData.full_script || "",
-        createdAt: projectData.createdAt || projectData.created_at,
-        updatedAt: projectData.updatedAt || projectData.updated_at,
-        scenes: []
-      };
-      
-      setProject(project);
+      setProject(projectData);
       
       // Get scenes
       const scenesData = await canvasService.getScenes(projectId);
@@ -154,7 +142,7 @@ export const useCanvas = (projectId?: string) => {
   // Update a scene
   const updateScene = useCallback(async (
     sceneId: string, 
-    type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'voiceOverText', 
+    type: SceneUpdateType, 
     value: string
   ): Promise<void> => {
     try {

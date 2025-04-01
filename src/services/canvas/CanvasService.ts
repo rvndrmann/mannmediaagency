@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasProject, CanvasScene, SceneData } from "@/types/canvas";
+import { normalizeProject, normalizeScene } from "@/utils/canvas-data-utils";
 
 /**
  * Service for Canvas projects and scenes
@@ -34,22 +35,7 @@ export class CanvasService {
       if (error) throw error;
       
       if (data) {
-        // Ensure field compatibility
-        const project: CanvasProject = {
-          id: data.id,
-          title: data.title,
-          description: data.description || "",
-          userId: data.user_id,
-          user_id: data.user_id,
-          fullScript: data.full_script || "",
-          full_script: data.full_script || "",
-          createdAt: data.created_at,
-          created_at: data.created_at,
-          updatedAt: data.updated_at,
-          updated_at: data.updated_at
-        };
-        
-        return project;
+        return normalizeProject(data);
       }
       
       return null;
@@ -57,6 +43,42 @@ export class CanvasService {
       console.error("Error fetching project:", error);
       throw error;
     }
+  }
+  
+  /**
+   * Get all projects for the current user
+   */
+  async fetchProjects(): Promise<CanvasProject[]> {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData?.user) {
+        throw new Error("User not authenticated");
+      }
+      
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .select('*')
+        .eq('user_id', userData.user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      return data.map(project => normalizeProject(project));
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      throw error;
+    }
+  }
+  
+  // Alias for fetchProject for backward compatibility
+  async getProject(projectId: string): Promise<CanvasProject | null> {
+    return this.fetchProject(projectId);
+  }
+  
+  // Alias for fetchProjects for backward compatibility
+  async getProjects(): Promise<CanvasProject[]> {
+    return this.fetchProjects();
   }
   
   /**
@@ -85,22 +107,7 @@ export class CanvasService {
       if (error) throw error;
       
       if (data) {
-        // Ensure field compatibility
-        const project: CanvasProject = {
-          id: data.id,
-          title: data.title,
-          description: data.description || "",
-          userId: data.user_id,
-          user_id: data.user_id,
-          fullScript: data.full_script || "",
-          full_script: data.full_script || "",
-          createdAt: data.created_at,
-          created_at: data.created_at,
-          updatedAt: data.updated_at,
-          updated_at: data.updated_at
-        };
-        
-        return project;
+        return normalizeProject(data);
       }
       
       return null;
@@ -123,39 +130,7 @@ export class CanvasService {
         
       if (error) throw error;
       
-      // Ensure field compatibility for all scenes
-      const scenes: CanvasScene[] = data.map(scene => ({
-        id: scene.id,
-        projectId: scene.project_id,
-        project_id: scene.project_id,
-        title: scene.title || "",
-        description: scene.description || "",
-        script: scene.script || "",
-        imagePrompt: scene.image_prompt || "",
-        image_prompt: scene.image_prompt || "",
-        imageUrl: scene.image_url || "",
-        image_url: scene.image_url || "",
-        videoUrl: scene.video_url || "",
-        video_url: scene.video_url || "",
-        sceneOrder: scene.scene_order,
-        scene_order: scene.scene_order,
-        order: scene.scene_order,
-        createdAt: scene.created_at,
-        created_at: scene.created_at,
-        updatedAt: scene.updated_at,
-        updated_at: scene.updated_at,
-        voiceOverText: scene.voice_over_text || "",
-        voice_over_text: scene.voice_over_text || "",
-        productImageUrl: scene.product_image_url || "",
-        product_image_url: scene.product_image_url || "",
-        voiceOverUrl: scene.voice_over_url || "",
-        voice_over_url: scene.voice_over_url || "",
-        backgroundMusicUrl: scene.background_music_url || "",
-        background_music_url: scene.background_music_url || "",
-        duration: scene.duration || 0
-      }));
-      
-      return scenes;
+      return data.map(scene => normalizeScene(scene));
     } catch (error) {
       console.error("Error getting scenes:", error);
       throw error;
@@ -165,16 +140,14 @@ export class CanvasService {
   /**
    * Create a new scene
    */
-  async createScene(data: Partial<SceneData>): Promise<CanvasScene | null> {
-    if (!data.projectId && !data.project_id) {
+  async createScene(projectId: string, data: Partial<SceneData> = {}): Promise<CanvasScene | null> {
+    if (!projectId) {
       throw new Error("Project ID is required");
     }
     
-    const projectId = data.projectId || data.project_id;
-    
     try {
       // Ensure scene_order is set
-      if (!data.scene_order && !data.sceneOrder && !data.order) {
+      if (!data.scene_order && !data.sceneOrder) {
         const { data: existingScenes } = await supabase
           .from('canvas_scenes')
           .select('scene_order')
@@ -195,11 +168,11 @@ export class CanvasService {
         title: data.title || "New Scene",
         description: data.description || "",
         script: data.script || "",
-        image_prompt: data.imagePrompt || "",
-        image_url: data.imageUrl || "",
-        video_url: data.videoUrl || "",
-        scene_order: data.scene_order || data.sceneOrder || data.order || 1,
-        voice_over_text: data.voiceOverText || "",
+        image_prompt: data.imagePrompt || data.image_prompt || "",
+        image_url: data.imageUrl || data.image_url || "",
+        video_url: data.videoUrl || data.video_url || "",
+        scene_order: data.scene_order || data.sceneOrder || 1,
+        voice_over_text: data.voiceOverText || data.voice_over_text || "",
         product_image_url: data.productImageUrl || "",
         voice_over_url: data.voiceOverUrl || "",
         background_music_url: data.backgroundMusicUrl || "",
@@ -215,37 +188,7 @@ export class CanvasService {
       if (error) throw error;
       
       if (newScene) {
-        // Ensure field compatibility
-        return {
-          id: newScene.id,
-          projectId: newScene.project_id,
-          project_id: newScene.project_id,
-          title: newScene.title || "",
-          description: newScene.description || "",
-          script: newScene.script || "",
-          imagePrompt: newScene.image_prompt || "",
-          image_prompt: newScene.image_prompt || "",
-          imageUrl: newScene.image_url || "",
-          image_url: newScene.image_url || "",
-          videoUrl: newScene.video_url || "",
-          video_url: newScene.video_url || "",
-          sceneOrder: newScene.scene_order,
-          scene_order: newScene.scene_order,
-          order: newScene.scene_order,
-          createdAt: newScene.created_at,
-          created_at: newScene.created_at,
-          updatedAt: newScene.updated_at,
-          updated_at: newScene.updated_at,
-          voiceOverText: newScene.voice_over_text || "",
-          voice_over_text: newScene.voice_over_text || "",
-          productImageUrl: newScene.product_image_url || "",
-          product_image_url: newScene.product_image_url || "",
-          voiceOverUrl: newScene.voice_over_url || "",
-          voice_over_url: newScene.voice_over_url || "",
-          backgroundMusicUrl: newScene.background_music_url || "",
-          background_music_url: newScene.background_music_url || "",
-          duration: newScene.duration || 0
-        };
+        return normalizeScene(newScene);
       }
       
       return null;
@@ -274,7 +217,6 @@ export class CanvasService {
       if (updates.video_url !== undefined) dbUpdates.video_url = updates.video_url;
       if (updates.sceneOrder !== undefined) dbUpdates.scene_order = updates.sceneOrder;
       if (updates.scene_order !== undefined) dbUpdates.scene_order = updates.scene_order;
-      if (updates.order !== undefined) dbUpdates.scene_order = updates.order;
       if (updates.voiceOverText !== undefined) dbUpdates.voice_over_text = updates.voiceOverText;
       if (updates.voice_over_text !== undefined) dbUpdates.voice_over_text = updates.voice_over_text;
       if (updates.productImageUrl !== undefined) dbUpdates.product_image_url = updates.productImageUrl;

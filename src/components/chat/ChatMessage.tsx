@@ -49,6 +49,9 @@ export function ChatMessage({
       case 'image': return 'Image Generator';
       case 'tool': return 'Tool Specialist';
       case 'scene': return 'Scene Creator';
+      case 'data': return 'Data Agent';
+      case 'assistant': return 'Assistant';
+      case 'scene-generator': return 'Scene Generator';
       default: return message.agentType.charAt(0).toUpperCase() + message.agentType.slice(1);
     }
   };
@@ -58,6 +61,11 @@ export function ChatMessage({
       onEditContent(type, message.content, message.id);
     }
   };
+  
+  // Ensure message content exists and is a string
+  const safeContent = message.content ? 
+    (typeof message.content === 'string' ? message.content : JSON.stringify(message.content)) 
+    : '';
   
   return (
     <div className={`flex items-start gap-3 ${compact ? 'mb-2' : 'mb-4'}`}>
@@ -84,7 +92,7 @@ export function ChatMessage({
         </div>
         
         <div className="prose dark:prose-invert prose-sm max-w-none">
-          {message.content}
+          {safeContent}
         </div>
         
         {/* If there are attachments, we would render them here */}

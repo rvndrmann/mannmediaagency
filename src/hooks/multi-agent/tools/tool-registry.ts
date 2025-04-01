@@ -50,13 +50,8 @@ export const browserUseTool: ToolDefinition = {
   }
 };
 
-// Register all available tools
+// Helper function to get all available tools
 export const availableTools: ToolDefinition[] = [
   dataTool,
   browserUseTool
 ];
-
-// Function to get all available tools
-export const getAvailableTools = (): ToolDefinition[] => {
-  return [...availableTools];
-};

@@ -22,21 +22,29 @@ export interface ToolExecutionResult {
 
 export interface ToolContext {
   supabase: any;
-  user: any;
-  session: any;
   userId?: string;
+  sessionId?: string;
   projectId?: string;
-  [key: string]: any;
+  groupId?: string;
+  userCredits?: number;
+  metadata?: Record<string, any>;
+  usePerformanceModel?: boolean;
+  enableDirectToolExecution?: boolean;
+  addMessage?: (message: string, type: string) => void;
+  toolAvailable?: boolean; 
+  history?: any[];
+  tracingEnabled?: boolean;
+  user?: any;
+  session?: any;
 }
 
 export interface ToolDefinition {
   name: string;
   description: string;
-  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
   parameters: {
     type: string;
     properties: { [key: string]: any };
-    required: string[];
+    required?: string[];
   };
   metadata?: {
     category?: string;
@@ -45,4 +53,5 @@ export interface ToolDefinition {
   };
   requiredCredits?: number;
   version?: string;
+  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
 }

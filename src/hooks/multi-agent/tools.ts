@@ -1,7 +1,68 @@
 
-import { ToolContext, ToolExecutionResult, CommandExecutionState, ToolDefinition } from './tools/types';
-import { availableTools, getAvailableTools } from './tools/tool-registry';
-import { errorToString } from './common-types';
+import { ToolContext, ToolDefinition, ToolExecutionResult, CommandExecutionState } from './tools/types';
+import { dataTool } from './tools/data-tool';
+import { browserUseTool } from './tools/browser-use-tool';
+import { canvasTool } from './tools/default-tools/canvas-tool';
+
+// Helper to ensure error is a string
+export const errorToString = (error: unknown): string => {
+  if (error === null || error === undefined) {
+    return 'Unknown error';
+  }
+  
+  if (typeof error === 'string') {
+    return error;
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+};
+
+// Create wrapper for tool definitions to ensure error is always string
+export const adaptToolDefinition = (tool: any): ToolDefinition => {
+  const originalExecute = tool.execute;
+
+  return {
+    ...tool,
+    execute: async (parameters: any, context: ToolContext): Promise<ToolExecutionResult> => {
+      try {
+        const result = await originalExecute(parameters, context);
+        
+        // Ensure error is always a string if present
+        if (result.error) {
+          return {
+            ...result,
+            error: errorToString(result.error)
+          };
+        }
+        
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          message: `Error executing tool ${tool.name}: ${errorToString(error)}`,
+          error: errorToString(error),
+          state: CommandExecutionState.FAILED
+        };
+      }
+    }
+  };
+};
+
+// Adapt tools to ensure consistent types
+export const adaptedTools = [
+  adaptToolDefinition(dataTool),
+  adaptToolDefinition(browserUseTool),
+  adaptToolDefinition(canvasTool)
+];
+
+// Function to get all available tools
+export const getAvailableTools = (): ToolDefinition[] => {
+  return [...adaptedTools];
+};
 
 // Execute a tool by name with parameters
 export const executeTool = async (
@@ -29,66 +90,11 @@ export const executeTool = async (
     return await tool.execute(parameters, context);
   } catch (error) {
     console.error(`Error executing tool ${toolName}:`, error);
-    
     return {
       success: false,
-      message: `Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error: error instanceof Error ? error.message : String(error),
+      message: `Error executing tool: ${errorToString(error)}`,
+      error: errorToString(error),
       state: CommandExecutionState.FAILED
     };
   }
-};
-
-// Function to adapt a tool definition to ensure error is always a string
-export function adaptToolDefinition(tool: ToolDefinition): ToolDefinition {
-  return {
-    ...tool,
-    execute: async (params: any, context: ToolContext) => {
-      try {
-        // Call the original execute function
-        const result = await tool.execute(params, context);
-        
-        // Convert Error objects to strings for compatibility
-        const errorValue = result.error ? (result.error instanceof Error ? result.error.message : String(result.error)) : undefined;
-        
-        // Return an adapted result
-        return {
-          ...result,
-          error: errorValue
-        };
-      } catch (error) {
-        // Handle any errors from tool execution
-        console.error(`Error executing tool ${tool.name}:`, error);
-        const errorStr = error instanceof Error ? error.message : String(error);
-        return {
-          success: false,
-          message: `Error executing tool ${tool.name}: ${errorStr}`,
-          error: errorStr,
-          state: CommandExecutionState.FAILED
-        };
-      }
-    }
-  };
-}
-
-// Import the tools
-import { canvasTool } from './tools/canvas-tool';
-import { canvasContentTool } from './tools/canvas-content-tool';
-import { dataTool, browserUseTool } from './tools/tool-registry';
-import { productShotV2Tool } from './tools/product-shot-v2-tool';
-import { imageToVideoTool } from './tools/image-to-video-tool';
-
-// Create a list of adapted tools
-export const adaptedTools = [
-  adaptToolDefinition(canvasTool),
-  adaptToolDefinition(canvasContentTool),
-  adaptToolDefinition(dataTool),
-  adaptToolDefinition(browserUseTool),
-  adaptToolDefinition(productShotV2Tool),
-  adaptToolDefinition(imageToVideoTool)
-];
-
-// Function to get all available tools
-export const getAdaptedTools = (): ToolDefinition[] => {
-  return [...adaptedTools];
 };

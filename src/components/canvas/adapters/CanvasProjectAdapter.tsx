@@ -65,7 +65,7 @@ export const CanvasSidebarAdapter = ({
   project: CanvasProject | null;
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string | null) => void;
-  createScene: (projectId: string, data: any) => Promise<any>;
+  createScene: (projectId: string, data: any) => Promise<string>;
   deleteScene: (id: string) => Promise<void>;
   loading?: boolean;
 }) => {
@@ -114,7 +114,7 @@ export const CanvasWorkspaceAdapter = ({
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string | null) => void;
   updateScene: (id: string, type: string, value: string) => Promise<void>;
-  addScene: () => Promise<any>;
+  addScene: () => Promise<string>;
   deleteScene: (id: string) => Promise<void>;
   divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
@@ -144,7 +144,7 @@ export const CanvasWorkspaceAdapter = ({
 export const CanvasDetailPanelAdapter = ({ 
   scene,
   projectId,
-  updateScene: onUpdateScene,
+  updateScene,
   collapsed,
   setCollapsed
 }: { 
@@ -158,7 +158,7 @@ export const CanvasDetailPanelAdapter = ({
     <CanvasDetailPanel 
       scene={scene}
       projectId={projectId}
-      updateScene={onUpdateScene}
+      updateScene={updateScene}
       collapsed={collapsed}
       setCollapsed={setCollapsed}
     />
@@ -171,8 +171,8 @@ export const CanvasScriptPanelAdapter = ({
   projectId,
   onUpdateScene,
   onClose,
-  onSaveFullScript: saveFullScript,
-  onDivideScriptToScenes: divideScriptToScenes
+  onSaveFullScript,
+  onDivideScriptToScenes
 }: { 
   project: CanvasProject | null;
   projectId: string;
@@ -187,8 +187,8 @@ export const CanvasScriptPanelAdapter = ({
       projectId={projectId}
       onUpdateScene={onUpdateScene}
       onClose={onClose}
-      saveFullScript={saveFullScript}
-      divideScriptToScenes={divideScriptToScenes}
+      saveFullScript={onSaveFullScript}
+      divideScriptToScenes={onDivideScriptToScenes}
     />
   );
 };

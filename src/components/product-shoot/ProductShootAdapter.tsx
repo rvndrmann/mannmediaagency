@@ -1,6 +1,20 @@
 
 import React from 'react';
-import { ProductShotFormData, ProductShotSettings, GeneratedImage } from '@/types/product-shoot';
+import { ProductShotFormData, GeneratedImage } from '@/types/product-shoot';
+
+// Define the correct settings interface here to match what's in the types
+export interface ProductShootSettings {
+  sourceImageUrl: string;
+  prompt: string;
+  stylePreset: string;
+  version: string;
+  placement: string;
+  background: string;
+  outputFormat: string;
+  imageWidth: number;
+  imageHeight: number;
+  quality: string;
+}
 
 export interface ProductShootAdapterProps {
   formData: ProductShotFormData;
@@ -8,13 +22,13 @@ export interface ProductShootAdapterProps {
   isSubmitting: boolean;
   error: string;
   availableCredits: number;
-  handleProductShotSubmit: (formData: ProductShotFormData) => Promise<boolean>;
+  handleProductShotSubmit: (formData: ProductShotFormData) => Promise<void>;
   retryStatusCheck: (imageId: string) => Promise<boolean>;
   clearImages: () => void;
   
   // We'll provide these as defaults
-  settings?: ProductShotSettings;
-  setSettings?: (settings: ProductShotSettings) => void;
+  settings?: ProductShootSettings;
+  setSettings?: (settings: ProductShootSettings) => void;
   isGenerating?: boolean;
   generatedImages?: GeneratedImage[];
   savedImages?: GeneratedImage[];
@@ -30,7 +44,7 @@ export interface ProductShootAdapterProps {
 
 // Adapter function that provides default implementation for missing methods
 export function adaptProductShootProps(props: ProductShootAdapterProps): any {
-  const defaultSettings: ProductShotSettings = {
+  const defaultSettings: ProductShootSettings = {
     sourceImageUrl: '',
     prompt: '',
     stylePreset: 'product',
@@ -82,7 +96,7 @@ export function adaptProductShootProps(props: ProductShootAdapterProps): any {
   return {
     ...props,
     settings: props.settings || defaultSettings,
-    setSettings: props.setSettings || ((settings: ProductShotSettings) => {}),
+    setSettings: props.setSettings || ((settings: ProductShootSettings) => {}),
     isGenerating: props.isGenerating || props.isSubmitting,
     generatedImages: props.generatedImages || props.images || [],
     savedImages: props.savedImages || [],

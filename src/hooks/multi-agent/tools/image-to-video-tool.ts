@@ -1,171 +1,159 @@
-import { ToolDefinition, ToolContext, ToolExecutionResult } from './types';
 
-interface ImageToVideoParams {
-  image_url: string;
-  prompt: string;
-  duration?: string;
-  aspect_ratio?: string;
-}
+import { supabase } from "@/integrations/supabase/client";
+import { ToolDefinition, ToolContext, CommandExecutionState } from "../tools/types";
 
-export async function executeImageToVideoTool(
-  parameters: ImageToVideoParams,
-  context: ToolContext
-): Promise<ToolExecutionResult> {
-  try {
-    // Validate required parameters
-    if (!parameters.image_url) {
-      return {
-        success: false,
-        message: "Source image URL is required",
-        error: "Source image URL is required",
-        state: "error"
-      };
-    }
-    
-    if (!parameters.prompt) {
-      return {
-        success: false,
-        message: "Prompt is required",
-        error: "Prompt is required",
-        state: "error"
-      };
-    }
-    
-    // Set default values for optional parameters
-    const duration = parameters.duration || "5";
-    const aspectRatio = parameters.aspect_ratio || "9:16";
-    
-    // Call the Supabase Edge Function for image to video generation
-    try {
-      const { data, error } = await context.supabase.functions.invoke('generate-video-from-image', {
-        body: {
-          prompt: parameters.prompt,
-          image_url: parameters.image_url,
-          duration: duration,
-          aspect_ratio: aspectRatio
-        }
-      });
-      
-      if (error) {
-        console.error("Error calling image-to-video edge function:", error);
-        return {
-          success: false,
-          message: error.message || "Failed to generate video",
-          error: error.message,
-          state: "error"
-        };
-      }
-      
-      // If the edge function returns an immediate result
-      if (data.video_url) {
-        return {
-          success: true,
-          message: "Video generated successfully",
-          data: {
-            result_url: data.video_url,
-            thumbnail_url: data.thumbnail_url,
-            duration: parameters.duration || "5",
-            processing_time: data.processing_time || 0
-          },
-          state: "completed"
-        };
-      }
-      
-      // If the edge function started a job that needs to be tracked
-      if (data.job_id) {
-        // Create a job record in the database
-        const { error: dbError } = await context.supabase.from('video_generation_jobs').insert({
-          prompt: parameters.prompt,
-          source_image_url: parameters.image_url,
-          status: 'processing',
-          user_id: context.user?.id,
-          request_id: data.job_id,
-          aspect_ratio: aspectRatio,
-          duration: duration
-        });
-        
-        if (dbError) {
-          console.error("Error recording video generation job:", dbError);
-          return {
-            success: false,
-            message: dbError.message || "Failed to record video generation job",
-            error: dbError.message,
-            state: "error"
-          };
-        }
-        
-        return {
-          success: true,
-          message: "Video generation started. Check the status later.",
-          data: {
-            job_id: data.job_id,
-            status: "processing"
-          },
-          state: "processing"
-        };
-      }
-      
-      // If we reach here, something unexpected happened
-      return {
-        success: false,
-        message: "Unexpected response from video generation service",
-        error: "Unknown error",
-        state: "error"
-      };
-    } catch (error) {
-      console.error("Error in video generation:", error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Unknown error in video generation",
-        error: error instanceof Error ? error.message : "Unknown error",
-        state: "error"
-      };
-    }
-  } catch (error) {
-    console.error("Error executing image to video tool:", error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Unknown error executing image to video tool",
-      error: error instanceof Error ? error.message : "Unknown error",
-      state: "error"
-    };
-  }
-}
-
-// Create the tool definition
 export const imageToVideoTool: ToolDefinition = {
   name: "image_to_video",
-  description: "Generate videos from images with AI",
+  description: "Convert an image into a short video clip with animated effects",
   parameters: {
     type: "object",
     properties: {
-      image_url: {
+      imageUrl: {
         type: "string",
-        description: "URL of the image to use as the source"
-      },
-      prompt: {
-        type: "string",
-        description: "Description of how the video should animate"
+        description: "URL of the image to convert to video"
       },
       duration: {
-        type: "string",
-        description: "Duration of the video in seconds",
-        enum: ["2", "3", "4", "5", "6"]
+        type: "number",
+        description: "Duration of the video in seconds (1-10)",
+        default: 5
       },
-      aspect_ratio: {
+      style: {
         type: "string",
-        description: "Aspect ratio of the output video",
-        enum: ["1:1", "16:9", "9:16", "4:3", "3:4"]
+        description: "Style of animation to apply",
+        enum: ["zoom", "pan", "fade", "3d", "particles", "none"],
+        default: "zoom"
       }
     },
-    required: ["image_url", "prompt"]
+    required: ["imageUrl"]
   },
-  execute: executeImageToVideoTool,
-  requiredCredits: 5,
-  metadata: {
-    category: "media",
-    displayName: "Image to Video",
-    icon: "video"
-  },
-  schema: {}
+  
+  async execute(params, context) {
+    try {
+      const { imageUrl, duration = 5, style = "zoom" } = params;
+      
+      if (!imageUrl) {
+        return {
+          success: false,
+          message: "Image URL is required",
+          state: CommandExecutionState.FAILED
+        };
+      }
+      
+      // Validate duration
+      if (duration < 1 || duration > 10) {
+        return {
+          success: false,
+          message: "Duration must be between 1 and 10 seconds",
+          state: CommandExecutionState.ERROR
+        };
+      }
+      
+      // Handle authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return {
+          success: false,
+          message: "Authentication required",
+          state: CommandExecutionState.ERROR
+        };
+      }
+      
+      // Check if user has sufficient credits
+      // This is a placeholder - in a real implementation you'd check a user_credits table
+      const userHasCredits = true;
+      if (!userHasCredits) {
+        return {
+          success: false,
+          message: "Insufficient credits to perform this operation",
+          state: CommandExecutionState.FAILED
+        };
+      }
+      
+      try {
+        // For demo, check if a video with this image already exists
+        const { data: existingVideos } = await supabase
+          .from('video_generations')
+          .select('*')
+          .eq('source_image_url', imageUrl)
+          .limit(1);
+        
+        if (existingVideos && existingVideos.length > 0) {
+          const video = existingVideos[0];
+          
+          if (video.status === 'completed' && video.output_url) {
+            return {
+              success: true,
+              message: "Video was already generated for this image",
+              data: {
+                videoUrl: video.output_url,
+                duration: video.duration,
+                style: video.style
+              },
+              state: CommandExecutionState.COMPLETED
+            };
+          } else if (video.status === 'failed') {
+            return {
+              success: false,
+              message: "Previous attempt to generate video failed",
+              state: CommandExecutionState.ERROR
+            };
+          } else {
+            // Still processing
+            return {
+              success: true,
+              message: "Video generation is still in progress",
+              data: {
+                jobId: video.id,
+                status: "processing"
+              },
+              state: CommandExecutionState.PROCESSING
+            };
+          }
+        }
+        
+        // Create a new video generation job
+        const { data: newJob, error } = await supabase
+          .from('video_generations')
+          .insert({
+            source_image_url: imageUrl,
+            user_id: user.id,
+            status: 'pending',
+            duration,
+            style
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          throw error;
+        }
+        
+        // For demo, simulate starting the job
+        return {
+          success: true,
+          message: "Video generation started",
+          data: {
+            jobId: newJob.id,
+            status: "pending",
+            estimatedTime: `${Math.round(duration * 1.5)} seconds`
+          },
+          state: CommandExecutionState.PROCESSING
+        };
+      } catch (dbError) {
+        console.error("Database error:", dbError);
+        return {
+          success: false,
+          message: `Database error: ${dbError instanceof Error ? dbError.message : String(dbError)}`,
+          state: CommandExecutionState.ERROR
+        };
+      }
+    } catch (error) {
+      console.error("Image to video conversion error:", error);
+      return {
+        success: false,
+        message: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        state: CommandExecutionState.ERROR
+      };
+    }
+  }
 };

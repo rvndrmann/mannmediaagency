@@ -1,6 +1,6 @@
 
-import { ToolDefinition as MultiAgentToolDefinition } from './types';
-import { ToolDefinition as ToolsToolDefinition, CommandExecutionState } from './tools/types';
+import { ToolDefinition as MultiAgentToolDefinition, CommandExecutionState, ToolContext } from './types';
+import { ToolDefinition as ToolsToolDefinition } from './tools/types';
 import { canvasTool } from './tools/canvas-tool';
 import { canvasContentTool } from './tools/canvas-content-tool';
 import { dataTool } from './tools/tool-registry';
@@ -18,20 +18,39 @@ export function adaptToolDefinition(tool: ToolsToolDefinition): MultiAgentToolDe
         ...context,
         // Add missing properties that the original execute might expect
         user: context.user || null,
-        session: context.session || null,
+        session: context.session || context.sessionId ? { id: context.sessionId } : null,
         supabase: context.supabase
       };
       
       // Call the original execute function
       const result = await tool.execute(params, adaptedContext);
       
-      // Convert the state enum if needed
+      // Ensure the state is converted to the correct enum value
       let state = result.state;
       if (typeof state === 'string') {
-        if (state === 'completed') state = CommandExecutionState.COMPLETED;
-        if (state === 'failed') state = CommandExecutionState.FAILED;
-        if (state === 'processing') state = CommandExecutionState.PROCESSING;
-        if (state === 'error') state = CommandExecutionState.ERROR;
+        switch(state) {
+          case 'completed': 
+            state = CommandExecutionState.COMPLETED;
+            break;
+          case 'failed': 
+            state = CommandExecutionState.FAILED;
+            break;
+          case 'processing': 
+            state = CommandExecutionState.PROCESSING;
+            break;
+          case 'error': 
+            state = CommandExecutionState.ERROR;
+            break;
+          case 'pending':
+            state = CommandExecutionState.PENDING;
+            break;
+          case 'running':
+            state = CommandExecutionState.RUNNING;
+            break;
+          case 'cancelled':
+            state = CommandExecutionState.CANCELLED;
+            break;
+        }
       }
       
       // Return an adapted result

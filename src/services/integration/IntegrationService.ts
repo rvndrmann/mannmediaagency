@@ -1,7 +1,5 @@
-
-import { MCPService } from './MCPService';
 import { supabase } from '@/integrations/supabase/client';
-import { WorkflowState } from '@/types/canvas'; 
+import { MCPService } from './MCPService';
 
 export class IntegrationService {
   private static instance: IntegrationService;
@@ -17,71 +15,77 @@ export class IntegrationService {
     }
     return IntegrationService.instance;
   }
-  
-  // MCP Connection methods
-  async connectToMCPServer(url: string, projectId: string): Promise<boolean> {
-    return this.mcpService.connectToServer(url, projectId);
+
+  async connectToMcpServer(url: string, projectId: string): Promise<boolean> {
+    try {
+      return await this.mcpService.connectToServer(url, projectId);
+    } catch (error) {
+      console.error('Error connecting to MCP server:', error);
+      return false;
+    }
   }
   
-  getMCPConnectionUrl(projectId: string): string | null {
+  async initMcpForProject(projectId: string): Promise<boolean> {
+    try {
+      const mcpUrl = process.env.REACT_APP_MCP_URL || 'https://api.mcp-server.com';
+      return await this.connectToMcpServer(mcpUrl, projectId);
+    } catch (error) {
+      console.error('Error initializing MCP for project:', error);
+      return false;
+    }
+  }
+
+  getMcpConnectionUrlForProject(projectId: string): string | null {
     return this.mcpService.getConnectionUrl(projectId);
   }
-  
-  // Workflow methods
-  async getWorkflowState(projectId: string): Promise<WorkflowState | null> {
+
+  async getWorkflowState(projectId: string): Promise<any> {
     try {
-      // Use RPC call instead of direct table access
-      const { data, error } = await supabase.rpc('get_workflow_state', {
-        p_project_id: projectId
-      });
+      const { data, error } = await supabase
+        .from('workflow_state')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (error) throw error;
       
-      if (error) {
-        console.error('Error fetching workflow state:', error);
-        return null;
-      }
-      
-      return data as WorkflowState;
+      return data && data.length > 0 ? data[0] : null;
     } catch (error) {
-      console.error('Error in getWorkflowState:', error);
+      console.error('Error getting workflow state:', error);
       return null;
     }
   }
   
   async startVideoWorkflow(projectId: string): Promise<boolean> {
     try {
-      // Use RPC call instead of direct table access
-      const { data, error } = await supabase.rpc('start_video_workflow', {
-        p_project_id: projectId
-      });
+      const { data, error } = await supabase
+        .rpc('start_video_workflow', { 
+          p_project_id: projectId 
+        });
+        
+      if (error) throw error;
       
-      if (error) {
-        console.error('Error starting video workflow:', error);
-        return false;
-      }
-      
-      return data as boolean;
+      return !!data;
     } catch (error) {
-      console.error('Error in startVideoWorkflow:', error);
+      console.error('Error starting video workflow:', error);
       return false;
     }
   }
   
-  async retryWorkflowFromStage(projectId: string, stageName: string): Promise<boolean> {
+  async retryWorkflowFromStage(projectId: string, stage: string): Promise<boolean> {
     try {
-      // Use RPC call instead of direct table access
-      const { data, error } = await supabase.rpc('retry_workflow_from_stage', {
-        p_project_id: projectId,
-        p_stage_name: stageName
-      });
+      const { data, error } = await supabase
+        .rpc('retry_workflow_from_stage', { 
+          p_project_id: projectId,
+          p_stage: stage 
+        });
+        
+      if (error) throw error;
       
-      if (error) {
-        console.error('Error retrying workflow stage:', error);
-        return false;
-      }
-      
-      return data as boolean;
+      return !!data;
     } catch (error) {
-      console.error('Error in retryWorkflowFromStage:', error);
+      console.error('Error retrying workflow:', error);
       return false;
     }
   }

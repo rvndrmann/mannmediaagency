@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -44,23 +43,22 @@ export default function Canvas() {
     }
   }, [location.search]);
   
-  const handleCreateProject = async (title: string) => {
+  const handleCreateProject = async (title: string): Promise<string> => {
     try {
-      const projectId = await createProject(title);
-      
-      if (projectId) {
+      const result = await createProject(title);
+      if (result) {
         toast.success(`Project "${title}" created successfully!`);
-        setSelectedProjectId(projectId);
+        setSelectedProjectId(result.id);
         // Navigate to the editor tab
         setActiveTab('editor');
         // Update URL with project ID
-        navigate(`/canvas?projectId=${projectId}`, { replace: true });
-        return projectId;
+        navigate(`/canvas?projectId=${result.id}`, { replace: true });
+        return result.id;
       }
     } catch (error) {
       toast.error(`Failed to create project: ${error}`);
     }
-    return null;
+    return ''; // Return empty string as fallback
   };
   
   const handleSelectProject = (projectId: string) => {

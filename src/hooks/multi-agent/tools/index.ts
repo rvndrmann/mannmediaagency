@@ -1,65 +1,72 @@
 
-import { CommandExecutionState, ToolContext, ToolExecutionResult } from "../types";
-import { availableTools as registeredTools, getToolByName } from "./tool-registry";
-import { canvasTool } from "./canvas-tool";
-import { canvasProjectTool } from "./default-tools/canvas-project-tool"; 
+import { ToolDefinition, ToolContext, ToolExecutionResult } from '../types';
+import { browserUseTool } from './browser-use-tool';
+import { canvasTool } from './canvas-tool';
+import { toast } from 'sonner';
 
-// Export the tools for use in other modules
-export { canvasTool, canvasProjectTool };
+// Track registered tools
+export let availableTools: ToolDefinition[] = [];
 
-// Also export the tools registry
-export const availableTools = registeredTools;
+// Initialize tools and register them
+export const initializeToolSystem = async (): Promise<void> => {
+  try {
+    // Register core tools
+    registerTool(browserUseTool);
+    registerTool(canvasTool);
+    
+    // Register more tools here as needed
+    
+    console.log(`Tool system initialized with ${availableTools.length} tools available`);
+  } catch (error) {
+    console.error("Error initializing tool system:", error);
+    throw error;
+  }
+};
 
-/**
- * Execute a tool by name with the given parameters and context
- */
+// Register a tool with the system
+export const registerTool = (tool: ToolDefinition): void => {
+  // Check if tool with this name already exists
+  const existingToolIndex = availableTools.findIndex(t => t.name === tool.name);
+  
+  if (existingToolIndex >= 0) {
+    // Replace existing tool
+    availableTools[existingToolIndex] = tool;
+    console.log(`Updated existing tool: ${tool.name}`);
+  } else {
+    // Add new tool
+    availableTools.push(tool);
+    console.log(`Registered new tool: ${tool.name}`);
+  }
+};
+
+// Execute a specific tool by name
 export const executeTool = async (
-  toolName: string, 
-  parameters: any, 
+  toolName: string,
+  parameters: any,
   context: ToolContext
 ): Promise<ToolExecutionResult> => {
-  // Find the tool by name
-  const tool = getToolByName(toolName);
-  
-  if (!tool) {
-    console.warn(`Tool ${toolName} not found`);
-    return {
-      success: false,
-      message: `Tool ${toolName} not found or is not available`,
-      state: CommandExecutionState.FAILED
-    };
-  }
-
-  // Check if the tool requires credits and if user has enough
-  if (tool.requiredCredits && context.userCredits !== undefined && context.userCredits < tool.requiredCredits) {
-    return {
-      success: false,
-      message: `Insufficient credits to use tool ${toolName}. Required: ${tool.requiredCredits}, Available: ${context.userCredits}`,
-      state: CommandExecutionState.FAILED
-    };
-  }
-
   try {
-    // Execute the tool
-    const result = await tool.execute(parameters, context);
-    return result;
+    const tool = availableTools.find(t => t.name === toolName);
+    
+    if (!tool) {
+      throw new Error(`Tool '${toolName}' not found`);
+    }
+    
+    console.log(`Executing tool: ${toolName}`, parameters);
+    return await tool.execute(parameters, context);
   } catch (error) {
     console.error(`Error executing tool ${toolName}:`, error);
+    toast.error(`Tool execution error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
     return {
       success: false,
-      message: `Error executing tool ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error: error instanceof Error ? error.message : String(error),
+      message: `Failed to execute tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
       state: CommandExecutionState.ERROR
     };
   }
 };
 
-// Initialize the tool system
-export const initializeTools = () => {
-  console.log(`Initialized ${availableTools.length} tools`);
-};
-
-// Function to get all available tools
-export const getAvailableTools = () => {
-  return registeredTools;
+// Get all available tools
+export const getAvailableTools = (): ToolDefinition[] => {
+  return [...availableTools];
 };

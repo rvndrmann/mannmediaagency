@@ -13,7 +13,7 @@ export async function initializeMultiAgentSystem(): Promise<void> {
     }
     
     // Initialize OpenAI integration if available
-    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
     if (openaiApiKey) {
       console.log("OpenAI API key found, AI capabilities will be available");
     } else {

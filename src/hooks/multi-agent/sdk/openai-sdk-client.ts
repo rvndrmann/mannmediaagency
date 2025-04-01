@@ -12,7 +12,7 @@ const initializeOpenAI = async () => {
     const { default: OpenAI } = await import('openai');
     
     openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || '',
+      apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
       dangerouslyAllowBrowser: true // Note: In production, use backend calls instead
     });
     

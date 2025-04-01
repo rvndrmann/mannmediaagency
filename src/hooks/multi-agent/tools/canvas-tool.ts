@@ -1,12 +1,12 @@
 
 import { ToolDefinition, CommandExecutionState, ToolContext, ToolExecutionResult } from '../types';
 import { supabase } from '@/integrations/supabase/client';
-import OpenAI from 'openai';
 import { toast } from 'sonner';
+import OpenAI from 'openai';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
   dangerouslyAllowBrowser: true // Note: In production, use backend calls instead
 });
 
@@ -188,7 +188,7 @@ Create a detailed prompt for AI image generation that includes visual style, com
         // Update the scene with the generated image prompt
         const { error } = await supabase
           .from('canvas_scenes')
-          .update({ imagePrompt })
+          .update({ image_prompt: imagePrompt })
           .eq('id', sceneId);
         
         if (error) {

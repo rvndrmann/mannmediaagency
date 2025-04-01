@@ -1,9 +1,9 @@
 
 export enum CommandExecutionState {
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-  PROCESSING = "PROCESSING",
-  ERROR = "ERROR"
+  COMPLETED = "completed",
+  FAILED = "failed",
+  PROCESSING = "processing",
+  ERROR = "error"
 }
 
 export interface ToolExecutionResult {

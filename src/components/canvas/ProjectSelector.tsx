@@ -1,199 +1,136 @@
-
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, ArrowLeft, Edit, Trash } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useCanvasProjects } from "@/hooks/use-canvas-projects";
-import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { Plus, Search } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CanvasProject } from "@/types/canvas";
 
 interface ProjectSelectorProps {
+  projects: CanvasProject[];
+  selectedProjectId: string | null;
+  onCreateProject: (title: string) => Promise<void>;
   onSelectProject: (id: string) => void;
-  onBack: () => void;
-  onCreateProject?: (title: string) => Promise<string | null>;
 }
 
-export function ProjectSelector({ 
-  onSelectProject, 
-  onBack,
-  onCreateProject 
+export function ProjectSelector({
+  projects,
+  selectedProjectId,
+  onCreateProject,
+  onSelectProject,
 }: ProjectSelectorProps) {
-  const { projects, isLoading, createProject, deleteProject, refreshProjects } = useCanvasProjects();
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newProjectTitle, setNewProjectTitle] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    refreshProjects();
-  }, [refreshProjects]);
+  const filteredProjects = projects.filter((project) =>
+    project.title.toLowerCase().includes(search.toLowerCase())
+  );
 
-  const handleCreateProject = async () => {
-    if (!newProjectTitle.trim()) {
-      toast.error("Please enter a project title");
-      return;
-    }
-
-    setIsCreating(true);
-    try {
-      let projectId;
-      
-      if (onCreateProject) {
-        projectId = await onCreateProject(newProjectTitle);
-      } else {
-        const newProject = await createProject(newProjectTitle);
-        projectId = newProject?.id;
-      }
-
-      if (projectId) {
-        setShowCreateDialog(false);
-        setNewProjectTitle('');
-        await refreshProjects();
-        onSelectProject(projectId);
-      }
-    } catch (error) {
-      console.error("Error creating project:", error);
-      toast.error("Failed to create project");
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleDeleteProject = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    if (confirm('Are you sure you want to delete this project?')) {
-      try {
-        await deleteProject(id);
-        toast.success("Project deleted successfully");
-        await refreshProjects();
-      } catch (error) {
-        console.error("Error deleting project:", error);
-        toast.error("Failed to delete project");
-      }
-    }
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    await onCreateProject(title);
+    setOpen(false);
+    setTitle("");
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h2 className="text-xl font-semibold">My Projects</h2>
+    <div className="w-64 border-r flex flex-col bg-secondary">
+      <div className="p-4 border-b">
+        <Label htmlFor="search" className="sr-only">
+          Search projects
+        </Label>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="search"
+            placeholder="Search projects..."
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        
-        <Button 
-          onClick={() => setShowCreateDialog(true)}
-          className="flex items-center gap-2"
-        >
-          <PlusCircle className="h-4 w-4" />
-          New Project
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="py-2">
+          {filteredProjects.map((project) => (
+            <ProjectItem
+              key={project.id}
+              project={project}
+              isSelected={project.id === selectedProjectId}
+              onSelect={onSelectProject}
+            />
+          ))}
+        </div>
+      </ScrollArea>
+      <div className="p-4 border-t">
+        <Button variant="outline" className="w-full" onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Project
         </Button>
       </div>
-      
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <Card key={i} className="cursor-pointer">
-              <CardHeader>
-                <Skeleton className="h-4 w-3/4" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-2/3" />
-              </CardContent>
-              <CardFooter>
-                <Skeleton className="h-4 w-1/4" />
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : projects.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map(project => (
-            <Card 
-              key={project.id} 
-              className="cursor-pointer hover:border-primary transition-colors"
-              onClick={() => onSelectProject(project.id)}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="truncate">{project.title || 'Untitled Project'}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => handleDeleteProject(project.id, e)}
-                  >
-                    <Trash className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground truncate">
-                  {project.description || 'No description'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {new Date(project.createdAt || project.created_at).toLocaleDateString()}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center p-12 border rounded-lg bg-muted/10">
-          <h3 className="text-lg font-medium mb-2">No projects found</h3>
-          <p className="text-muted-foreground mb-4">
-            Create your first project to get started with Canvas
-          </p>
-          <Button 
-            onClick={() => setShowCreateDialog(true)}
-            className="flex items-center gap-2"
-          >
-            <PlusCircle className="h-4 w-4" />
-            Create New Project
-          </Button>
-        </div>
-      )}
-      
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
+            <DialogTitle>Create Project</DialogTitle>
+            <DialogDescription>
+              Give your project a title. You can always change this later.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Input
-                placeholder="Project Title"
-                value={newProjectTitle}
-                onChange={(e) => setNewProjectTitle(e.target.value)}
-              />
+          <form className="mt-4" onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  placeholder="My awesome project"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <Button type="submit" className="w-full">
+                  Create
+                </Button>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateDialog(false)}
-              disabled={isCreating}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleCreateProject}
-              disabled={isCreating || !newProjectTitle.trim()}
-            >
-              {isCreating ? 'Creating...' : 'Create Project'}
-            </Button>
-          </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
+const ProjectItem: React.FC<{
+  project: CanvasProject;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}> = ({ project, isSelected, onSelect }) => {
+  return (
+    <div 
+      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+        isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-accent'
+      }`}
+      onClick={() => onSelect(project.id)}
+    >
+      <h3 className="font-medium">{project.title}</h3>
+      <div className="flex items-center justify-between mt-2">
+        <span className="text-sm text-muted-foreground">
+          {new Date(project.created_at || '').toLocaleDateString()}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {/* Use created_at instead of createdAt */}
+          {project.created_at ? new Date(project.created_at).toLocaleDateString() : 'No date'}
+        </span>
+      </div>
+    </div>
+  );
+};

@@ -1,5 +1,4 @@
-
-import { CommandExecutionState, ToolContext, ToolExecutionResult } from '../types';
+import { CommandExecutionState, ToolContext, ToolExecutionResult } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -186,14 +185,17 @@ export async function executeProductShotV2Tool(
 // Helper function to track tool usage
 async function trackToolUsage(userId: string, toolName: string, creditsUsed: number): Promise<void> {
   try {
-    await supabase.from('tool_usage').insert([
-      {
-        user_id: userId,
-        tool_name: toolName,
-        credits_used: creditsUsed,
-        used_at: new Date().toISOString()
-      }
-    ]);
+    // Instead of directly inserting into tool_usage table, use RPC call
+    // since the table might not exist in the schema
+    const { error } = await supabase.rpc('track_tool_usage', {
+      p_user_id: userId,
+      p_tool_name: toolName,
+      p_credits_used: creditsUsed
+    });
+    
+    if (error) {
+      console.error("Error tracking tool usage:", error);
+    }
   } catch (error) {
     console.error("Error tracking tool usage:", error);
     // Don't fail the main operation if tracking fails

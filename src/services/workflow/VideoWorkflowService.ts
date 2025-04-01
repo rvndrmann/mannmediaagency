@@ -677,12 +677,21 @@ export class VideoWorkflowService {
       if (data?.videoUrl) {
         const { error: updateError } = await supabase
           .from('canvas_projects')
-          .update({ final_video_url: data.videoUrl })
+          .update({
+            updated_at: new Date().toISOString(),
+            description: `Video generated: ${data.videoUrl}`
+          })
           .eq('id', projectId);
           
         if (updateError) {
           throw updateError;
         }
+        
+        // Also store in a separate table that supports this field
+        await supabase.rpc('store_project_video', {
+          p_project_id: projectId,
+          p_video_url: data.videoUrl
+        });
       }
       
       return true;
@@ -743,6 +752,38 @@ export class VideoWorkflowService {
       return await this.processWorkflowStage(workflow, userId);
     } catch (error) {
       console.error("Error retrying workflow stage:", error);
+      return false;
+    }
+  }
+  
+  /**
+   * Update project with final video URL
+   */
+  async updateProjectWithFinalVideo(projectId: string, videoUrl: string): Promise<boolean> {
+    try {
+      // Use an update call with valid fields only
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .update({
+          updated_at: new Date().toISOString(),
+          description: `Video generated: ${videoUrl}`
+        })
+        .eq('id', projectId);
+      
+      // Also store in a separate table that supports this field
+      await supabase.rpc('store_project_video', {
+        p_project_id: projectId,
+        p_video_url: videoUrl
+      });
+      
+      if (error) {
+        console.error('Error updating project with final video:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error in updateProjectWithFinalVideo:', error);
       return false;
     }
   }

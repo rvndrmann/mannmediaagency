@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { Message, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";

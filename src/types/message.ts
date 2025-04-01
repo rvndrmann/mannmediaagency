@@ -47,7 +47,7 @@ export interface Attachment {
 
 export interface Task {
   id: string;
-  type: string; // Added this required property
+  type: string; // Required property
   status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'error' | 'working';
   result?: any;
   error?: string;

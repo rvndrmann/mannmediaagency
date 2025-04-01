@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { AgentSDKWorkflowManager } from './sdk/AgentSDKWorkflowManager';
 import { WorkflowStage, WorkflowState } from '@/types/canvas';
@@ -14,7 +13,7 @@ export function useAgentSDKWorkflow({ projectId }: UseAgentSDKWorkflowProps = {}
   const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentStage, setCurrentStage] = useState<WorkflowStage | null>(null);
-  const { project } = useCanvasProjects(projectId);
+  const { project } = useCanvasProjects();
   
   // Initialize the workflow manager when project ID changes
   useEffect(() => {

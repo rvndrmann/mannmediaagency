@@ -1,28 +1,23 @@
+
 import { supabase } from "@/integrations/supabase/client";
-import { MCPService } from "@/services/mcp/MCPService";
-import { CanvasProject, CanvasScene, SceneData } from "@/types/canvas";
+import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from "@/types/canvas";
+import { mapSceneUpdateTypeToDbField } from "@/utils/canvas-data-utils";
+import { normalizeProject, normalizeScene } from "@/utils/canvas-data-utils";
 
 export class CanvasService {
-  // Static instance for singleton pattern
   private static instance: CanvasService;
   
-  // Private constructor for singleton pattern
   private constructor() {}
   
-  /**
-   * Get the singleton instance
-   */
   public static getInstance(): CanvasService {
     if (!CanvasService.instance) {
       CanvasService.instance = new CanvasService();
     }
     return CanvasService.instance;
   }
-
-  /**
-   * Get all canvas projects for the current user
-   */
-  public async getProjects(): Promise<CanvasProject[]> {
+  
+  // Fetch all projects for current user
+  public async fetchProjects(): Promise<CanvasProject[]> {
     try {
       const { data, error } = await supabase
         .from('canvas_projects')
@@ -31,28 +26,19 @@ export class CanvasService {
       
       if (error) throw error;
       
-      // Transform the data to ensure compatibility with both user_id and userId
-      return data.map(project => ({
-        ...project,
-        userId: project.user_id, // Add userId
-        fullScript: project.full_script, // Map full_script to fullScript
-        createdAt: project.created_at, // Map created_at to createdAt
-        updatedAt: project.updated_at, // Map updated_at to updatedAt
-        user_id: project.user_id, // Keep user_id for compatibility
-        scenes: []
-      }));
+      // Normalize the projects to ensure consistent properties
+      return (data || []).map(project => normalizeProject(project));
     } catch (error) {
       console.error("Error fetching projects:", error);
       return [];
     }
   }
-
-  /**
-   * Get a specific project by ID
-   */
-  public async getProject(projectId: string): Promise<CanvasProject | null> {
+  
+  // Fetch a single project by ID
+  public async fetchProject(projectId: string): Promise<CanvasProject | null> {
     try {
-      const { data, error } = await supabase
+      // Get the project
+      const { data: project, error } = await supabase
         .from('canvas_projects')
         .select('*')
         .eq('id', projectId)
@@ -60,30 +46,107 @@ export class CanvasService {
       
       if (error) throw error;
       
-      if (!data) return null;
+      // Get the scenes for this project
+      const { data: scenes, error: scenesError } = await supabase
+        .from('canvas_scenes')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('scene_order', { ascending: true });
       
-      // Transform database data to match our CanvasProject type
-      return {
-        id: data.id,
-        title: data.title,
-        description: data.description || '',
-        userId: data.user_id,
-        user_id: data.user_id,
-        fullScript: data.full_script || '',
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-        scenes: []
-      };
+      if (scenesError) throw scenesError;
+      
+      // Normalize the project and scenes
+      const normalizedProject = normalizeProject(project);
+      normalizedProject.scenes = (scenes || []).map(scene => normalizeScene(scene));
+      
+      return normalizedProject;
     } catch (error) {
-      console.error(`Error fetching canvas project ${projectId}:`, error);
+      console.error("Error fetching project:", error);
       return null;
     }
   }
-
-  /**
-   * Get scenes for a project
-   */
-  public async getScenes(projectId: string): Promise<CanvasScene[]> {
+  
+  // Create a new project
+  public async createProject(title: string, description?: string): Promise<CanvasProject | null> {
+    try {
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .insert([
+          { 
+            title, 
+            description: description || '',
+            full_script: ''
+          }
+        ])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return normalizeProject(data);
+    } catch (error) {
+      console.error("Error creating project:", error);
+      return null;
+    }
+  }
+  
+  // Update project details
+  public async updateProject(projectId: string, updates: Partial<CanvasProject>): Promise<CanvasProject | null> {
+    try {
+      // Convert updates to match DB field names if needed
+      const dbUpdates: Record<string, any> = {};
+      
+      if (updates.title) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.fullScript || updates.full_script) {
+        dbUpdates.full_script = updates.fullScript || updates.full_script;
+      }
+      if (updates.cover_image_url) dbUpdates.cover_image_url = updates.cover_image_url;
+      
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .update(dbUpdates)
+        .eq('id', projectId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return normalizeProject(data);
+    } catch (error) {
+      console.error("Error updating project:", error);
+      return null;
+    }
+  }
+  
+  // Delete a project
+  public async deleteProject(projectId: string): Promise<boolean> {
+    try {
+      // First, delete all scenes associated with this project
+      const { error: sceneError } = await supabase
+        .from('canvas_scenes')
+        .delete()
+        .eq('project_id', projectId);
+      
+      if (sceneError) throw sceneError;
+      
+      // Then, delete the project itself
+      const { error } = await supabase
+        .from('canvas_projects')
+        .delete()
+        .eq('id', projectId);
+      
+      if (error) throw error;
+      
+      return true;
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      return false;
+    }
+  }
+  
+  // Fetch scenes for a project
+  public async fetchScenes(projectId: string): Promise<CanvasScene[]> {
     try {
       const { data, error } = await supabase
         .from('canvas_scenes')
@@ -93,217 +156,86 @@ export class CanvasService {
       
       if (error) throw error;
       
-      // Transform database data to match our CanvasScene type
-      return (data || []).map(item => ({
-        id: item.id,
-        projectId: item.project_id,
-        title: item.title || '',
-        script: item.script || '',
-        description: item.description || '',
-        imagePrompt: item.image_prompt || '',
-        imageUrl: item.image_url || '',
-        videoUrl: item.video_url || '',
-        sceneOrder: item.scene_order || 0,
-        productImageUrl: item.product_image_url || '',
-        voiceOverText: item.voice_over_text || '',
-        voiceOverUrl: item.voice_over_url || '',
-        backgroundMusicUrl: item.background_music_url || '',
-        duration: item.duration || 0,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at
+      // Normalize the scenes
+      const normalizedScenes = (data || []).map(scene => normalizeScene({
+        ...scene,
+        project_id: projectId,
+        projectId: projectId
       }));
+      
+      return normalizedScenes;
     } catch (error) {
-      console.error(`Error fetching scenes for project ${projectId}:`, error);
+      console.error("Error fetching scenes:", error);
       return [];
     }
   }
-
-  /**
-   * Create a new scene
-   */
-  public async createScene(projectId: string, sceneData: Partial<SceneData> = {}): Promise<CanvasScene | null> {
+  
+  // Create a new scene
+  public async createScene(sceneData: Partial<SceneData>): Promise<CanvasScene | null> {
     try {
-      // Get the current highest sequence number for the project
-      const { data: scenes, error: sceneError } = await supabase
-        .from('canvas_scenes')
-        .select('scene_order')
-        .eq('project_id', projectId)
-        .order('scene_order', { ascending: false })
-        .limit(1);
-      
-      if (sceneError) throw sceneError;
-      
-      // Set the sequence to be one higher than the current highest
-      const sceneOrder = scenes && scenes.length > 0 ? (scenes[0].scene_order || 0) + 1 : 0;
-      
-      // Create the new scene
-      const { data, error } = await supabase
-        .from('canvas_scenes')
-        .insert([{ 
-          project_id: projectId,
-          scene_order: sceneOrder,
-          title: sceneData.title || `Scene ${sceneOrder + 1}`,
-          script: sceneData.script || '',
-          description: sceneData.description || '',
-          image_prompt: sceneData.imagePrompt || ''
-        }])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Transform database response to match our CanvasScene type
-      return {
-        id: data.id,
-        projectId: data.project_id,
-        title: data.title || '',
-        script: data.script || '',
-        description: data.description || '',
-        imagePrompt: data.image_prompt || '',
-        imageUrl: data.image_url || '',
-        videoUrl: data.video_url || '',
-        sceneOrder: data.scene_order || 0,
-        productImageUrl: data.product_image_url || '',
-        voiceOverText: data.voice_over_text || '',
-        voiceOverUrl: data.voice_over_url || '',
-        backgroundMusicUrl: data.background_music_url || '',
-        duration: data.duration || 0,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at
-      };
-    } catch (error) {
-      console.error(`Error creating scene for project ${projectId}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Create a new project
-   */
-  public async createProject(title: string, description: string = ""): Promise<CanvasProject | null> {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      if (!userData?.user?.id) {
-        throw new Error("User not authenticated");
+      if (!sceneData.project_id && !sceneData.projectId) {
+        throw new Error("Project ID is required to create a scene");
       }
       
-      const { data, error } = await supabase
-        .from('canvas_projects')
-        .insert([
-          { 
-            title, 
-            description, 
-            user_id: userData.user.id 
-          }
-        ])
+      // Prepare the scene data
+      const data = {
+        project_id: sceneData.project_id || sceneData.projectId,
+        title: sceneData.title || 'New Scene',
+        description: sceneData.description || '',
+        script: sceneData.script || '',
+        image_prompt: sceneData.imagePrompt || '',
+        scene_order: sceneData.scene_order || sceneData.sceneOrder || 0
+      };
+      
+      const { data: newScene, error } = await supabase
+        .from('canvas_scenes')
+        .insert([data])
         .select()
         .single();
       
       if (error) throw error;
       
-      // Transform the data to ensure compatibility with both user_id and userId
-      return {
-        ...data,
-        userId: data.user_id, // Add userId
-        fullScript: data.full_script, // Map full_script to fullScript
-        createdAt: data.created_at, // Map created_at to createdAt
-        updatedAt: data.updated_at, // Map updated_at to updatedAt
-        user_id: data.user_id, // Keep user_id for compatibility
-        scenes: []
-      };
+      return normalizeScene(newScene);
     } catch (error) {
-      console.error("Error creating project:", error);
+      console.error("Error creating scene:", error);
       return null;
     }
   }
-
-  /**
-   * Update a scene
-   */
-  public async updateScene(sceneId: string, updates: Partial<CanvasScene>): Promise<boolean> {
+  
+  // Update a scene
+  public async updateScene(sceneId: string, type: SceneUpdateType, value: string): Promise<boolean> {
     try {
-      const dbUpdates: Record<string, any> = {};
+      // Map the update type to the correct database field
+      const dbField = mapSceneUpdateTypeToDbField(type);
       
-      if (updates.script !== undefined) dbUpdates.script = updates.script;
-      if (updates.description !== undefined) dbUpdates.description = updates.description;
-      if (updates.imagePrompt !== undefined) dbUpdates.image_prompt = updates.imagePrompt;
-      if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
-      if (updates.videoUrl !== undefined) dbUpdates.video_url = updates.videoUrl;
-      if (updates.title !== undefined) dbUpdates.title = updates.title;
-      if (updates.voiceOverText !== undefined) dbUpdates.voice_over_text = updates.voiceOverText;
-      if (updates.voiceOverUrl !== undefined) dbUpdates.voice_over_url = updates.voiceOverUrl;
-      if (updates.backgroundMusicUrl !== undefined) dbUpdates.background_music_url = updates.backgroundMusicUrl;
-      
+      // Update the scene
       const { error } = await supabase
         .from('canvas_scenes')
-        .update(dbUpdates)
+        .update({ [dbField]: value })
         .eq('id', sceneId);
       
       if (error) throw error;
+      
       return true;
     } catch (error) {
-      console.error(`Error updating scene ${sceneId}:`, error);
+      console.error(`Error updating scene ${type}:`, error);
       return false;
     }
   }
-
-  /**
-   * Update scene description
-   */
-  public async updateSceneDescription(sceneId: string, useMcp = true): Promise<boolean> {
+  
+  // Delete a scene
+  public async deleteScene(sceneId: string): Promise<boolean> {
     try {
-      // For now, just a simple update with placeholder data
-      return await this.updateScene(sceneId, {
-        description: "Generated scene description " + new Date().toISOString()
-      });
+      const { error } = await supabase
+        .from('canvas_scenes')
+        .delete()
+        .eq('id', sceneId);
+      
+      if (error) throw error;
+      
+      return true;
     } catch (error) {
-      console.error(`Error generating description for scene ${sceneId}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Update image prompt
-   */
-  public async updateImagePrompt(sceneId: string, useMcp = true): Promise<boolean> {
-    try {
-      // For now, just a simple update with placeholder data
-      return await this.updateScene(sceneId, {
-        imagePrompt: "Generated image prompt " + new Date().toISOString()
-      });
-    } catch (error) {
-      console.error(`Error generating image prompt for scene ${sceneId}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Generate image for a scene
-   */
-  public async generateImage(params: { sceneId: string, prompt?: string, version?: string }, useMcp = true): Promise<boolean> {
-    try {
-      // For now, just a simple update with placeholder data
-      return await this.updateScene(params.sceneId, {
-        imageUrl: `https://placehold.co/600x400?text=Generated+Image+${Date.now()}`
-      });
-    } catch (error) {
-      console.error(`Error generating image for scene ${params.sceneId}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Generate video for a scene
-   */
-  public async generateVideo(params: { sceneId: string, aspectRatio?: string }, useMcp = true): Promise<boolean> {
-    try {
-      // For now, just a simple update with placeholder data
-      return await this.updateScene(params.sceneId, {
-        videoUrl: `https://placehold.co/600x400?text=Generated+Video+${Date.now()}`
-      });
-    } catch (error) {
-      console.error(`Error generating video for scene ${params.sceneId}:`, error);
+      console.error("Error deleting scene:", error);
       return false;
     }
   }

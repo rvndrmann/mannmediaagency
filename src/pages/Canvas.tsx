@@ -59,6 +59,7 @@ export default function Canvas() {
     updateScene
   });
   
+  // Wrapper for createScene to match the expected interface
   const addScene = useCallback(async (projectId: string, data: any = {}): Promise<any> => {
     if (!project) return null;
     
@@ -70,11 +71,7 @@ export default function Canvas() {
         scene_order: scenes.length + 1
       });
       
-      if (newScene) {
-        return newScene;
-      }
-      
-      return null;
+      return newScene || null;
     } catch (error) {
       console.error("Error adding scene:", error);
       return null;
@@ -196,7 +193,7 @@ export default function Canvas() {
   
   // Show empty state when no project is loaded
   if (!project && !routeProjectId && !loading) {
-    return <CanvasEmptyStateAdapter createProject={createNewProject} />;
+    return <CanvasEmptyStateAdapter onCreateProject={createNewProject} />;
   }
   
   // Show loading state
@@ -215,16 +212,20 @@ export default function Canvas() {
     <div className="flex flex-col h-screen">
       <CanvasHeaderAdapter 
         project={project}
-        updateProject={updateProject}
+        onUpdateProject={updateProject}
         onToggleScriptPanel={toggleScriptPanel}
         onToggleDetailPanel={toggleDetailPanel}
         onToggleChatPanel={toggleChatPanel}
+        showScriptPanel={showScriptPanel}
+        showDetailPanel={showDetailPanel}
         showChatButton={true}
       />
       
       <div className="flex flex-1 overflow-hidden">
         <CanvasSidebarAdapter 
           project={project}
+          scenes={scenes}
+          selectedScene={selectedScene}
           selectedSceneId={selectedSceneId}
           setSelectedSceneId={setSelectedSceneId}
           createScene={createScene}
@@ -238,8 +239,8 @@ export default function Canvas() {
             selectedScene={selectedScene}
             selectedSceneId={selectedSceneId}
             setSelectedSceneId={setSelectedSceneId}
+            createScene={addScene}
             updateScene={updateScene}
-            addScene={addScene}
             deleteScene={handleDeleteScene}
             divideScriptToScenes={divideScriptToScenes}
             saveFullScript={saveFullScript}
@@ -261,6 +262,7 @@ export default function Canvas() {
         
         {showScriptPanel && (
           <CanvasScriptPanelAdapter 
+            scene={selectedScene}
             project={project}
             projectId={project?.id || ''}
             onUpdateScene={updateScene}

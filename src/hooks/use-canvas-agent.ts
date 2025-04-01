@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from "react";
-import { useCanvasAgentMcp } from "./use-canvas-agent-mcp";
+import { useCanvasAgentMCP } from "./use-canvas-agent-mcp"; // Fix the import name
 import { useCanvasMessages } from "./use-canvas-messages";
 import { toast } from "sonner";
 import { Message } from "@/types/message";

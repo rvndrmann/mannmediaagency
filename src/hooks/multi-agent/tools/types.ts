@@ -29,6 +29,7 @@ export interface ToolResult {
   };
 }
 
+// Add this export to fix the missing ToolExecutionResult error
 export interface ToolExecutionResult {
   success: boolean;
   message: string;

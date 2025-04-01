@@ -14,12 +14,14 @@ interface ProjectSelectorProps {
   onProjectSelect: (projectId: string) => void;
   selectedProjectId?: string | null;
   autoSelectFirst?: boolean;
+  allowCreateNew?: boolean; // Add this property
 }
 
 export function ProjectSelector({ 
   onProjectSelect, 
   selectedProjectId = null,
-  autoSelectFirst = true 
+  autoSelectFirst = true,
+  allowCreateNew = false
 }: ProjectSelectorProps) {
   const { projects, isLoading } = useCanvasProjects();
   const [value, setValue] = useState<string | undefined>(undefined);

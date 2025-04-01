@@ -50,13 +50,13 @@ export const useCanvasAgentMCP = ({
     return addMessageToState(message);
   }, [addMessageToState]);
 
-  const addAgentMessage = useCallback((agentType: string, content: string, sceneId?: string): Message => {
+  const addAgentMessage = useCallback((agentType: string, content: string, messageSceneId?: string): Message => {
     const message: Message = {
       id: Date.now().toString(),
       content,
       role: 'assistant',
       agentType,
-      sceneId,
+      sceneId: messageSceneId,
       createdAt: new Date().toISOString()
     };
     return addMessageToState(message);

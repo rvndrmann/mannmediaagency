@@ -109,7 +109,7 @@ export class WorkflowRPC {
     }
     
     // Update stage result
-    const stageResults = { ...(workflow.stage_results || {}) };
+    const stageResults = workflow.stage_results ? { ...(workflow.stage_results as Record<string, unknown>) } : {};
     if (result) {
       stageResults[stage] = result;
     }

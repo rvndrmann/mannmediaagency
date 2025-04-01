@@ -93,8 +93,6 @@ export type SceneUpdateType =
   | 'imagePrompt' 
   | 'voiceOver'  
   | 'voiceOverText'
-  | 'imageUrl'
-  | 'videoUrl'
   | 'productImage'
   | 'backgroundMusic';
 

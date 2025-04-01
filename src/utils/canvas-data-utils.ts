@@ -83,7 +83,7 @@ export function extractAndNormalizeScenes(project: any): CanvasScene[] {
  * Map a scene update type to the corresponding property name in the database
  */
 export function mapSceneUpdateTypeToDbField(updateType: SceneUpdateType): string {
-  const mapping: Record<SceneUpdateType, string> = {
+  const mapping: Record<string, string> = {
     'script': 'script',
     'imagePrompt': 'image_prompt',
     'description': 'description',
@@ -102,7 +102,7 @@ export function mapSceneUpdateTypeToDbField(updateType: SceneUpdateType): string
  * Map a scene update type to the corresponding property in the CanvasScene object
  */
 export function mapSceneUpdateTypeToProperty(updateType: SceneUpdateType): keyof CanvasScene {
-  const mapping: Record<SceneUpdateType, keyof CanvasScene> = {
+  const mapping: Partial<Record<SceneUpdateType, keyof CanvasScene>> = {
     'script': 'script',
     'imagePrompt': 'imagePrompt',
     'description': 'description',
@@ -114,7 +114,7 @@ export function mapSceneUpdateTypeToProperty(updateType: SceneUpdateType): keyof
     'voiceOverText': 'voiceOverText'
   };
   
-  return mapping[updateType];
+  return mapping[updateType] as keyof CanvasScene;
 }
 
 /**

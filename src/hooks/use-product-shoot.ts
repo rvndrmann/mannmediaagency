@@ -34,11 +34,6 @@ export function useProductShoot() {
   const queue = useGenerationQueue();
   const historyService = new ProductShootHistoryService();
 
-  // For type safety, expose the necessary queue operations
-  const addToQueue = queue.addToQueue;
-  const checkStatus = queue.checkStatus;
-  const isLoading = queue.isPolling;
-
   // Generate a product shot
   const generateProductShot = useCallback(async (sourceImageUrl: string) => {
     try {
@@ -82,7 +77,7 @@ export function useProductShoot() {
       }
       
       // Add job to polling queue
-      addToQueue(response.imageId);
+      queue.addToQueue(response.imageId);
       
       // Return the response
       return response;
@@ -96,7 +91,7 @@ export function useProductShoot() {
       setIsGenerating(false);
       return null;
     }
-  }, [settings, submitGenerationJob, toast, addToQueue]);
+  }, [settings, submitGenerationJob, toast, queue]);
 
   // Check the status of a product shot generation job
   const checkImageStatus = useCallback(async (imageId: string) => {
@@ -183,7 +178,7 @@ export function useProductShoot() {
       });
       return false;
     }
-  }, [generatedImages, toast, historyService, fetchSavedImages]);
+  }, [generatedImages, toast, historyService]);
 
   // Set an image as the default product image
   const setAsDefault = useCallback(async (imageId: string) => {
@@ -216,7 +211,7 @@ export function useProductShoot() {
       });
       return false;
     }
-  }, [generatedImages, savedImages, toast, historyService, fetchDefaultImages]);
+  }, [generatedImages, savedImages, toast, historyService]);
 
   // Upload an image and return its URL
   const uploadImage = useCallback(async (file: File): Promise<string | null> => {
@@ -275,10 +270,10 @@ export function useProductShoot() {
 
   // Listen for queue status changes
   useEffect(() => {
-    if (!queue.isPolling && queue.completedJobs.length > 0) {
+    if (!queue.isPolling && queue.completedIds && queue.completedIds.length > 0) {
       setIsGenerating(false);
     }
-  }, [queue.isPolling, queue.completedJobs]);
+  }, [queue.isPolling, queue.completedIds]);
 
   // Return the hook API
   return {
@@ -295,8 +290,8 @@ export function useProductShoot() {
     uploadImage,
     fetchSavedImages,
     fetchDefaultImages,
-    addToQueue,
-    checkStatus,
-    isLoading
+    addToQueue: queue.addToQueue,
+    checkStatus: queue.checkJobStatus,
+    isLoading: queue.isPolling
   };
 }

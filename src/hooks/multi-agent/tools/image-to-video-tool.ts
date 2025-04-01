@@ -1,202 +1,217 @@
 
-import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
+import { toast } from "sonner";
+import { ToolDefinition, ToolExecutionResult } from "../types";
+
+interface ImageToVideoRequest {
+  sourceImageUrl: string;
+  prompt: string;
+  aspectRatio?: string;
+  duration?: string;
+}
 
 export const imageToVideoTool: ToolDefinition = {
-  name: "image_to_video",
-  description: "Convert a static image into a short video with motion effects",
-  parameters: {
-    type: "object",
-    properties: {
-      image_url: {
-        type: "string",
-        description: "URL of the image to animate"
-      },
-      duration: {
-        type: "string",
-        description: "Duration of the video in seconds (2-10)",
-        enum: ["2", "3", "4", "5", "6", "8", "10"]
-      },
-      motion: {
-        type: "string",
-        description: "Type of motion effect to apply",
-        enum: ["zoom_in", "zoom_out", "pan_left", "pan_right", "3d_parallax", "subtle"]
-      },
-      prompt: {
-        type: "string",
-        description: "Optional text description to guide the animation"
-      }
-    },
-    required: ["image_url"]
-  },
-  requiredCredits: 3,
-  metadata: {
-    category: "video",
-    displayName: "Image to Video",
-    icon: "Video"
-  },
-  execute: async (params: {
-    image_url: string;
-    duration?: string;
-    motion?: string;
-    prompt?: string;
-  }, context: ToolContext): Promise<ToolExecutionResult> => {
+  name: "image-to-video-tool",
+  description: "Generate a video from an image",
+  execute: async function(params: any): Promise<ToolExecutionResult> {
     try {
-      // Verify the tool is available
-      if (!context.toolAvailable) {
+      const { action, sourceImageUrl, prompt, aspectRatio, duration } = params;
+      
+      if (!action) {
         return {
           success: false,
-          message: "Image to video conversion is not available in your current plan",
-          error: "Tool unavailable"
+          message: "Missing required parameter: action",
+          error: "Missing required parameter: action",
+          state: "error"
         };
       }
       
-      // Verify user has enough credits
-      if (context.userCredits !== undefined && context.userCredits < 3) {
-        return {
-          success: false,
-          message: `Insufficient credits for image to video conversion. Required: 3, Available: ${context.userCredits}`,
-          error: "Insufficient credits"
-        };
-      }
-      
-      // Generate a unique id for this job
-      const jobId = uuidv4();
-      console.log(`Starting image to video conversion with ID: ${jobId}`);
-      
-      // Add message to the conversation log
-      if (context.addMessage) {
-        context.addMessage(`Starting image to video conversion for: ${params.image_url.substring(0, 30)}...`, "tool_start");
-      }
-      
-      // Call the edge function to start the video generation
-      const { data, error } = await supabase.functions.invoke("image-to-video", {
-        body: {
-          image_url: params.image_url,
-          duration: params.duration || "5",
-          motion: params.motion || "subtle",
-          prompt: params.prompt || "",
-          job_id: jobId,
-          user_id: context.userId
-        }
-      });
-      
-      if (error) {
-        console.error("Error starting image to video conversion:", error);
-        return {
-          success: false,
-          message: `Error starting image to video conversion: ${error.message}`,
-          error: error.message
-        };
-      }
-      
-      // Check if we received a valid result
-      if (!data || !data.request_id) {
-        console.error("Invalid response from image to video generator:", data);
-        return {
-          success: false,
-          message: "Failed to start image to video conversion",
-          error: "Invalid response from service"
-        };
-      }
-      
-      // Now we poll for the result
-      let result = null;
-      let attempts = 0;
-      const maxAttempts = 60; // 10 minutes (10 seconds * 60)
-      
-      while (!result && attempts < maxAttempts) {
-        attempts++;
-        
-        // Wait 10 seconds between checks
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        
-        // Check if the job is complete
-        const { data: statusData, error: statusError } = await supabase.functions.invoke("video-generation-status", {
-          body: {
-            request_id: data.request_id,
-            job_id: jobId
-          }
-        });
-        
-        if (statusError) {
-          console.error("Error checking video generation status:", statusError);
-          continue;
-        }
-        
-        // If the job is complete, get the result
-        if (statusData && statusData.status === "completed" && statusData.result_url) {
-          result = statusData;
-        } else if (statusData && statusData.status === "failed") {
+      if (action === "generate") {
+        if (!sourceImageUrl) {
           return {
             success: false,
-            message: `Image to video conversion failed: ${statusData.error || "Unknown error"}`,
-            error: statusData.error || "Unknown error"
+            message: "Missing required parameter: sourceImageUrl",
+            error: "You must provide a source image URL",
+            state: "error"
+          };
+        }
+        
+        try {
+          const response = await generateVideo({
+            sourceImageUrl,
+            prompt: prompt || "",
+            aspectRatio: aspectRatio || "16:9",
+            duration: duration || "5"
+          });
+          
+          return {
+            success: true,
+            message: "Video generation started successfully",
+            data: {
+              jobId: response.jobId,
+              status: "processing"
+            },
+            state: "processing"
+          };
+        } catch (error) {
+          return {
+            success: false,
+            message: "Failed to start video generation",
+            error: error,
+            state: "error"
+          };
+        }
+      } else if (action === "check-status") {
+        const jobId = params.jobId;
+        
+        if (!jobId) {
+          return {
+            success: false,
+            message: "Missing required parameter: jobId",
+            error: "You must provide a job ID to check status",
+            state: "error"
+          };
+        }
+        
+        try {
+          const status = await checkVideoStatus(jobId);
+          
+          if (status.status === "completed") {
+            return {
+              success: true,
+              message: "Video generation completed",
+              data: {
+                result_url: status.resultUrl,
+                thumbnail_url: status.thumbnailUrl,
+                duration: status.duration || "5",
+                processing_time: status.processingTime || 30
+              },
+              usage: {
+                creditsUsed: 1
+              },
+              state: "completed"
+            };
+          } else if (status.status === "failed") {
+            return {
+              success: false,
+              message: "Video generation failed",
+              error: status.error || "Unknown error",
+              state: "error"
+            };
+          } else {
+            return {
+              success: false,
+              message: "Video is still processing",
+              error: "Video generation is not yet complete",
+              state: "processing"
+            };
+          }
+        } catch (error) {
+          return {
+            success: false,
+            message: "Failed to check video status",
+            error: error,
+            state: "error"
           };
         }
       }
       
-      // If we reached max attempts, consider it timed out
-      if (!result) {
-        return {
-          success: false,
-          message: "Image to video conversion timed out",
-          error: "Generation timeout"
-        };
-      }
-      
-      // Calculate actual time taken
-      const processingTime = attempts * 10;
-      
-      // Add message to the conversation log
-      if (context.addMessage) {
-        context.addMessage(`Completed image to video conversion in ${processingTime} seconds`, "tool_complete");
-      }
-      
-      // Save to the user's history if user_id is available
-      if (context.userId) {
-        try {
-          await supabase.from("video_generation_jobs").insert({
-            user_id: context.userId,
-            source_image_url: params.image_url,
-            prompt: params.prompt || "",
-            result_url: result.result_url,
-            duration: params.duration || "5",
-            status: "completed",
-            request_id: data.request_id,
-            settings: {
-              motion: params.motion || "subtle"
-            }
-          });
-        } catch (saveError) {
-          console.error("Error saving video to history:", saveError);
-          // Continue anyway, this is not critical
-        }
-      }
-      
-      // Return the successful result
-      return {
-        success: true,
-        message: "Image converted to video successfully",
-        data: {
-          result_url: result.result_url,
-          thumbnail_url: result.thumbnail_url || result.result_url,
-          duration: params.duration || "5",
-          processing_time: processingTime
-        },
-        usage: {
-          creditsUsed: 3
-        }
-      };
-    } catch (error: any) {
-      console.error("Error in image to video tool:", error);
-      
       return {
         success: false,
-        message: `Image to video conversion error: ${error.message}`,
-        error: error.message
+        message: "Invalid action. Use 'generate' or 'check-status'",
+        error: "Invalid action parameter",
+        state: "error"
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: "An unexpected error occurred",
+        error: error,
+        state: "error"
       };
     }
+  },
+  schema: {
+    type: "object",
+    properties: {
+      action: {
+        type: "string",
+        enum: ["generate", "check-status"],
+        description: "The action to perform (generate or check-status)"
+      },
+      sourceImageUrl: {
+        type: "string",
+        description: "URL of the source image to generate video from"
+      },
+      prompt: {
+        type: "string",
+        description: "Description of the video to generate"
+      },
+      aspectRatio: {
+        type: "string",
+        enum: ["16:9", "9:16", "1:1"],
+        description: "Aspect ratio of the output video"
+      },
+      duration: {
+        type: "string",
+        description: "Duration of the output video in seconds"
+      },
+      jobId: {
+        type: "string",
+        description: "Job ID to check status for (only required for check-status action)"
+      }
+    },
+    required: ["action"]
   }
 };
+
+// Helper function to generate a video
+async function generateVideo(request: ImageToVideoRequest): Promise<{ jobId: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke("generate-video-from-image", {
+      body: request
+    });
+    
+    if (error) {
+      console.error("Error generating video:", error);
+      throw error;
+    }
+    
+    if (!data?.jobId) {
+      throw new Error("No job ID returned from the service");
+    }
+    
+    toast.success("Video generation has started");
+    return { jobId: data.jobId };
+  } catch (error) {
+    console.error("Failed to generate video:", error);
+    toast.error("Failed to start video generation");
+    throw error;
+  }
+}
+
+// Helper function to check video status
+async function checkVideoStatus(jobId: string): Promise<{
+  status: string;
+  resultUrl?: string;
+  thumbnailUrl?: string;
+  duration?: string;
+  processingTime?: number;
+  error?: string;
+}> {
+  try {
+    const { data, error } = await supabase.functions.invoke("check-video-status", {
+      body: { jobId }
+    });
+    
+    if (error) {
+      console.error("Error checking video status:", error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error("Failed to check video status:", error);
+    throw error;
+  }
+}

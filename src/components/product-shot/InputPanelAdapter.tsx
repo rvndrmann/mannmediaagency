@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { InputPanel, InputPanelProps } from './InputPanel';
+import InputPanel from './InputPanel';
 
 // This adapter component handles the mismatch between what ProductShot page provides and what InputPanel expects
 export const InputPanelAdapter: React.FC<{
@@ -21,7 +21,7 @@ export const InputPanelAdapter: React.FC<{
   onGenerate: () => any;
 }> = (props) => {
   // Map the received props to what InputPanel expects
-  const adaptedProps: InputPanelProps = {
+  const adaptedProps = {
     prompt: props.prompt,
     onPromptChange: props.onPromptChange,
     sourceImageUrl: props.sourceImageUrl,

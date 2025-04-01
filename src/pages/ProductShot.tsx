@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { InputPanelAdapter } from "@/components/product-shot/InputPanelAdapter";
@@ -23,10 +23,21 @@ export default function ProductShot() {
   } = useProductShoot();
 
   // Fetch saved and default images on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     fetchSavedImages();
     fetchDefaultImages();
   }, [fetchSavedImages, fetchDefaultImages]);
+
+  // Handle image upload
+  const handleImageUpload = async (file: File) => {
+    const url = await uploadImage(file);
+    if (url) setSettings({ ...settings, sourceImageUrl: url });
+  };
+
+  // Handle generation
+  const handleGenerate = () => {
+    return generateProductShot(settings.sourceImageUrl);
+  };
 
   return (
     <PageLayout>
@@ -49,16 +60,13 @@ export default function ProductShot() {
               imageHeight={settings.imageHeight}
               onDimensionsChange={(width, height) => setSettings({ ...settings, imageWidth: width, imageHeight: height })}
               sourceImageUrl={settings.sourceImageUrl}
-              onImageUpload={async (file) => {
-                const url = await uploadImage(file);
-                if (url) setSettings({ ...settings, sourceImageUrl: url });
-              }}
+              onImageUpload={handleImageUpload}
               onImageSelect={(url) => setSettings({ ...settings, sourceImageUrl: url })}
               defaultImages={defaultImages}
               stylePreset={settings.stylePreset}
               onStylePresetChange={(stylePreset) => setSettings({ ...settings, stylePreset })}
               isGenerating={isGenerating}
-              onGenerate={() => generateProductShot(settings.sourceImageUrl)}
+              onGenerate={handleGenerate}
             />
           </TabsContent>
 

@@ -1,14 +1,12 @@
 
 import React from 'react';
 
-interface PageLayoutProps {
+export const PageLayout: React.FC<{
   children: React.ReactNode;
   className?: string;
-}
-
-export const PageLayout: React.FC<PageLayoutProps> = ({ children, className = '' }) => {
+}> = ({ children, className = '' }) => {
   return (
-    <div className={`container mx-auto px-4 py-8 max-w-6xl ${className}`}>
+    <div className={`container mx-auto px-4 py-6 ${className}`}>
       {children}
     </div>
   );

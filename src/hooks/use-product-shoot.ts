@@ -49,8 +49,8 @@ export const useProductShoot = () => {
         id: crypto.randomUUID(),
         status: 'processing',
         prompt: formData.prompt,
-        url: '',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        url: ''
       };
       
       setImages(prev => [...prev, placeholderImage]);
@@ -58,7 +58,6 @@ export const useProductShoot = () => {
       // Upload the source image
       const sourceImageFile = formData.sourceFile;
       const sourceImageFileName = `${crypto.randomUUID()}.${sourceImageFile.name.split('.').pop()}`;
-      
       const { error: uploadError, data: uploadData } = await supabase.storage
         .from('product-shots-source')
         .upload(sourceImageFileName, sourceImageFile);
@@ -72,6 +71,7 @@ export const useProductShoot = () => {
 
       // Process reference image if provided
       let referenceImageUrl: string | undefined;
+
       if (formData.referenceFile) {
         const refImageFileName = `${crypto.randomUUID()}.${formData.referenceFile.name.split('.').pop()}`;
         
@@ -190,7 +190,7 @@ export const useProductShoot = () => {
     }
   };
 
-  const retryStatusCheck = async (imageId: string) => {
+  const retryStatusCheck = async (imageId: string): Promise<boolean> => {
     try {
       // Use RPC function to get status
       const { data, error } = await supabase.rpc('get_product_shot_status', {
@@ -213,14 +213,18 @@ export const useProductShoot = () => {
           )
         );
         toast.success('Image is ready!');
+        return true;
       } else if (data?.status === 'failed') {
         toast.error(data.error_message || 'Image generation failed');
+        return false;
       } else {
         toast.info('Image is still processing. Please check back later.');
+        return false;
       }
     } catch (err) {
       console.error('Error retrying status check:', err);
       toast.error('Failed to check image status');
+      return false;
     }
   };
 

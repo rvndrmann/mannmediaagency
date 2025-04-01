@@ -5,6 +5,6 @@ export interface Message {
   content: string;
   createdAt: string;
   agentType?: string; 
-  sceneId?: string; // Add this property to support scene references
+  sceneId?: string; // This is needed for scene references
   metadata?: Record<string, any>;
 }

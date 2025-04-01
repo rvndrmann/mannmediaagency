@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
@@ -59,7 +58,6 @@ export default function Canvas() {
     updateScene
   });
   
-  // Wrapper for createScene to match the expected interface
   const addScene = useCallback(async (projectId: string, data: any = {}): Promise<any> => {
     if (!project) return null;
     
@@ -133,21 +131,17 @@ export default function Canvas() {
     }
   }, [project, updateProject]);
   
-  // Wrapper for deleteScene to match expected Promise<void> return type
   const handleDeleteScene = useCallback(async (sceneId: string): Promise<void> => {
     await deleteScene(sceneId);
   }, [deleteScene]);
   
-  // Effects
   useEffect(() => {
-    // If we have a project ID in the route, load that project
     if (routeProjectId) {
       fetchProject(routeProjectId);
     }
   }, [routeProjectId, fetchProject]);
   
   useEffect(() => {
-    // Set the active project in the context
     if (projectId) {
       setActiveProject(projectId);
     } else if (routeProjectId) {
@@ -156,7 +150,6 @@ export default function Canvas() {
   }, [projectId, routeProjectId, setActiveProject]);
   
   useEffect(() => {
-    // Set the active scene in the context
     if (selectedSceneId) {
       setActiveScene(selectedSceneId);
     } else {
@@ -191,12 +184,10 @@ export default function Canvas() {
   const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
   const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
   
-  // Show empty state when no project is loaded
   if (!project && !routeProjectId && !loading) {
-    return <CanvasEmptyStateAdapter onCreateProject={createNewProject} />;
+    return <CanvasEmptyStateAdapter createProject={createNewProject} />;
   }
   
-  // Show loading state
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -212,7 +203,7 @@ export default function Canvas() {
     <div className="flex flex-col h-screen">
       <CanvasHeaderAdapter 
         project={project}
-        onUpdateProject={updateProject}
+        updateProject={updateProject}
         onToggleScriptPanel={toggleScriptPanel}
         onToggleDetailPanel={toggleDetailPanel}
         onToggleChatPanel={toggleChatPanel}
@@ -239,7 +230,7 @@ export default function Canvas() {
             selectedScene={selectedScene}
             selectedSceneId={selectedSceneId}
             setSelectedSceneId={setSelectedSceneId}
-            createScene={addScene}
+            addScene={addScene}
             updateScene={updateScene}
             deleteScene={handleDeleteScene}
             divideScriptToScenes={divideScriptToScenes}
@@ -262,13 +253,13 @@ export default function Canvas() {
         
         {showScriptPanel && (
           <CanvasScriptPanelAdapter 
-            scene={selectedScene}
+            selectedScene={selectedScene}
             project={project}
             projectId={project?.id || ''}
-            onUpdateScene={updateScene}
+            updateScene={updateScene}
             onClose={() => setShowScriptPanel(false)}
-            onSaveFullScript={saveFullScript}
-            onDivideScriptToScenes={divideScriptToScenes}
+            saveFullScript={saveFullScript}
+            divideScriptToScenes={divideScriptToScenes}
           />
         )}
         

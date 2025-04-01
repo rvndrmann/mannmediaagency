@@ -40,7 +40,7 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
   };
   
   // Use the MCP integration hook
-  const agentMcp = useCanvasAgentMcp ? useCanvasAgentMcp({
+  const agentMcp = useCanvasAgentMCP ? useCanvasAgentMCP({
     projectId,
     sceneId,
     updateScene

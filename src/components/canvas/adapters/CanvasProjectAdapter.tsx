@@ -71,7 +71,6 @@ export const CanvasSidebarAdapter = ({
 }) => {
   const handleAddScene = async () => {
     if (project) {
-      // Fix: Return the string ID from this function
       const newSceneId = await createScene(project.id, { title: 'New Scene' });
       return newSceneId;
     }

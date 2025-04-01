@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState, useCallback } from 'react';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 import { useCanvasAgent } from '@/hooks/use-canvas-agent';
 import {
@@ -25,7 +26,7 @@ export default function Canvas() {
   const [loading, setLoading] = useState(true);
   const [projectId, setProjectId] = useState<string | null>(null);
   const { setActiveProject, setActiveScene } = useProjectContext();
-  
+
   const {
     projects,
     isLoading,
@@ -34,7 +35,7 @@ export default function Canvas() {
     deleteProject
   } = useCanvasProjects();
   
-  const updateScene = async (sceneId: string, type: string, value: string) => {
+  const updateScene = useCallback(async (sceneId: string, type: string, value: string) => {
     console.log('Updating scene', sceneId, type, value);
     setScenes(prevScenes => {
       return prevScenes.map(scene => {
@@ -51,7 +52,7 @@ export default function Canvas() {
         [type]: value
       }));
     }
-  };
+  }, [selectedScene]);
   
   const {
     generateSceneScript,
@@ -71,12 +72,13 @@ export default function Canvas() {
     updateScene
   });
   
-  const createScene = async (projectId: string, data: any) => {
+  const createScene = useCallback(async (projectId: string, data: any) => {
     console.log('Creating scene for project', projectId, data);
     const newSceneId = `scene-${Date.now()}`;
     const newScene = { 
       id: newSceneId, 
       title: data.title || 'New Scene', 
+      projectId: projectId,
       project_id: projectId,
       description: '',
       script: '',
@@ -92,9 +94,9 @@ export default function Canvas() {
     setScenes(prev => [...prev, newScene]);
     
     return newSceneId;
-  };
+  }, []);
   
-  const deleteScene = async (sceneId: string) => {
+  const deleteScene = useCallback(async (sceneId: string) => {
     console.log('Deleting scene', sceneId);
     setScenes(prev => prev.filter(scene => scene.id !== sceneId));
     
@@ -102,9 +104,9 @@ export default function Canvas() {
       setSelectedSceneId(null);
       setSelectedScene(null);
     }
-  };
+  }, [selectedSceneId]);
   
-  const fetchProject = async (id: string) => {
+  const fetchProject = useCallback(async (id: string) => {
     setLoading(true);
     console.log('Fetching project', id);
     const dummyProject = {
@@ -121,24 +123,24 @@ export default function Canvas() {
     setProject(dummyProject);
     setScenes([]);
     setLoading(false);
-  };
+  }, []);
   
-  const addScene = async () => {
+  const addScene = useCallback(async () => {
     if (!project) return '';
     
     const newSceneId = await createScene(project.id, { title: 'New Scene' });
     return newSceneId;
-  };
+  }, [project, createScene]);
   
-  const saveFullScript = async (script: string) => {
+  const saveFullScript = useCallback(async (script: string) => {
     console.log('Saving full script', script);
     if (project) {
       setProject(prev => prev ? {...prev, full_script: script} : null);
       toast.success("Script saved successfully");
     }
-  };
+  }, [project]);
   
-  const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
+  const divideScriptToScenes = useCallback(async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
     console.log('Dividing script to scenes', sceneScripts);
     for (const sceneScript of sceneScripts) {
       if (sceneScript.id) {
@@ -147,9 +149,9 @@ export default function Canvas() {
       }
     }
     toast.success("Script divided into scenes successfully");
-  };
+  }, [updateScene]);
   
-  const createNewProject = async (title: string, description?: string) => {
+  const createNewProject = useCallback(async (title: string, description?: string) => {
     console.log('Creating new project', title, description);
     try {
       const newProjectData = await createProject(title, description);
@@ -163,9 +165,9 @@ export default function Canvas() {
       toast.error("Failed to create project");
       return "";
     }
-  };
+  }, [createProject]);
   
-  const updateProjectTitle = async (title: string) => {
+  const updateProjectTitle = useCallback(async (title: string) => {
     console.log('Updating project title', title);
     if (project && project.id) {
       try {
@@ -177,7 +179,7 @@ export default function Canvas() {
         toast.error("Failed to update project title");
       }
     }
-  };
+  }, [project, updateProject]);
   
   const agentProps = {
     isLoading: isAgentLoading,
@@ -209,7 +211,7 @@ export default function Canvas() {
     } else {
       setProjectId('project-123');
     }
-  }, [projectId]);
+  }, [projectId, fetchProject, setActiveProject]);
   
   useEffect(() => {
     if (project) {

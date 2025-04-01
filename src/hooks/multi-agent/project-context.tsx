@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { CanvasProject, CanvasScene } from '@/types/canvas';
 
@@ -79,6 +80,7 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
   const normalizeScene = (scene: any): CanvasScene => {
     return {
       id: scene.id,
+      projectId: scene.projectId || scene.project_id || '',
       title: scene.title || 'Untitled Scene',
       description: scene.description || '',
       script: scene.script || '',

@@ -24,6 +24,8 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
   const { setActiveProject } = useProjectContext();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const { useMcp, reconnectToMcp } = useMCPContext();
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
   
   const { 
     messages, 
@@ -60,6 +62,9 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
   
   // Get or create chat session for this project
   useEffect(() => {
+    setIsInitializing(true);
+    setInitError(null);
+    
     if (projectId) {
       try {
         const id = getOrCreateChatSession(projectId, [
@@ -71,10 +76,15 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
           }
         ]);
         setSessionId(id);
+        setIsInitializing(false);
       } catch (error) {
         console.error("Error creating chat session:", error);
+        setInitError("Failed to initialize chat session. Please try again.");
+        setIsInitializing(false);
         toast.error("Failed to initialize chat session");
       }
+    } else {
+      setIsInitializing(false);
     }
   }, [projectId, getOrCreateChatSession]);
 
@@ -123,6 +133,49 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
   };
   
   // Fallback UI if session ID is not available
+  if (isInitializing) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden border-r">
+        <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
+          <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="animate-pulse text-center">
+            <p>Initializing Canvas Assistant...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (initError) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden border-r">
+        <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
+          <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4 text-center text-red-500">
+          <div>
+            <p>{initError}</p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => window.location.reload()}
+            >
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   if (!projectId) {
     return (
       <div className="flex flex-col h-full overflow-hidden border-r">
@@ -139,6 +192,61 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
     );
   }
   
+  // Handle the case where MultiAgentChat component might throw an error
+  const renderChatContent = () => {
+    if (!sessionId) {
+      return (
+        <ScrollArea className="h-full">
+          <div className="p-4 space-y-4">
+            {messages.map((message) => (
+              <ChatMessage 
+                key={message.id} 
+                message={message}
+                onEditContent={handleEditContent}
+              />
+            ))}
+            
+            {messages.length === 0 && (
+              <div className="text-center text-muted-foreground p-8">
+                <p>No messages yet. Generate content to start a conversation.</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      );
+    }
+    
+    try {
+      return (
+        <MultiAgentChat 
+          projectId={projectId} 
+          onBack={onClose}
+          isEmbedded={true}
+          sessionId={sessionId}
+          compactMode={true}
+          sceneId={sceneId}
+          onAgentCommand={handleAgentCommand}
+        />
+      );
+    } catch (error) {
+      console.error("Error rendering MultiAgentChat:", error);
+      return (
+        <div className="p-4 flex items-center justify-center h-full">
+          <div className="text-center text-red-500">
+            <p>Error loading chat interface</p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={onClose}
+            >
+              Close Chat
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  };
+  
   return (
     <div className="flex flex-col h-full overflow-hidden border-r">
       <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
@@ -149,35 +257,7 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
       </div>
       
       <div className="flex-1 overflow-hidden">
-        {sessionId ? (
-          <MultiAgentChat 
-            projectId={projectId} 
-            onBack={onClose}
-            isEmbedded={true}
-            sessionId={sessionId}
-            compactMode={true}
-            sceneId={sceneId}
-            onAgentCommand={handleAgentCommand}
-          />
-        ) : (
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-4">
-              {messages.map((message) => (
-                <ChatMessage 
-                  key={message.id} 
-                  message={message}
-                  onEditContent={handleEditContent}
-                />
-              ))}
-              
-              {messages.length === 0 && (
-                <div className="text-center text-muted-foreground p-8">
-                  No messages yet. Generate content to start a conversation.
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        )}
+        {renderChatContent()}
       </div>
     </div>
   );

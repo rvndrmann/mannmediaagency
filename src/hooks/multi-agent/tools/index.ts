@@ -1,6 +1,6 @@
 
-import { ToolContext, ToolExecutionResult, CommandExecutionState, ToolDefinition } from './types';
-import { availableTools, getAvailableTools } from './tool-registry';
+import { ToolContext, ToolExecutionResult, CommandExecutionState } from './types';
+import { availableTools } from './tool-registry';
 
 // Execute a tool by name with parameters
 export const executeTool = async (
@@ -10,7 +10,7 @@ export const executeTool = async (
 ): Promise<ToolExecutionResult> => {
   try {
     // Get all available tools
-    const tools = getAvailableTools();
+    const tools = availableTools;
     
     // Find the requested tool
     const tool = tools.find(t => t.name === toolName);
@@ -46,3 +46,6 @@ export const initializeTools = () => {
     executeTool
   };
 };
+
+// Export getAvailableTools function to match the import
+export const getAvailableTools = () => availableTools;

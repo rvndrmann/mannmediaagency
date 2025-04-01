@@ -1,192 +1,130 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { StatusResponse } from '@/types/product-shoot';
-import { CommandExecutionState } from "@/hooks/multi-agent/types";
+import { useState, useCallback, useEffect, useRef } from 'react';
 
-export const useGenerationQueue = () => {
-  const [queueStatus, setQueueStatus] = useState<Record<string, StatusResponse>>({});
-  const [processingIds, setProcessingIds] = useState<string[]>([]);
-  const [completedIds, setCompletedIds] = useState<string[]>([]);
-  const [failedIds, setFailedIds] = useState<string[]>([]);
-  const [isPolling, setIsPolling] = useState<boolean>(false);
+/**
+ * Hook for managing a queue of image generation jobs
+ */
+export function useGenerationQueue() {
+  const [queue, setQueue] = useState<string[]>([]);
+  const [isPolling, setIsPolling] = useState(false);
+  const [completedJobs, setCompletedJobs] = useState<string[]>([]);
+  const [failedJobs, setFailedJobs] = useState<string[]>([]);
+  const intervalRef = useRef<number | null>(null);
+  const checkStatusFunctionRef = useRef<((id: string) => Promise<any>) | null>(null);
 
-  // Add an ID to the processing queue
-  const addToQueue = (imageId: string) => {
-    setProcessingIds(prev => [...prev, imageId]);
-    setQueueStatus(prev => ({
-      ...prev,
-      [imageId]: {
-        status: 'pending',
-        resultUrl: null,
-        error: null
-      }
-    }));
-  };
+  // Add a job to the queue
+  const addToQueue = useCallback((jobId: string) => {
+    setQueue(prev => [...prev, jobId]);
+  }, []);
 
-  // Submit a new generation job using RPC
-  const submitGenerationJob = async (sourceImageUrl: string, prompt: string, settings: any = {}) => {
-    try {
-      // Call the insert_product_shot RPC function
-      const { data, error } = await supabase
-        .rpc('insert_product_shot', {
-          p_source_image_url: sourceImageUrl,
-          p_scene_description: prompt,
-          p_ref_image_url: '',
-          p_settings: settings,
-          p_status: 'pending',
-          p_user_id: '',  // This would typically come from authentication
-          p_visibility: 'private'
-        });
+  // Set the check status function
+  const setCheckStatusFunction = useCallback((checkFunction: (id: string) => Promise<any>) => {
+    checkStatusFunctionRef.current = checkFunction;
+  }, []);
 
-      if (error) {
-        console.error('Error submitting generation job:', error.message);
-        throw new Error(error.message);
-      }
-
-      if (data) {
-        const jobId = data;
-        console.log('Generation job submitted with ID:', jobId);
-        
-        // Add the job to the queue for tracking
-        addToQueue(jobId);
-        
-        return jobId;
-      }
-      
-      throw new Error('No job ID returned from submission');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('Error in submitGenerationJob:', errorMessage);
-      throw errorMessage;
+  // Start polling for job statuses
+  const startPolling = useCallback(() => {
+    if (isPolling || queue.length === 0 || !checkStatusFunctionRef.current) return;
+    
+    setIsPolling(true);
+    
+    // Clear any existing interval
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
     }
-  };
-
-  // Check the status of a generation job using RPC
-  const checkJobStatus = async (jobId: string): Promise<StatusResponse> => {
-    try {
-      // Call the get_product_shot_status RPC function
-      const { data, error } = await supabase
-        .rpc('get_product_shot_status', {
-          p_id: jobId
-        });
-
-      if (error) {
-        throw new Error(`Failed to check status: ${error.message}`);
-      }
-
-      if (!data) {
-        throw new Error(`No status data found for job ${jobId}`);
-      }
-
-      // Map the response to our StatusResponse type
-      const statusResponse: StatusResponse = {
-        status: data.status as 'pending' | 'processing' | 'completed' | 'failed',
-        resultUrl: data.result_url,
-        error: data.error_message,
-        settings: data.settings
-      };
-
-      // Update our local state with the latest status
-      setQueueStatus(prev => ({
-        ...prev,
-        [jobId]: statusResponse
-      }));
-
-      // If the job is completed or failed, update our lists
-      if (statusResponse.status === 'completed') {
-        setCompletedIds(prev => {
-          if (!prev.includes(jobId)) {
-            return [...prev, jobId];
-          }
-          return prev;
-        });
-        setProcessingIds(prev => prev.filter(id => id !== jobId));
-      } else if (statusResponse.status === 'failed') {
-        setFailedIds(prev => {
-          if (!prev.includes(jobId)) {
-            return [...prev, jobId];
-          }
-          return prev;
-        });
-        setProcessingIds(prev => prev.filter(id => id !== jobId));
-      }
-
-      return statusResponse;
-    } catch (error) {
-      console.error(`Error checking job status for ${jobId}:`, error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Update queue status with the error
-      const errorStatus: StatusResponse = {
-        status: 'failed',
-        resultUrl: null,
-        error: errorMessage
-      };
-      
-      setQueueStatus(prev => ({
-        ...prev,
-        [jobId]: errorStatus
-      }));
-      
-      setFailedIds(prev => {
-        if (!prev.includes(jobId)) {
-          return [...prev, jobId];
+    
+    // Set up polling interval
+    intervalRef.current = window.setInterval(async () => {
+      if (queue.length === 0) {
+        if (intervalRef.current) {
+          window.clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
-        return prev;
-      });
+        setIsPolling(false);
+        return;
+      }
       
-      setProcessingIds(prev => prev.filter(id => id !== jobId));
+      const currentQueue = [...queue];
+      const remainingJobs: string[] = [];
+      const newCompletedJobs: string[] = [];
+      const newFailedJobs: string[] = [];
       
-      return errorStatus;
+      for (const jobId of currentQueue) {
+        if (!checkStatusFunctionRef.current) continue;
+        
+        try {
+          const status = await checkStatusFunctionRef.current(jobId);
+          
+          if (status.status === 'completed') {
+            newCompletedJobs.push(jobId);
+          } else if (status.status === 'failed') {
+            newFailedJobs.push(jobId);
+          } else {
+            remainingJobs.push(jobId);
+          }
+        } catch (error) {
+          console.error(`Error checking job ${jobId}:`, error);
+          remainingJobs.push(jobId);
+        }
+      }
+      
+      setQueue(remainingJobs);
+      
+      if (newCompletedJobs.length > 0) {
+        setCompletedJobs(prev => [...prev, ...newCompletedJobs]);
+      }
+      
+      if (newFailedJobs.length > 0) {
+        setFailedJobs(prev => [...prev, ...newFailedJobs]);
+      }
+      
+      if (remainingJobs.length === 0) {
+        if (intervalRef.current) {
+          window.clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        setIsPolling(false);
+      }
+    }, 3000); // Poll every 3 seconds
+    
+  }, [isPolling, queue]);
+
+  // Check status of a specific job
+  const checkStatus = useCallback(async (jobId: string) => {
+    if (!checkStatusFunctionRef.current) return null;
+    
+    try {
+      return await checkStatusFunctionRef.current(jobId);
+    } catch (error) {
+      console.error(`Error checking status for job ${jobId}:`, error);
+      return null;
     }
-  };
+  }, []);
 
-  // Start polling for job status updates
-  const startPolling = () => {
-    if (!isPolling && processingIds.length > 0) {
-      setIsPolling(true);
-    }
-  };
-
-  // Stop polling for job status updates
-  const stopPolling = () => {
-    setIsPolling(false);
-  };
-
-  // Poll for job status updates
+  // Cleanup the interval on unmount
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isPolling && processingIds.length > 0) {
-      interval = setInterval(async () => {
-        for (const jobId of processingIds) {
-          await checkJobStatus(jobId);
-        }
-        
-        // If no more jobs are processing, stop polling
-        if (processingIds.length === 0) {
-          stopPolling();
-        }
-      }, 3000); // Poll every 3 seconds
-    }
-    
     return () => {
-      if (interval) {
-        clearInterval(interval);
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
       }
     };
-  }, [isPolling, processingIds]);
+  }, []);
+
+  // Automatically start polling when a new job is added to the queue
+  useEffect(() => {
+    if (queue.length > 0 && !isPolling && checkStatusFunctionRef.current) {
+      startPolling();
+    }
+  }, [queue, isPolling, startPolling]);
 
   return {
-    submitGenerationJob,
-    checkJobStatus,
+    addToQueue,
+    setCheckStatusFunction,
+    checkStatus,
     startPolling,
-    stopPolling,
-    queueStatus,
-    processingIds,
-    completedIds,
-    failedIds,
-    isPolling
+    isPolling,
+    queueLength: queue.length,
+    completedJobs,
+    failedJobs
   };
-};
+}

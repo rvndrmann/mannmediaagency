@@ -20,10 +20,33 @@ export const InputPanelAdapter: React.FC<{
   isGenerating: boolean;
   onGenerate: () => any;
 }> = (props) => {
+  // Define the InputPanel component props interface
+  interface InputPanelProps {
+    prompt: string;
+    onPromptChange: (prompt: string) => void;
+    placement: string;
+    onPlacementChange: (placement: string) => void;
+    background: string;
+    onBackgroundChange: (background: string) => void;
+    sourceImageUrl: string;
+    onImageUpload: (file: File) => Promise<void>;
+    onImageSelect: (url: string) => void;
+    defaultImages: any[];
+    stylePreset: string;
+    onStylePresetChange: (style: string) => void;
+    isLoading: boolean;
+    onSubmit: () => any;
+  }
+
   // Map the received props to what InputPanel expects
-  const adaptedProps = {
+  const adaptedProps: InputPanelProps = {
     prompt: props.prompt,
     onPromptChange: props.onPromptChange,
+    // Add default values for required props that might be missing
+    placement: 'original',
+    onPlacementChange: () => {}, // No-op function as this isn't passed in
+    background: 'transparent',
+    onBackgroundChange: () => {}, // No-op function as this isn't passed in
     sourceImageUrl: props.sourceImageUrl,
     onImageUpload: props.onImageUpload,
     onImageSelect: props.onImageSelect,

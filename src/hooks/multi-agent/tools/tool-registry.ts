@@ -1,9 +1,10 @@
 
-import { ToolDefinition } from "../types";
+import { ToolDefinition } from "./types";
+import { CommandExecutionState } from "./types";
 import { canvasTool } from "./canvas-tool";
 import { canvasContentTool } from "./canvas-content-tool";
 
-// Individual tool exports
+// Create dataTool
 export const dataTool: ToolDefinition = {
   name: "data-tool",
   description: "Tool for data operations",
@@ -12,10 +13,10 @@ export const dataTool: ToolDefinition = {
       success: true,
       message: "Data operation executed",
       data: { result: "Success" },
-      state: "completed"
+      state: CommandExecutionState.COMPLETED
     };
   },
-  schema: {
+  parameters: {
     type: "object",
     properties: {
       operation: {
@@ -28,6 +29,7 @@ export const dataTool: ToolDefinition = {
   }
 };
 
+// Create browserUseTool
 export const browserUseTool: ToolDefinition = {
   name: "browser-use-tool",
   description: "Tool for browser automation",
@@ -36,10 +38,10 @@ export const browserUseTool: ToolDefinition = {
       success: true,
       message: "Browser operation executed",
       data: { result: "Success" },
-      state: "completed"
+      state: CommandExecutionState.COMPLETED
     };
   },
-  schema: {
+  parameters: {
     type: "object",
     properties: {
       task: {

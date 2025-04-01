@@ -11,12 +11,22 @@ export const GalleryPanelAdapter: React.FC<{
   onSaveImage: (imageId: string) => Promise<any>;
   onSetAsDefault: (imageId: string) => Promise<any>;
 }> = (props) => {
-  // Map the received props to what GalleryPanel expects
-  const adaptedProps = {
-    images: [...props.generatedImages, ...props.savedImages],
+  // Define the GalleryPanel component props interface
+  interface GalleryPanelProps {
+    generatedImages: GeneratedImage[];
+    savedImages: GeneratedImage[];
+    defaultImages: GeneratedImage[];
+    onSaveImage: (imageId: string) => Promise<any>;
+    onSetAsDefault: (imageId: string) => Promise<any>;
+  }
+
+  // Map the received props directly (no adaptation needed in this case)
+  const adaptedProps: GalleryPanelProps = {
+    generatedImages: props.generatedImages,
+    savedImages: props.savedImages,
     defaultImages: props.defaultImages,
-    onSave: props.onSaveImage,
-    onSetDefault: props.onSetAsDefault
+    onSaveImage: props.onSaveImage,
+    onSetAsDefault: props.onSetAsDefault
   };
 
   return <GalleryPanel {...adaptedProps} />;

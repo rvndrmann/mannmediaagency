@@ -1,6 +1,6 @@
 
-import { ToolDefinition, ToolContext, ToolExecutionResult } from "../../types";
-import { CommandExecutionState } from "../../runner/types";
+import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
+import { CommandExecutionState } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 
 // Create a singleton instance to avoid multiple service instantiation
@@ -42,7 +42,6 @@ const canvasService = {
 export const canvasTool: ToolDefinition = {
   name: "canvas",
   description: "Create and update video scenes in the Canvas system",
-  version: "2.0",
   requiredCredits: 0.2,
   parameters: {
     type: "object",

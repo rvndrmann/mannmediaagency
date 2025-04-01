@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProjectContext } from '@/hooks/multi-agent/project-context';
 import { ProjectSelector } from '@/components/canvas/ProjectSelector';
+import { useCanvas } from '@/hooks/use-canvas';
 
 export default function Canvas() {
   const navigate = useNavigate();
@@ -16,11 +17,20 @@ export default function Canvas() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   
   const { 
-    projectDetails, 
-    projectContent, 
-    loadProject,
-    getProjectScenes
-  } = useProjectContext({});
+    project, 
+    scenes, 
+    selectedScene,
+    selectedSceneId,
+    setSelectedSceneId,
+    createProject,
+    addScene,
+    deleteScene,
+    updateScene,
+    divideScriptToScenes,
+    saveFullScript,
+    updateProjectTitle,
+    loading
+  } = useCanvas(selectedProjectId);
   
   // useEffect to load project details if projectId is in the URL
   useEffect(() => {
@@ -30,24 +40,23 @@ export default function Canvas() {
     
     if (projectId) {
       setSelectedProjectId(projectId);
-      loadProject(projectId).then(() => {
-        setActiveTab('editor');
-      });
+      setActiveTab('editor');
     }
-  }, [location.search, loadProject]);
+  }, [location.search]);
   
   const handleCreateProject = async (title: string) => {
     try {
-      // Since createProject doesn't exist in the context, we'll simulate it
-      const result = { id: `project-${Date.now()}`, title };
+      const projectId = await createProject(title);
       
-      toast.success(`Project "${title}" created successfully!`);
-      setSelectedProjectId(result.id);
-      // Navigate to the editor tab
-      setActiveTab('editor');
-      // Update URL with project ID
-      navigate(`/canvas?projectId=${result.id}`, { replace: true });
-      return result.id;
+      if (projectId) {
+        toast.success(`Project "${title}" created successfully!`);
+        setSelectedProjectId(projectId);
+        // Navigate to the editor tab
+        setActiveTab('editor');
+        // Update URL with project ID
+        navigate(`/canvas?projectId=${projectId}`, { replace: true });
+        return projectId;
+      }
     } catch (error) {
       toast.error(`Failed to create project: ${error}`);
     }
@@ -56,11 +65,10 @@ export default function Canvas() {
   
   const handleSelectProject = (projectId: string) => {
     setSelectedProjectId(projectId);
-    loadProject(projectId).then(() => {
-      setActiveTab('editor');
-      // Update URL with project ID
-      navigate(`/canvas?projectId=${projectId}`, { replace: true });
-    });
+    // Navigate to the editor tab
+    setActiveTab('editor');
+    // Update URL with project ID
+    navigate(`/canvas?projectId=${projectId}`, { replace: true });
   };
   
   const handleBackToProjects = () => {
@@ -68,75 +76,32 @@ export default function Canvas() {
     navigate('/canvas', { replace: true });
   };
   
-  // Simplified wrapper functions that adapt return types
+  // Wrapper functions to adapt return types
   const createSceneWrapper = async () => {
-    const newScene = await createScene();
-    return; // Void return to match expected type
+    await addScene();
   };
   
   const deleteSceneWrapper = async (id: string) => {
     await deleteScene(id);
-    return; // Void return to match expected type
   };
   
   const updateSceneScriptsWrapper = async (sceneScripts: { id: string; content: string; voiceOverText?: string; }[]) => {
-    // Convert array format to single script for compatibility
+    // If there's content and it's just a string, save it as the full script
     if (sceneScripts && sceneScripts.length > 0) {
-      await updateSceneScript(sceneScripts[0].id, sceneScripts[0].content);
+      await updateScene(sceneScripts[0].id, 'script', sceneScripts[0].content);
     }
-    return; // Void return to match expected type
   };
   
   const updateSceneScriptWrapper = async (script: string) => {
     if (selectedSceneId) {
-      await updateSceneScript(selectedSceneId, script);
+      await updateScene(selectedSceneId, 'script', script);
     }
-    return; // Void return to match expected type
   };
   
   const updateProjectTitleWrapper = async (title: string) => {
     await updateProjectTitle(title);
-    return; // Void return to match expected type
   };
-  
-  // Simulator functions for demo purposes
-  const [scenes, setScenes] = useState<any[]>([]);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  
-  async function createScene() {
-    const newScene = {
-      id: `scene-${Date.now()}`,
-      title: `Scene ${scenes.length + 1}`,
-      script: '',
-      created_at: new Date().toISOString()
-    };
-    setScenes(prev => [...prev, newScene]);
-    return newScene;
-  }
-  
-  async function deleteScene(sceneId: string) {
-    setScenes(prev => prev.filter(scene => scene.id !== sceneId));
-    if (selectedSceneId === sceneId) {
-      setSelectedSceneId(null);
-    }
-    return true;
-  }
-  
-  async function updateSceneScript(sceneId: string, script: string) {
-    setScenes(prev => 
-      prev.map(scene => 
-        scene.id === sceneId ? { ...scene, script } : scene
-      )
-    );
-    return true;
-  }
-  
-  async function updateProjectTitle(title: string) {
-    // This would update the project title in a real implementation
-    toast.success(`Project title updated to: ${title}`);
-    return true;
-  }
-  
+
   return (
     <PageLayout>
       <div className="mb-4">
@@ -155,15 +120,16 @@ export default function Canvas() {
             <ProjectSelector 
               onBack={() => navigate('/')} 
               onSelectProject={handleSelectProject}
+              onCreateProject={handleCreateProject}
             />
           </div>
         </TabsContent>
         
         <TabsContent value="editor" className="mt-4">
-          {selectedProjectId && projectDetails ? (
+          {selectedProjectId && project ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">{projectDetails.title || 'Untitled Project'}</h2>
+                <h2 className="text-2xl font-bold">{project.title || 'Untitled Project'}</h2>
                 <Button variant="outline" onClick={handleBackToProjects}>
                   Back to Projects
                 </Button>

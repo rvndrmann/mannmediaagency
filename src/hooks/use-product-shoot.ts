@@ -3,10 +3,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/integrations/supabase/client';
-import { ProductShootSettings, GeneratedImage, GenerationResponse, StatusResponse } from '@/types/product-shoot';
-import { useProductShootApi } from '@/hooks/product-shoot/use-product-shoot-api';
-import { useGenerationQueue } from '@/hooks/product-shoot/use-generation-queue';
-import { ProductShootHistoryService } from '@/hooks/product-shoot/history-service';
+import { useProductShootApi } from './product-shoot/use-product-shoot-api';
+import { useGenerationQueue } from './product-shoot/use-generation-queue';
+import { ProductShootHistoryService } from './product-shoot/history-service';
+import { GeneratedImage, ProductShootSettings } from '@/types/product-shoot';
 
 // Default settings
 const defaultSettings: ProductShootSettings = {
@@ -28,11 +28,18 @@ export function useProductShoot() {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [savedImages, setSavedImages] = useState<GeneratedImage[]>([]);
   const [defaultImages, setDefaultImages] = useState<GeneratedImage[]>([]);
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   
-  const { submitGenerationJob, checkJobStatus } = useProductShootApi();
-  const queue = useGenerationQueue();
+  const productShootApi = useProductShootApi();
+  const { submitGenerationJob, checkJobStatus } = productShootApi;
+  
+  const generationQueue = useGenerationQueue();
   const historyService = new ProductShootHistoryService();
+  
+  // Set the check status function for the queue
+  useEffect(() => {
+    generationQueue.setCheckStatusFunction(checkImageStatus);
+  }, [checkJobStatus]);
 
   // Generate a product shot
   const generateProductShot = useCallback(async (sourceImageUrl: string) => {
@@ -51,20 +58,16 @@ export function useProductShoot() {
       }
       
       // Submit job to API
-      const response = await submitGenerationJob(
-        sourceImageUrl,
-        settings.prompt,
-        {
-          stylePreset: settings.stylePreset,
-          background: settings.background,
-          placement: settings.placement,
-          outputFormat: settings.outputFormat,
-          version: settings.version,
-          width: settings.imageWidth,
-          height: settings.imageHeight,
-          quality: settings.quality
-        }
-      );
+      const response = await submitGenerationJob(sourceImageUrl, settings.prompt, {
+        stylePreset: settings.stylePreset,
+        background: settings.background,
+        placement: settings.placement,
+        outputFormat: settings.outputFormat,
+        version: settings.version,
+        width: settings.imageWidth,
+        height: settings.imageHeight,
+        quality: settings.quality
+      });
       
       if (!response?.imageId) {
         toast({
@@ -77,7 +80,7 @@ export function useProductShoot() {
       }
       
       // Add job to polling queue
-      queue.addToQueue(response.imageId);
+      generationQueue.addToQueue(response.imageId);
       
       // Return the response
       return response;
@@ -91,7 +94,7 @@ export function useProductShoot() {
       setIsGenerating(false);
       return null;
     }
-  }, [settings, submitGenerationJob, toast, queue]);
+  }, [settings, submitGenerationJob, toast, generationQueue]);
 
   // Check the status of a product shot generation job
   const checkImageStatus = useCallback(async (imageId: string) => {
@@ -121,13 +124,11 @@ export function useProductShoot() {
         return newImage;
       } else if (status.status === 'failed') {
         setIsGenerating(false);
-        
         toast({
           title: 'Error',
           description: status.error || 'Failed to generate product shot',
           variant: 'destructive'
         });
-        
         return null;
       }
       
@@ -136,13 +137,11 @@ export function useProductShoot() {
     } catch (error) {
       console.error('Error checking image status:', error);
       setIsGenerating(false);
-      
       toast({
         title: 'Error',
         description: 'Failed to check generation status',
         variant: 'destructive'
       });
-      
       return null;
     }
   }, [settings, checkJobStatus, toast]);
@@ -151,6 +150,7 @@ export function useProductShoot() {
   const saveImage = useCallback(async (imageId: string) => {
     try {
       const image = generatedImages.find(img => img.id === imageId);
+      
       if (!image) {
         toast({
           title: 'Error',
@@ -184,6 +184,7 @@ export function useProductShoot() {
   const setAsDefault = useCallback(async (imageId: string) => {
     try {
       const image = [...generatedImages, ...savedImages].find(img => img.id === imageId);
+      
       if (!image) {
         toast({
           title: 'Error',
@@ -214,7 +215,7 @@ export function useProductShoot() {
   }, [generatedImages, savedImages, toast, historyService]);
 
   // Upload an image and return its URL
-  const uploadImage = useCallback(async (file: File): Promise<string | null> => {
+  const uploadImage = useCallback(async (file: File) => {
     try {
       const uniqueId = uuidv4();
       const ext = file.name.split('.').pop();
@@ -270,10 +271,10 @@ export function useProductShoot() {
 
   // Listen for queue status changes
   useEffect(() => {
-    if (!queue.isPolling && queue.completedIds && queue.completedIds.length > 0) {
+    if (!generationQueue.isPolling && generationQueue.completedJobs.length > 0) {
       setIsGenerating(false);
     }
-  }, [queue.isPolling, queue.completedIds]);
+  }, [generationQueue.isPolling, generationQueue.completedJobs]);
 
   // Return the hook API
   return {
@@ -290,8 +291,9 @@ export function useProductShoot() {
     uploadImage,
     fetchSavedImages,
     fetchDefaultImages,
-    addToQueue: queue.addToQueue,
-    checkStatus: queue.checkJobStatus,
-    isLoading: queue.isPolling
+    // Provide the queue methods
+    addToQueue: generationQueue.addToQueue,
+    checkStatus: generationQueue.checkStatus,
+    isLoading: generationQueue.isPolling
   };
 }

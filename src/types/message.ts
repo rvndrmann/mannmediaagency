@@ -73,6 +73,7 @@ export interface AgentInfo {
   color?: string;
   instructions?: string;
   type?: string;
+  isBuiltIn?: boolean;
 }
 
-export type MessageStatus = 'pending' | 'completed' | 'error' | 'thinking' | 'working' | 'in-progress';
+export type MessageStatus = 'pending' | 'completed' | 'error' | 'thinking' | 'working' | 'in-progress' | 'complete';

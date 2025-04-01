@@ -59,21 +59,17 @@ export default function Canvas() {
     updateScene
   });
   
-  const addScene = useCallback(async (projectId: string, data: any = {}): Promise<any> => {
-    if (!project) return null;
+  const addScene = useCallback(async (): Promise<void> => {
+    if (!project) return;
     
     try {
-      const newScene = await createScene({
-        ...data,
-        projectId: projectId || project.id,
-        project_id: projectId || project.id,
+      await createScene({
+        projectId: project.id,
+        project_id: project.id,
         scene_order: scenes.length + 1
       });
-      
-      return newScene || null;
     } catch (error) {
       console.error("Error adding scene:", error);
-      return null;
     }
   }, [project, createScene, scenes.length]);
   
@@ -97,9 +93,9 @@ export default function Canvas() {
   ): Promise<void> => {
     for (const sceneScript of sceneScripts) {
       if (sceneScript.id) {
-        await updateScene(sceneScript.id, 'script', sceneScript.content || '');
+        await updateScene(sceneScript.id, 'script' as SceneUpdateType, sceneScript.content || '');
         if (sceneScript.voiceOverText) {
-          await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText);
+          await updateScene(sceneScript.id, 'voiceOverText' as SceneUpdateType, sceneScript.voiceOverText);
         }
       }
     }
@@ -208,16 +204,12 @@ export default function Canvas() {
         onToggleScriptPanel={toggleScriptPanel}
         onToggleDetailPanel={toggleDetailPanel}
         onToggleChatPanel={toggleChatPanel}
-        showScriptPanel={showScriptPanel}
-        showDetailPanel={showDetailPanel}
         showChatButton={true}
       />
       
       <div className="flex flex-1 overflow-hidden">
         <CanvasSidebarAdapter 
           project={project}
-          scenes={scenes}
-          selectedScene={selectedScene}
           selectedSceneId={selectedSceneId}
           setSelectedSceneId={setSelectedSceneId}
           createScene={createScene}
@@ -254,10 +246,9 @@ export default function Canvas() {
         
         {showScriptPanel && (
           <CanvasScriptPanelAdapter 
-            scene={selectedScene}
             project={project}
             projectId={project?.id || ''}
-            updateScene={updateScene}
+            onUpdateScene={updateScene}
             onClose={() => setShowScriptPanel(false)}
             saveFullScript={saveFullScript}
             divideScriptToScenes={divideScriptToScenes}

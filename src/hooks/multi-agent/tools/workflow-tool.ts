@@ -75,7 +75,8 @@ export const workflowTool: ToolDefinition = {
         };
       }
       
-      const workflowManager = new AgentSDKWorkflowManager(projectId);
+      // Create manager with new constructor pattern
+      const workflowManager = new AgentSDKWorkflowManager();
       await workflowManager.setProject(projectId);
       
       let response: any;

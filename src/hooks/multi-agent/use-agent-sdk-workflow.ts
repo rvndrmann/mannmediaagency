@@ -19,7 +19,7 @@ export function useAgentSDKWorkflow({ projectId }: UseAgentSDKWorkflowProps = {}
   // Initialize the workflow manager when project ID changes
   useEffect(() => {
     if (projectId) {
-      const manager = new AgentSDKWorkflowManager(projectId);
+      const manager = new AgentSDKWorkflowManager(); // Fixed constructor call
       setWorkflowManager(manager);
       
       // Load the initial workflow state

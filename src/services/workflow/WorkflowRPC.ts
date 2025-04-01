@@ -116,7 +116,11 @@ export class WorkflowRPC {
     }
     
     // Update completed stages
-    let completedStages = [...(workflow.completed_stages || [])];
+    let completedStages: string[] = [];
+    if (workflow.completed_stages && Array.isArray(workflow.completed_stages)) {
+      completedStages = [...workflow.completed_stages];
+    }
+    
     if (status === 'completed' && !completedStages.includes(stage)) {
       completedStages.push(stage);
     }

@@ -31,7 +31,7 @@ interface CanvasSidebarAdapterProps {
   project: CanvasProject | null;
   selectedSceneId: string | null;
   setSelectedSceneId: (sceneId: string | null) => void;
-  createScene: (projectId: string, data: any) => Promise<any>;
+  createScene: (data: any) => Promise<any>;
   deleteScene: (sceneId: string) => Promise<void>;
   loading: boolean;
 }
@@ -43,7 +43,7 @@ interface CanvasWorkspaceAdapterProps {
   selectedSceneId: string | null;
   setSelectedSceneId: (sceneId: string | null) => void;
   updateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
-  addScene: () => Promise<string | null>;
+  addScene: () => Promise<void>;
   deleteScene: (sceneId: string) => Promise<void>;
   divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
@@ -67,8 +67,8 @@ interface CanvasScriptPanelAdapterProps {
   projectId: string;
   onUpdateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
   onClose: () => void;
-  onSaveFullScript: (script: string) => Promise<void>;
-  onDivideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
+  saveFullScript: (script: string) => Promise<void>;
+  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
 }
 
 // Adapter components
@@ -118,7 +118,9 @@ export function CanvasSidebarAdapter({
 }: CanvasSidebarAdapterProps) {
   const addScene = async () => {
     if (project) {
-      const newScene = await createScene(project.id, { 
+      const newScene = await createScene({ 
+        projectId: project.id,
+        project_id: project.id,
         title: 'New Scene',
         scene_order: (project.scenes?.length || 0) + 1
       });
@@ -154,12 +156,6 @@ export function CanvasWorkspaceAdapter({
   updateProjectTitle,
   agent
 }: CanvasWorkspaceAdapterProps) {
-  // Create a wrapper function that adapts the return type to match what CanvasWorkspace expects
-  const handleAddScene = async () => {
-    await addScene();
-    // Return void to match the expected type
-  };
-
   return (
     <CanvasWorkspace
       project={project}
@@ -167,7 +163,7 @@ export function CanvasWorkspaceAdapter({
       selectedSceneId={selectedSceneId}
       setSelectedSceneId={setSelectedSceneId}
       updateScene={updateScene}
-      addScene={handleAddScene}
+      addScene={addScene}
       deleteScene={deleteScene}
       divideScriptToScenes={divideScriptToScenes}
       saveFullScript={saveFullScript}
@@ -201,8 +197,8 @@ export function CanvasScriptPanelAdapter({
   projectId,
   onUpdateScene,
   onClose,
-  onSaveFullScript,
-  onDivideScriptToScenes
+  saveFullScript,
+  divideScriptToScenes
 }: CanvasScriptPanelAdapterProps) {
   return (
     <CanvasScriptPanel
@@ -210,8 +206,8 @@ export function CanvasScriptPanelAdapter({
       projectId={projectId}
       onUpdateScene={onUpdateScene}
       onClose={onClose}
-      saveFullScript={onSaveFullScript}
-      divideScriptToScenes={onDivideScriptToScenes}
+      saveFullScript={saveFullScript}
+      divideScriptToScenes={divideScriptToScenes}
     />
   );
 }

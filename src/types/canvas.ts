@@ -1,3 +1,4 @@
+
 export interface CanvasProject {
   id: string;
   title: string;
@@ -8,6 +9,8 @@ export interface CanvasProject {
   fullScript?: string;
   scenes?: CanvasScene[];
   productImage?: string;
+  cover_image_url?: string;
+  final_video_url?: string;
 }
 
 export interface CanvasScene {
@@ -26,6 +29,15 @@ export interface CanvasScene {
   updatedAt: string;
   scene_order?: number;
   productImage?: string;
+  // Add these for backwards compatibility
+  imageUrl?: string;
+  videoUrl?: string;
+  productImageUrl?: string;
+  voiceOverUrl?: string;
+  backgroundMusicUrl?: string;
+  duration?: number;
+  project_id?: string;
+  order?: number;
 }
 
 export type WorkflowStage = 
@@ -52,7 +64,36 @@ export interface WorkflowState {
   progress?: number;
 }
 
-export interface SceneUpdateType {
-  type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'voiceOverText';
-  value: string;
+// Update to a string union type instead of an enum for better compatibility
+export type SceneUpdateType = 
+  | 'script' 
+  | 'imagePrompt' 
+  | 'description' 
+  | 'image' 
+  | 'productImage' 
+  | 'video' 
+  | 'voiceOver' 
+  | 'backgroundMusic' 
+  | 'voiceOverText';
+
+// Add this type for backwards compatibility
+export interface SceneData {
+  id?: string;
+  projectId: string;
+  project_id?: string;
+  title?: string;
+  script?: string;
+  description?: string;
+  imagePrompt?: string;
+  image_prompt?: string;
+  imageUrl?: string;
+  image_url?: string;
+  videoUrl?: string;
+  video_url?: string;
+  sceneOrder?: number;
+  scene_order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  voiceOverText?: string;
+  voice_over_text?: string;
 }

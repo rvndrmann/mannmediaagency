@@ -1,3 +1,4 @@
+import { WorkflowState, WorkflowStage } from "@/types/canvas";
 
 export interface Message {
   id: string;
@@ -5,7 +6,8 @@ export interface Message {
   content: string;
   createdAt: string;
   agentType?: string; 
-  sceneId?: string; // This is needed for scene references
+  sceneId?: string;
+  projectId?: string;
   metadata?: Record<string, any>;
   status?: 'pending' | 'completed' | 'error';
   type?: MessageType;
@@ -14,11 +16,19 @@ export interface Message {
   tool_arguments?: Record<string, any>;
   tasks?: Task[];
   command?: Command;
-  handoffRequest?: any;
+  handoffRequest?: {
+    targetAgent: string;
+    reason?: string;
+  };
   timestamp?: string;
   continuityData?: any;
   structured_output?: any;
   selectedTool?: string;
+  workflow?: {
+    state?: WorkflowState;
+    currentStage?: WorkflowStage;
+    progress?: number;
+  };
 }
 
 export type MessageType = 'text' | 'canvas' | 'system' | 'tool' | 'image' | 'video';

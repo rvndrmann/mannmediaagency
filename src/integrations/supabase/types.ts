@@ -2993,6 +2993,59 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_states: {
+        Row: {
+          completed_at: string | null
+          completed_stages: string[] | null
+          created_at: string
+          current_stage: string | null
+          error_message: string | null
+          id: string
+          project_id: string
+          scene_statuses: Json | null
+          stage_results: Json | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_stages?: string[] | null
+          created_at?: string
+          current_stage?: string | null
+          error_message?: string | null
+          id?: string
+          project_id: string
+          scene_statuses?: Json | null
+          stage_results?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_stages?: string[] | null
+          created_at?: string
+          current_stage?: string | null
+          error_message?: string | null
+          id?: string
+          project_id?: string
+          scene_statuses?: Json | null
+          stage_results?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_states_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

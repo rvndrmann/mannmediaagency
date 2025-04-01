@@ -29,6 +29,17 @@ export interface ToolResult {
   };
 }
 
+export interface ToolExecutionResult {
+  success: boolean;
+  message: string;
+  error?: string;
+  data?: any;
+  state: CommandExecutionState;
+  usage?: {
+    creditsUsed?: number;
+  };
+}
+
 export interface ToolDefinition {
   name: string;
   description: string;

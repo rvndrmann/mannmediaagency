@@ -1,6 +1,5 @@
 
-import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
-import { CommandExecutionState } from "../types";
+import { ToolDefinition, ToolContext, ToolResult, CommandExecutionState } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 
 // Create a singleton instance to avoid multiple service instantiation
@@ -88,7 +87,7 @@ export const canvasTool: ToolDefinition = {
     icon: "layers"
   },
   
-  execute: async (params, context): Promise<ToolExecutionResult> => {
+  execute: async (params, context): Promise<ToolResult> => {
     try {
       const { action, projectId, sceneId, content } = params;
       

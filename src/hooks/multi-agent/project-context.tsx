@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { CanvasProject, CanvasScene } from '@/types/canvas';
 
@@ -15,7 +14,6 @@ export interface ProjectContextType {
   scenes: Record<string, CanvasScene[]>;
   isSDKMode: boolean;
   toggleSDKMode: () => void;
-  // Add these properties to support multi-agent chat
   projectDetails?: any;
   projectContent?: any;
   fetchProjectDetails?: (projectId: string) => Promise<any>;
@@ -36,17 +34,16 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
   const [projectDetails, setProjectDetails] = useState<any>(null);
   const [projectContent, setProjectContent] = useState<any>(null);
 
-  // Load projects on mount
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        // In a real app, this would be loaded from the database
         const mockProjects: CanvasProject[] = [
           {
             id: 'project-123',
             title: 'Demo Project',
             description: 'A demo project for testing',
             user_id: 'user-1',
+            userId: 'user-1',
             scenes: [],
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -62,41 +59,52 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
     fetchProjects();
   }, []);
 
-  // Normalize project data to match the expected structure
   const normalizeProject = (project: any): CanvasProject => {
     return {
       id: project.id,
       title: project.title,
       description: project.description || '',
-      user_id: project.userId || 'user-1',
+      user_id: project.userId || project.user_id || 'user-1',
+      userId: project.userId || project.user_id || 'user-1',
       scenes: project.scenes || [],
-      created_at: project.createdAt || new Date().toISOString(),
+      created_at: project.createdAt || project.created_at || new Date().toISOString(),
       updated_at: project.updatedAt || project.updated_at || new Date().toISOString(),
-      full_script: project.fullScript || project.full_script || ''
+      full_script: project.fullScript || project.full_script || '',
+      createdAt: project.createdAt || project.created_at || new Date().toISOString(),
+      updatedAt: project.updatedAt || project.updated_at || new Date().toISOString(),
+      fullScript: project.fullScript || project.full_script || ''
     };
   };
 
-  // Normalize scene data to match the expected structure
   const normalizeScene = (scene: any): CanvasScene => {
     return {
       id: scene.id,
+      project_id: scene.projectId || scene.project_id || '',
       projectId: scene.projectId || scene.project_id || '',
       title: scene.title || 'Untitled Scene',
       description: scene.description || '',
       script: scene.script || '',
       image_prompt: scene.imagePrompt || scene.image_prompt || '',
+      imagePrompt: scene.imagePrompt || scene.image_prompt || '',
       image_url: scene.imageUrl || scene.image_url || '',
+      imageUrl: scene.imageUrl || scene.image_url || '',
+      video_url: scene.videoUrl || scene.video_url || '',
+      videoUrl: scene.videoUrl || scene.video_url || '',
       voice_over_text: scene.voiceOverText || scene.voice_over_text || '',
+      voiceOverText: scene.voiceOverText || scene.voice_over_text || '',
+      scene_order: scene.sceneOrder || scene.scene_order || 0,
+      sceneOrder: scene.sceneOrder || scene.scene_order || 0,
+      order: scene.order || scene.sceneOrder || scene.scene_order || 0,
       duration: scene.duration || 0,
-      project_id: scene.projectId || scene.project_id || '',
       created_at: scene.createdAt || scene.created_at || new Date().toISOString(),
-      updated_at: scene.updatedAt || scene.updated_at || new Date().toISOString()
+      updated_at: scene.updatedAt || scene.updated_at || new Date().toISOString(),
+      createdAt: scene.createdAt || scene.created_at || new Date().toISOString(),
+      updatedAt: scene.updatedAt || scene.updated_at || new Date().toISOString()
     };
   };
 
   const createProject = async (title: string, description?: string): Promise<string> => {
     try {
-      // In a real app, this would create a project in the database
       const projectId = `project-${Date.now()}`;
       const newProject = normalizeProject({
         id: projectId,
@@ -117,7 +125,6 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
 
   const updateProject = async (id: string, data: Partial<CanvasProject>): Promise<void> => {
     try {
-      // In a real app, this would update a project in the database
       setProjects(prev => 
         prev.map(project => 
           project.id === id 
@@ -133,7 +140,6 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
 
   const createScene = async (projectId: string, data: Partial<CanvasScene>): Promise<string> => {
     try {
-      // In a real app, this would create a scene in the database
       const sceneId = `scene-${Date.now()}`;
       const newScene = normalizeScene({
         id: sceneId,
@@ -157,11 +163,9 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
 
   const updateScene = async (id: string, data: Partial<CanvasScene>): Promise<void> => {
     try {
-      // In a real app, this would update a scene in the database
       setScenes(prev => {
         const newScenes = { ...prev };
         
-        // Find which project this scene belongs to
         for (const projectId in newScenes) {
           const sceneIndex = newScenes[projectId].findIndex(scene => scene.id === id);
           
@@ -182,18 +186,15 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
       throw error;
     }
   };
-  
+
   const toggleSDKMode = () => {
     setIsSDKMode(prev => !prev);
   };
 
-  // Add fetchProjectDetails method to support multi-agent chat
   const fetchProjectDetails = async (projectId: string): Promise<any> => {
     try {
-      // Mock implementation
       console.log(`Fetching project details for ${projectId}`);
       
-      // In a real app, this would fetch project details from an API
       setProjectDetails({
         id: projectId,
         title: 'Sample Project',

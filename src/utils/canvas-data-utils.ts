@@ -1,220 +1,152 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { CanvasScene, CanvasProject, SceneUpdateType } from "@/types/canvas";
+import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from '@/types/canvas';
 
 /**
- * Utility functions for accessing and manipulating Canvas project data
+ * Normalize a Canvas project object to ensure all properties are defined consistently
  */
-
-/**
- * Get detailed scene data by ID
- */
-export async function getSceneById(sceneId: string): Promise<CanvasScene | null> {
-  try {
-    const { data, error } = await supabase
-      .from('canvas_scenes')
-      .select(`
-        id, project_id, title, scene_order, script, description, 
-        image_prompt, image_url, product_image_url, video_url, 
-        voice_over_url, voice_over_text, background_music_url, duration, created_at, updated_at
-      `)
-      .eq('id', sceneId)
-      .single();
-      
-    if (error) throw error;
-    
-    if (!data) return null;
-    
-    return {
-      id: data.id,
-      projectId: data.project_id,
-      title: data.title,
-      order: data.scene_order,
-      script: data.script || "",
-      description: data.description || "", 
-      imagePrompt: data.image_prompt || "",
-      imageUrl: data.image_url || "",
-      productImageUrl: data.product_image_url || "",
-      videoUrl: data.video_url || "",
-      voiceOverUrl: data.voice_over_url || "", 
-      backgroundMusicUrl: data.background_music_url || "",
-      voiceOverText: data.voice_over_text || "", 
-      duration: data.duration,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
-    };
-  } catch (error) {
-    console.error("Error fetching scene:", error);
-    return null;
-  }
+export function normalizeProject(project: any): CanvasProject {
+  return {
+    id: project.id,
+    title: project.title || 'Untitled Project',
+    description: project.description || '',
+    userId: project.userId || project.user_id || '',
+    user_id: project.user_id || project.userId || '',
+    fullScript: project.fullScript || project.full_script || '',
+    full_script: project.full_script || project.fullScript || '',
+    createdAt: project.createdAt || project.created_at || new Date().toISOString(),
+    created_at: project.created_at || project.createdAt || new Date().toISOString(),
+    updatedAt: project.updatedAt || project.updated_at || new Date().toISOString(),
+    updated_at: project.updated_at || project.updatedAt || new Date().toISOString(),
+    cover_image_url: project.cover_image_url || '',
+    scenes: project.scenes || []
+  };
 }
 
 /**
- * Get all scenes for a project
+ * Normalize a Canvas scene object to ensure all properties are defined consistently
  */
-export async function getScenesByProjectId(projectId: string): Promise<CanvasScene[]> {
-  try {
-    const { data, error } = await supabase
-      .from('canvas_scenes')
-      .select(`
-        id, project_id, title, scene_order, script, description, 
-        image_prompt, image_url, product_image_url, video_url, 
-        voice_over_url, voice_over_text, background_music_url, duration, created_at, updated_at
-      `)
-      .eq('project_id', projectId)
-      .order('scene_order', { ascending: true });
-      
-    if (error) throw error;
-    
-    if (!data) return [];
-    
-    return data.map(scene => ({
-      id: scene.id,
-      projectId: scene.project_id,
-      title: scene.title,
-      order: scene.scene_order,
-      script: scene.script || "",
-      description: scene.description || "", 
-      imagePrompt: scene.image_prompt || "",
-      imageUrl: scene.image_url || "",
-      productImageUrl: scene.product_image_url || "",
-      videoUrl: scene.video_url || "",
-      voiceOverUrl: scene.voice_over_url || "", 
-      backgroundMusicUrl: scene.background_music_url || "",
-      voiceOverText: scene.voice_over_text || "", 
-      duration: scene.duration,
-      createdAt: scene.created_at,
-      updatedAt: scene.updated_at
-    }));
-  } catch (error) {
-    console.error("Error fetching scenes:", error);
+export function normalizeScene(scene: any): CanvasScene {
+  return {
+    id: scene.id,
+    project_id: scene.project_id || scene.projectId || '',
+    projectId: scene.projectId || scene.project_id || '',
+    title: scene.title || 'Untitled Scene',
+    description: scene.description || '',
+    script: scene.script || '',
+    imagePrompt: scene.imagePrompt || scene.image_prompt || '',
+    image_prompt: scene.image_prompt || scene.imagePrompt || '',
+    imageUrl: scene.imageUrl || scene.image_url || '',
+    image_url: scene.image_url || scene.imageUrl || '',
+    productImageUrl: scene.productImageUrl || scene.product_image_url || '',
+    product_image_url: scene.product_image_url || scene.productImageUrl || '',
+    videoUrl: scene.videoUrl || scene.video_url || '',
+    video_url: scene.video_url || scene.videoUrl || '',
+    voiceOverUrl: scene.voiceOverUrl || scene.voice_over_url || '',
+    voice_over_url: scene.voice_over_url || scene.voiceOverUrl || '',
+    voiceOverText: scene.voiceOverText || scene.voice_over_text || '',
+    voice_over_text: scene.voice_over_text || scene.voiceOverText || '',
+    backgroundMusicUrl: scene.backgroundMusicUrl || scene.background_music_url || '',
+    background_music_url: scene.background_music_url || scene.backgroundMusicUrl || '',
+    sceneOrder: scene.sceneOrder || scene.scene_order || scene.order || 0,
+    scene_order: scene.scene_order || scene.sceneOrder || scene.order || 0,
+    order: scene.order || scene.sceneOrder || scene.scene_order || 0,
+    duration: scene.duration || 0,
+    createdAt: scene.createdAt || scene.created_at || new Date().toISOString(),
+    created_at: scene.created_at || scene.createdAt || new Date().toISOString(),
+    updatedAt: scene.updatedAt || scene.updated_at || new Date().toISOString(),
+    updated_at: scene.updated_at || scene.updatedAt || new Date().toISOString()
+  };
+}
+
+/**
+ * Extract scenes from a project and normalize them
+ */
+export function extractAndNormalizeScenes(project: any): CanvasScene[] {
+  if (!project || !project.scenes || !Array.isArray(project.scenes)) {
     return [];
   }
+  
+  return project.scenes.map(scene => normalizeScene({
+    ...scene,
+    project_id: project.id,
+    projectId: project.id
+  }));
 }
 
 /**
- * Extract relevant scene content for display in the chat
+ * Map a scene update type to the corresponding property name in the database
  */
-export function extractSceneContent(scene: CanvasScene, contentType: SceneUpdateType | 'all' = 'all'): string {
-  if (contentType === 'all') {
-    let content = '';
-    if (scene.script) content += `## Script\n${scene.script}\n\n`;
-    if (scene.description) content += `## Description\n${scene.description}\n\n`;
-    if (scene.imagePrompt) content += `## Image Prompt\n${scene.imagePrompt}\n\n`;
-    if (scene.voiceOverText) content += `## Voice Over Text\n${scene.voiceOverText}\n\n`;
-    return content.trim();
-  }
-  
-  switch (contentType) {
-    case 'script': return scene.script || '';
-    case 'description': return scene.description || '';
-    case 'imagePrompt': return scene.imagePrompt || '';
-    case 'voiceOverText': return scene.voiceOverText || '';
-    case 'imageUrl': return scene.imageUrl || '';
-    case 'videoUrl': return scene.videoUrl || '';
-    case 'image': return scene.productImageUrl || '';
-    case 'productImage': return scene.productImageUrl || '';
-    case 'video': return scene.videoUrl || '';
-    case 'voiceOver': return scene.voiceOverUrl || '';
-    case 'backgroundMusic': return scene.backgroundMusicUrl || '';
-    default: return '';
-  }
-}
-
-/**
- * Format project data for display
- */
-export function formatProjectData(project: CanvasProject): string {
-  let content = `# ${project.title}\n\n`;
-  
-  if (project.description) {
-    content += `## Project Description\n${project.description}\n\n`;
-  }
-  
-  if (project.fullScript) {
-    content += `## Full Script\n${project.fullScript}\n\n`;
-  }
-  
-  content += `## Scenes (${project.scenes.length})\n`;
-  project.scenes.forEach((scene, index) => {
-    content += `### Scene ${index + 1}: ${scene.title}\n`;
-    if (scene.script) content += `**Script:** ${scene.script.substring(0, 100)}${scene.script.length > 100 ? '...' : ''}\n`;
-    content += '\n';
-  });
-  
-  return content.trim();
-}
-
-/**
- * Update a single scene field
- */
-export async function updateSceneField(
-  sceneId: string, 
-  fieldType: SceneUpdateType, 
-  content: string
-): Promise<boolean> {
-  try {
-    const fieldMappings: Record<SceneUpdateType, string> = {
-      script: 'script',
-      description: 'description',
-      imagePrompt: 'image_prompt',
-      voiceOverText: 'voice_over_text',
-      image: 'product_image_url',
-      productImage: 'product_image_url',
-      video: 'video_url',
-      voiceOver: 'voice_over_url',
-      backgroundMusic: 'background_music_url',
-      imageUrl: 'image_url',
-      videoUrl: 'video_url'
-    };
-    
-    const field = fieldMappings[fieldType];
-    if (!field) {
-      throw new Error(`Invalid field type: ${fieldType}`);
-    }
-    
-    const { error } = await supabase
-      .from('canvas_scenes')
-      .update({ [field]: content })
-      .eq('id', sceneId);
-      
-    if (error) throw error;
-    
-    return true;
-  } catch (error) {
-    console.error(`Error updating scene ${fieldType}:`, error);
-    return false;
-  }
-}
-
-/**
- * Update scene data in memory
- */
-export const updateSceneData = (scene: CanvasScene, type: SceneUpdateType, value: string): CanvasScene => {
-  const updatedScene = { ...scene };
-
-  // Map the update type to the appropriate field
-  const updateMap: Record<SceneUpdateType, keyof CanvasScene> = {
-    script: 'script',
-    imagePrompt: 'imagePrompt',
-    description: 'description',
-    voiceOverText: 'voiceOverText',
-    image: 'productImageUrl',
-    productImage: 'productImageUrl',
-    video: 'videoUrl',
-    voiceOver: 'voiceOverUrl',
-    backgroundMusic: 'backgroundMusicUrl',
-    imageUrl: 'imageUrl',
-    videoUrl: 'videoUrl'
+export function mapSceneUpdateTypeToDbField(updateType: SceneUpdateType): string {
+  const mapping: Record<SceneUpdateType, string> = {
+    'script': 'script',
+    'imagePrompt': 'image_prompt',
+    'description': 'description',
+    'image': 'image_url',
+    'imageUrl': 'image_url',
+    'videoUrl': 'video_url',
+    'productImage': 'product_image_url',
+    'video': 'video_url',
+    'voiceOver': 'voice_over_url',
+    'backgroundMusic': 'background_music_url',
+    'voiceOverText': 'voice_over_text'
   };
+  
+  return mapping[updateType] || updateType;
+}
 
-  // Update the appropriate field
-  const fieldToUpdate = updateMap[type];
-  if (fieldToUpdate) {
-    (updatedScene as any)[fieldToUpdate] = value;
-  } else {
-    console.error(`Unknown update type: ${type}`);
-  }
+/**
+ * Map a scene update type to the corresponding property in the CanvasScene object
+ */
+export function mapSceneUpdateTypeToProperty(updateType: SceneUpdateType): keyof CanvasScene {
+  const mapping: Record<SceneUpdateType, keyof CanvasScene> = {
+    'script': 'script',
+    'imagePrompt': 'imagePrompt',
+    'description': 'description',
+    'image': 'imageUrl',
+    'imageUrl': 'imageUrl',
+    'videoUrl': 'videoUrl',
+    'productImage': 'productImageUrl',
+    'video': 'videoUrl',
+    'voiceOver': 'voiceOverUrl',
+    'backgroundMusic': 'backgroundMusicUrl',
+    'voiceOverText': 'voiceOverText'
+  };
+  
+  return mapping[updateType];
+}
 
-  return updatedScene;
-};
+/**
+ * Convert a scene update type and value to a database update object
+ */
+export function createSceneUpdateObject(updateType: SceneUpdateType, value: string): Record<string, string> {
+  const dbField = mapSceneUpdateTypeToDbField(updateType);
+  return { [dbField]: value };
+}
+
+/**
+ * Check if a scene is ready for image generation
+ */
+export function isSceneReadyForImageGeneration(scene: CanvasScene): boolean {
+  return !!(
+    scene && 
+    scene.id && 
+    scene.script && 
+    scene.description && 
+    scene.imagePrompt && 
+    !scene.imageUrl
+  );
+}
+
+/**
+ * Check if a scene is ready for video generation
+ */
+export function isSceneReadyForVideoGeneration(scene: CanvasScene): boolean {
+  return !!(
+    scene && 
+    scene.id && 
+    scene.script && 
+    scene.description && 
+    scene.imageUrl && 
+    !scene.videoUrl
+  );
+}

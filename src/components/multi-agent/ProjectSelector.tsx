@@ -1,99 +1,67 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Select, 
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Plus, FolderPlus } from "lucide-react";
-import { useCanvasProjects } from "@/hooks/use-canvas-projects";
-import { useUser } from "@/hooks/use-user";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { CanvasProject } from '@/types/canvas';
+import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 
 interface ProjectSelectorProps {
-  selectedProjectId?: string;
   onProjectSelect: (projectId: string) => void;
-  allowCreateNew?: boolean;
-  isCompact?: boolean;
+  selectedProjectId?: string | null;
+  autoSelectFirst?: boolean;
 }
 
 export function ProjectSelector({ 
-  selectedProjectId, 
   onProjectSelect, 
-  allowCreateNew = false,
-  isCompact = false 
+  selectedProjectId = null,
+  autoSelectFirst = true 
 }: ProjectSelectorProps) {
-  const { user } = useUser();
-  const { projects, isLoading, createProject } = useCanvasProjects();
-  const [isCreating, setIsCreating] = useState(false);
+  const { projects, isLoading } = useCanvasProjects();
+  const [value, setValue] = useState<string | undefined>(undefined);
 
-  const handleCreateProject = async () => {
-    if (!user) {
-      toast.error("Please sign in to create a project");
-      return;
+  useEffect(() => {
+    // Set initial value from props if available
+    if (selectedProjectId) {
+      setValue(selectedProjectId);
     }
+    // Auto-select first project if enabled and no selection
+    else if (autoSelectFirst && projects.length > 0 && !value) {
+      const firstProjectId = projects[0].id;
+      setValue(firstProjectId);
+      onProjectSelect(firstProjectId);
+    }
+  }, [selectedProjectId, projects, autoSelectFirst, value, onProjectSelect]);
 
-    setIsCreating(true);
-    try {
-      const newProject = await createProject("Untitled Project");
-      if (newProject && newProject.id) {
-        onProjectSelect(newProject.id);
-        toast.success("New project created");
-      }
-    } catch (error) {
-      console.error("Error creating project:", error);
-      toast.error("Failed to create project");
-    } finally {
-      setIsCreating(false);
-    }
+  const handleValueChange = (newValue: string) => {
+    setValue(newValue);
+    onProjectSelect(newValue);
   };
 
-  return (
-    <div className={`w-full ${isCompact ? 'flex items-center gap-1' : ''}`}>
-      <Select
-        value={selectedProjectId}
-        onValueChange={onProjectSelect}
-        disabled={isLoading}
-      >
-        <SelectTrigger className={`${isCompact ? 'h-8 text-xs' : ''} bg-gray-800/60 border-gray-700`}>
-          <SelectValue placeholder="Select a project" />
-        </SelectTrigger>
-        <SelectContent className="max-h-[300px]">
-          {projects && projects.length > 0 ? (
-            projects.map((project) => (
-              <SelectItem key={project.id} value={project.id} className="text-sm">
-                {project.title || `Project #${project.id.substring(0, 8)}`}
-              </SelectItem>
-            ))
-          ) : (
-            <SelectItem value="no-projects" disabled>
-              No projects found
-            </SelectItem>
-          )}
-        </SelectContent>
-      </Select>
+  if (isLoading) {
+    return <SelectTrigger className="w-full h-10"><SelectValue placeholder="Loading projects..." /></SelectTrigger>;
+  }
 
-      {allowCreateNew && (
-        <Button
-          variant="outline"
-          size={isCompact ? "sm" : "default"}
-          className={`${isCompact ? 'h-8 px-2' : ''} bg-gray-800/60 border-gray-700 text-white hover:bg-gray-700/60`}
-          onClick={handleCreateProject}
-          disabled={isCreating}
-        >
-          {isCompact ? (
-            <Plus className="h-4 w-4" />
-          ) : (
-            <>
-              <FolderPlus className="h-4 w-4 mr-2" />
-              New Project
-            </>
-          )}
-        </Button>
-      )}
-    </div>
+  if (projects.length === 0) {
+    return <SelectTrigger className="w-full h-10"><SelectValue placeholder="No projects available" /></SelectTrigger>;
+  }
+
+  return (
+    <Select value={value} onValueChange={handleValueChange}>
+      <SelectTrigger className="w-full h-10">
+        <SelectValue placeholder="Select a project" />
+      </SelectTrigger>
+      <SelectContent>
+        {projects.map((project) => (
+          <SelectItem key={project.id} value={project.id}>
+            {project.title}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

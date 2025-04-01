@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner';
 import { useProjectContext } from '@/hooks/multi-agent/project-context';
 import { CanvasChat } from '@/components/canvas/CanvasChat';
+import { CanvasScene, SceneUpdateType } from '@/types/canvas';
 
 export default function Canvas() {
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
@@ -53,24 +54,31 @@ export default function Canvas() {
     addSystemMessage,
     activeAgent
   } = useCanvasAgent({
-    projectId: projectId || routeProjectId,
+    projectId: projectId || '',
     sceneId: selectedSceneId,
     updateScene
   });
   
-  const addScene = useCallback(async () => {
+  const addScene = useCallback(async (projectId: string, data: any = {}): Promise<any> => {
     if (!project) return null;
     
-    const newScene = await createScene(project.id, { 
-      title: 'New Scene',
-      scene_order: scenes.length + 1 
-    });
-    
-    if (newScene) {
-      return newScene.id;
+    try {
+      const newScene = await createScene({
+        ...data,
+        projectId: projectId || project.id,
+        project_id: projectId || project.id,
+        scene_order: scenes.length + 1
+      });
+      
+      if (newScene) {
+        return newScene;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error adding scene:", error);
+      return null;
     }
-    
-    return '';
   }, [project, createScene, scenes.length]);
   
   const saveFullScript = useCallback(async (script: string): Promise<void> => {
@@ -105,7 +113,7 @@ export default function Canvas() {
   const createNewProject = useCallback(async (title: string, description?: string): Promise<string> => {
     try {
       const newProject = await createProject(title, description);
-      if (newProject) {
+      if (newProject && typeof newProject === 'object' && 'id' in newProject) {
         return newProject.id;
       }
       return "";
@@ -127,6 +135,11 @@ export default function Canvas() {
       }
     }
   }, [project, updateProject]);
+  
+  // Wrapper for deleteScene to match expected Promise<void> return type
+  const handleDeleteScene = useCallback(async (sceneId: string): Promise<void> => {
+    await deleteScene(sceneId);
+  }, [deleteScene]);
   
   // Effects
   useEffect(() => {
@@ -215,7 +228,7 @@ export default function Canvas() {
           selectedSceneId={selectedSceneId}
           setSelectedSceneId={setSelectedSceneId}
           createScene={createScene}
-          deleteScene={deleteScene}
+          deleteScene={handleDeleteScene}
           loading={loading}
         />
         
@@ -227,7 +240,7 @@ export default function Canvas() {
             setSelectedSceneId={setSelectedSceneId}
             updateScene={updateScene}
             addScene={addScene}
-            deleteScene={deleteScene}
+            deleteScene={handleDeleteScene}
             divideScriptToScenes={divideScriptToScenes}
             saveFullScript={saveFullScript}
             createNewProject={createNewProject}

@@ -1,7 +1,7 @@
 
 import { CommandExecutionState } from "./types";
 import { toast } from "sonner";
-import { executeTool, availableTools, initializeTools, getAvailableTools } from "./tools/index";
+import { executeTool, availableTools, initializeTools as initializeToolsInternal, getAvailableTools } from "./tools/index";
 import { ToolContext } from "./types";
 
 export const executeCommand = async (
@@ -31,10 +31,11 @@ export const executeCommand = async (
   }
 };
 
-// Initialize the tool system
-export const initializeToolSystem = async () => {
+// Export the initializeToolSystem function for initializing tools
+export const initializeToolSystem = async (): Promise<boolean> => {
   try {
-    initializeTools();
+    console.log("Initializing tool system...");
+    initializeToolsInternal();
     console.log("Tool system initialized with", availableTools.length, "tools");
     return true;
   } catch (error) {

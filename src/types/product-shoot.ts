@@ -10,8 +10,8 @@ export interface ProductShootSettings {
   imageWidth: number;
   imageHeight: number;
   quality: string;
-  seed?: string; // Added to fix ProductShot.tsx errors
-  scale?: number; // Added to fix ProductShot.tsx errors
+  seed?: string;
+  scale?: number;
 }
 
 export interface GeneratedImage {

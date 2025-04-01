@@ -1,149 +1,192 @@
 
-import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useUser } from "../use-user";
-import { toast } from "sonner";
-import { StatusResponse } from "@/types/product-shoot";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { StatusResponse } from '@/types/product-shoot';
+import { CommandExecutionState } from "@/hooks/multi-agent/types";
 
-export function useGenerationQueue() {
-  const [isLoading, setIsLoading] = useState(false);
-  const { user } = useUser();
+export const useGenerationQueue = () => {
+  const [queueStatus, setQueueStatus] = useState<Record<string, StatusResponse>>({});
+  const [processingIds, setProcessingIds] = useState<string[]>([]);
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [failedIds, setFailedIds] = useState<string[]>([]);
+  const [isPolling, setIsPolling] = useState<boolean>(false);
 
-  const addToQueue = useCallback(async (
-    sourceImageUrl: string,
-    prompt: string,
-    options: {
-      stylePreset?: string;
-      version?: string;
-      placement?: string;
-      background?: string;
-      outputFormat?: string;
-      imageWidth?: number;
-      imageHeight?: number;
-      quality?: string;
-    } = {}
-  ): Promise<string | null> => {
-    if (!user) {
-      toast.error("You must be logged in to generate images");
-      return null;
-    }
+  // Add an ID to the processing queue
+  const addToQueue = (imageId: string) => {
+    setProcessingIds(prev => [...prev, imageId]);
+    setQueueStatus(prev => ({
+      ...prev,
+      [imageId]: {
+        status: 'pending',
+        resultUrl: null,
+        error: null
+      }
+    }));
+  };
 
-    setIsLoading(true);
-
+  // Submit a new generation job using RPC
+  const submitGenerationJob = async (sourceImageUrl: string, prompt: string, settings: any = {}) => {
     try {
-      // Direct database access approach to avoid typing issues
-      const insertion = await supabase.rpc('insert_product_shot', {
-        p_source_image_url: sourceImageUrl,
-        p_scene_description: prompt,
-        p_ref_image_url: sourceImageUrl,
-        p_settings: {
-          stylePreset: options.stylePreset || 'product',
-          version: options.version || 'v1',
-          placement: options.placement || 'product',
-          background: options.background || 'transparent',
-          outputFormat: options.outputFormat || 'png',
-          imageWidth: options.imageWidth || 768,
-          imageHeight: options.imageHeight || 768,
-          quality: options.quality || 'standard'
-        },
-        p_status: 'processing',
-        p_user_id: user.id,
-        p_visibility: 'private'
-      });
+      // Call the insert_product_shot RPC function
+      const { data, error } = await supabase
+        .rpc('insert_product_shot', {
+          p_source_image_url: sourceImageUrl,
+          p_scene_description: prompt,
+          p_ref_image_url: '',
+          p_settings: settings,
+          p_status: 'pending',
+          p_user_id: '',  // This would typically come from authentication
+          p_visibility: 'private'
+        });
 
-      // Handle error response
-      if (typeof insertion === 'object' && 'error' in insertion && insertion.error) {
-        throw new Error(insertion.error);
+      if (error) {
+        console.error('Error submitting generation job:', error.message);
+        throw new Error(error.message);
       }
 
-      // Get the ID from the result
-      const imageId = insertion as string;
-
-      if (!imageId) {
-        throw new Error("Failed to add image to generation queue");
+      if (data) {
+        const jobId = data;
+        console.log('Generation job submitted with ID:', jobId);
+        
+        // Add the job to the queue for tracking
+        addToQueue(jobId);
+        
+        return jobId;
       }
-
-      // Initiate the generation
-      const { error: genError } = await supabase.functions.invoke('initiate-image-generation', {
-        body: { image_id: imageId }
-      });
-
-      if (genError) {
-        throw genError;
-      }
-
-      return imageId;
+      
+      throw new Error('No job ID returned from submission');
     } catch (error) {
-      console.error("Error adding to generation queue:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast.error(`Generation error: ${errorMessage}`);
-      return null;
-    } finally {
-      setIsLoading(false);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error in submitGenerationJob:', errorMessage);
+      throw errorMessage;
     }
-  }, [user]);
+  };
 
-  const checkStatus = useCallback(async (imageId: string): Promise<StatusResponse> => {
+  // Check the status of a generation job using RPC
+  const checkJobStatus = async (jobId: string): Promise<StatusResponse> => {
     try {
-      // Use RPC to get status
-      const result = await supabase.rpc('get_product_shot_status', {
-        p_id: imageId
-      });
+      // Call the get_product_shot_status RPC function
+      const { data, error } = await supabase
+        .rpc('get_product_shot_status', {
+          p_id: jobId
+        });
 
-      if (result.error) {
-        throw result.error;
+      if (error) {
+        throw new Error(`Failed to check status: ${error.message}`);
       }
-
-      const data = result.data;
 
       if (!data) {
-        return {
-          status: 'failed',
-          error: 'Image not found',
-          resultUrl: null
-        };
+        throw new Error(`No status data found for job ${jobId}`);
       }
 
-      // Map database status to our status types
-      let status: 'pending' | 'processing' | 'completed' | 'failed';
-      switch (data.status) {
-        case 'completed':
-          status = 'completed';
-          break;
-        case 'failed':
-          status = 'failed';
-          break;
-        case 'in_queue':
-        case 'processing':
-          status = 'processing';
-          break;
-        default:
-          status = 'pending';
-      }
-
-      const settings = typeof data.settings === 'string' 
-        ? JSON.parse(data.settings)
-        : data.settings as Record<string, any>;
-
-      return {
-        status,
+      // Map the response to our StatusResponse type
+      const statusResponse: StatusResponse = {
+        status: data.status as 'pending' | 'processing' | 'completed' | 'failed',
         resultUrl: data.result_url,
-        error: data.error_message || null,
-        settings
+        error: data.error_message,
+        settings: data.settings
       };
+
+      // Update our local state with the latest status
+      setQueueStatus(prev => ({
+        ...prev,
+        [jobId]: statusResponse
+      }));
+
+      // If the job is completed or failed, update our lists
+      if (statusResponse.status === 'completed') {
+        setCompletedIds(prev => {
+          if (!prev.includes(jobId)) {
+            return [...prev, jobId];
+          }
+          return prev;
+        });
+        setProcessingIds(prev => prev.filter(id => id !== jobId));
+      } else if (statusResponse.status === 'failed') {
+        setFailedIds(prev => {
+          if (!prev.includes(jobId)) {
+            return [...prev, jobId];
+          }
+          return prev;
+        });
+        setProcessingIds(prev => prev.filter(id => id !== jobId));
+      }
+
+      return statusResponse;
     } catch (error) {
-      console.error("Error checking image status:", error);
-      return {
+      console.error(`Error checking job status for ${jobId}:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Update queue status with the error
+      const errorStatus: StatusResponse = {
         status: 'failed',
-        error: 'Failed to check status',
-        resultUrl: null
+        resultUrl: null,
+        error: errorMessage
       };
+      
+      setQueueStatus(prev => ({
+        ...prev,
+        [jobId]: errorStatus
+      }));
+      
+      setFailedIds(prev => {
+        if (!prev.includes(jobId)) {
+          return [...prev, jobId];
+        }
+        return prev;
+      });
+      
+      setProcessingIds(prev => prev.filter(id => id !== jobId));
+      
+      return errorStatus;
     }
-  }, []);
+  };
+
+  // Start polling for job status updates
+  const startPolling = () => {
+    if (!isPolling && processingIds.length > 0) {
+      setIsPolling(true);
+    }
+  };
+
+  // Stop polling for job status updates
+  const stopPolling = () => {
+    setIsPolling(false);
+  };
+
+  // Poll for job status updates
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isPolling && processingIds.length > 0) {
+      interval = setInterval(async () => {
+        for (const jobId of processingIds) {
+          await checkJobStatus(jobId);
+        }
+        
+        // If no more jobs are processing, stop polling
+        if (processingIds.length === 0) {
+          stopPolling();
+        }
+      }, 3000); // Poll every 3 seconds
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isPolling, processingIds]);
 
   return {
-    isLoading,
-    addToQueue,
-    checkStatus
+    submitGenerationJob,
+    checkJobStatus,
+    startPolling,
+    stopPolling,
+    queueStatus,
+    processingIds,
+    completedIds,
+    failedIds,
+    isPolling
   };
-}
+};

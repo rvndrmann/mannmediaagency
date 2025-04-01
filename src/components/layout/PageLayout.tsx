@@ -1,16 +1,15 @@
 
-import React from "react";
+import React from 'react';
 
 interface PageLayoutProps {
   children: React.ReactNode;
+  className?: string;
 }
 
-export function PageLayout({ children }: PageLayoutProps) {
+export const PageLayout: React.FC<PageLayoutProps> = ({ children, className = '' }) => {
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto py-6 px-4">
-        {children}
-      </main>
+    <div className={`container mx-auto px-4 py-8 max-w-6xl ${className}`}>
+      {children}
     </div>
   );
-}
+};

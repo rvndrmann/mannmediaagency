@@ -25,10 +25,8 @@ export class AgentRegistry {
     const AgentClass = AgentRegistry.agents[agentType];
     if (!AgentClass) {
       console.error(`Agent type ${agentType} not found in registry`);
+      // Return a mock agent that implements BaseAgent interface
       return {
-        response: "Agent not found",
-        output: "Agent not found",
-        nextAgent: null,
         run: async () => ({
           response: "Agent not found",
           output: "Agent not found",

@@ -6,6 +6,26 @@ interface DataParams {
   dataType?: string;
 }
 
+export const dataTool = {
+  name: "data_tool",
+  description: "Retrieve data based on a query",
+  parameters: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "The query to retrieve data for"
+      },
+      dataType: {
+        type: "string",
+        description: "The type of data to retrieve"
+      }
+    },
+    required: ["query"]
+  },
+  execute: executeDataTool
+};
+
 export async function executeDataTool(
   parameters: DataParams, 
   context: ToolContext

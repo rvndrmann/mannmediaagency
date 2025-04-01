@@ -1,6 +1,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { AgentType, RunnerContext, AgentResult, BaseAgent } from "../types";
+import { AgentRegistry } from "./AgentRegistry";
 import { supabase } from '@/integrations/supabase/client';
 
 interface RunnerCallbacks {
@@ -74,22 +75,12 @@ export class AgentRunner {
   }
 
   private getAgent(agentType: AgentType, context: RunnerContext): BaseAgent {
-    // Implement a factory method that creates the appropriate agent
-    return this.createMockAgent(agentType, context);
-  }
-
-  // Helper to create a mock agent if needed
-  private createMockAgent(agentType: AgentType, context: RunnerContext): BaseAgent {
-    return {
-      getType: () => agentType,
-      run: async (input: string, context: RunnerContext) => {
-        return {
-          response: `Mock response from ${agentType} agent`,
-          output: `Mock output from ${agentType} agent`,
-          nextAgent: null
-        };
-      }
-    };
+    // Use the AgentRegistry to create the appropriate agent
+    return AgentRegistry.createAgent(agentType, {
+      name: this.getAgentName(agentType),
+      instructions: `You are a helpful AI ${agentType} agent.`,
+      context
+    });
   }
 
   private async processWithAgent(agentType: AgentType, input: string, context: RunnerContext): Promise<AgentResult> {

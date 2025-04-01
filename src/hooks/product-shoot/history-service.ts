@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Json } from "@/integrations/supabase/types";
+import { ProductShotRPC } from "./rpc-functions";
 
 // Use a utility function for safer type casting from database results
 function mapDbResultToGeneratedImage(item: any): GeneratedImage {
@@ -20,15 +21,14 @@ function mapDbResultToGeneratedImage(item: any): GeneratedImage {
   };
 }
 
-// Fetch product image history
+// Fetch product image history using RPC function
 export async function fetchHistory(): Promise<GeneratedImage[]> {
   try {
-    // Use a direct query approach to avoid type issues with supabase client
+    // Call the get_product_shot_history RPC function
     const { data, error } = await supabase
-      .from('product_shots')
-      .select('*')
-      .eq('visibility', 'saved')
-      .order('created_at', { ascending: false });
+      .rpc('get_product_shot_history', {
+        p_visibility: 'saved'
+      });
 
     if (error) {
       throw error;
@@ -45,10 +45,9 @@ export async function fetchHistory(): Promise<GeneratedImage[]> {
 // Fetch default product images
 export async function fetchDefaultImages(): Promise<GeneratedImage[]> {
   try {
+    // Use RPC instead of direct table access
     const { data, error } = await supabase
-      .from('default_product_images')
-      .select('*')
-      .order('last_used_at', { ascending: false });
+      .rpc('get_default_product_images');
 
     if (error) {
       throw error;
@@ -72,14 +71,15 @@ export async function fetchDefaultImages(): Promise<GeneratedImage[]> {
 // Save an image to history
 export async function saveImage(imageId: string): Promise<boolean> {
   try {
-    // Direct query to update visibility
-    const result = await supabase
-      .from('product_shots')
-      .update({ visibility: 'saved' })
-      .eq('id', imageId);
+    // Use RPC to update visibility
+    const { data, error } = await supabase
+      .rpc('update_product_shot_visibility', {
+        p_id: imageId, 
+        p_visibility: 'saved'
+      });
 
-    if (result.error) {
-      throw result.error;
+    if (error) {
+      throw error;
     }
 
     return true;
@@ -92,27 +92,21 @@ export async function saveImage(imageId: string): Promise<boolean> {
 // Set an image as default
 export async function setAsDefault(imageId: string): Promise<boolean> {
   try {
-    // Get the image data
-    const result = await supabase
-      .from('product_shots')
-      .select('*')
-      .eq('id', imageId)
-      .single();
+    // Get the image data using RPC
+    const { data, error } = await supabase
+      .rpc('get_product_shot_by_id', { p_id: imageId });
 
-    if (result.error || !result.data) {
-      throw result.error || new Error('Image not found');
+    if (error || !data) {
+      throw error || new Error('Image not found');
     }
 
-    const imageData = result.data;
-
-    // Create a default image entry
+    // Create a default image entry using RPC
     const insertResult = await supabase
-      .from('default_product_images')
-      .insert({
-        url: imageData.result_url,
-        name: imageData.scene_description || 'Default Product Image',
-        context: 'product_shot',
-        user_id: imageData.user_id
+      .rpc('create_default_product_image', {
+        p_url: data.result_url,
+        p_name: data.scene_description || 'Default Product Image',
+        p_context: 'product_shot',
+        p_user_id: data.user_id
       });
 
     if (insertResult.error) {

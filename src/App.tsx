@@ -1,49 +1,37 @@
-
-import { Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "sonner";
-import MultiAgentChat from "./pages/MultiAgentChat";
-import Index from "./pages/Index";
-import { MCPProvider } from "./contexts/MCPContext";
-import Canvas from "./pages/Canvas";
-import ProductShot from "./pages/ProductShot";
-import ProductShootV2 from "./pages/ProductShootV2";
-import ImageToVideo from "./pages/ImageToVideo";
-import BrowserUse from "./pages/BrowserUse";
-import TraceAnalytics from "./pages/TraceAnalytics";
-import CustomOrders from "./pages/CustomOrders";
-import NotFound from "./pages/NotFound";
-import { ProjectProvider } from "@/hooks/multi-agent/project-context"; // Fixed import
-import "./hooks/multi-agent/init"; // Import to auto-initialize the multi-agent system
+import React, { useState } from 'react';
+import { Routes, Route, BrowserRouter } from 'react-router-dom';
+import Canvas from './pages/Canvas';
+import { Layout } from './components/Layout';
+import { ThemeProvider } from "@/components/theme-provider"
+import { ProjectProvider } from '@/hooks/multi-agent/project-context';
+import { ChatSessionProvider } from '@/contexts/ChatSessionContext';
+import { MCPProvider } from '@/contexts/MCPContext';
+import { Toast } from "@/components/ui/toast"
+import { Toaster } from "@/components/ui/toaster"
+import MultiAgentChatPage from "./pages/MultiAgentChatPage";
 
 function App() {
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  
   return (
-    <MCPProvider>
-      <Routes>
-        {/* Main routes */}
-        <Route path="/" element={<Index />} />
-        <Route path="/dashboard" element={<Index />} />
-        <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
-        <Route 
-          path="/canvas" 
-          element={
-            <ProjectProvider>
-              <Canvas />
-            </ProjectProvider>
-          } 
-        />
-        <Route path="/product-shoot" element={<ProductShot />} />
-        <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
-        <Route path="/image-to-video" element={<ImageToVideo />} />
-        <Route path="/browser-use" element={<BrowserUse />} />
-        <Route path="/trace-analytics" element={<TraceAnalytics />} />
-        <Route path="/custom-orders" element={<CustomOrders />} />
-        
-        {/* Fallback route for 404 */}
-        <Route path="/not-found" element={<NotFound />} />
-        <Route path="*" element={<Navigate to="/not-found" replace />} />
-      </Routes>
-      <Toaster position="top-right" />
-    </MCPProvider>
+    <div className="App">
+      <BrowserRouter>
+        <ThemeProvider defaultTheme="system" storageKey="vite-react-theme">
+          <ProjectProvider>
+            <ChatSessionProvider>
+              <MCPProvider>
+                <Routes>
+                  <Route path="/" element={<Layout />} />
+                  <Route path="/canvas" element={<Canvas />} />
+                  <Route path="/multi-agent-chat" element={<MultiAgentChatPage />} />
+                </Routes>
+                <Toaster />
+              </MCPProvider>
+            </ChatSessionProvider>
+          </ProjectProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </div>
   );
 }
 

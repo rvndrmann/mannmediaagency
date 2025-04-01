@@ -37,9 +37,13 @@ export async function initializeToolSystem(): Promise<void> {
   }
 }
 
-// Initialize on import
-initializeMultiAgentSystem().catch(error => {
-  console.error("Error during automatic Multi-Agent system initialization:", error);
-});
+// Initialize on import with error handling
+try {
+  initializeMultiAgentSystem().catch(error => {
+    console.error("Error during automatic Multi-Agent system initialization:", error);
+  });
+} catch (error) {
+  console.error("Initialization error caught:", error);
+}
 
 export default { initializeMultiAgentSystem, initializeToolSystem };

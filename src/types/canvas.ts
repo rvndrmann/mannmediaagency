@@ -5,13 +5,13 @@ export interface CanvasProject {
   title: string;
   description?: string;
   userId?: string;
-  user_id?: string;
+  user_id?: string; // For API compatibility
   fullScript?: string;
-  full_script?: string;
+  full_script?: string; // For API compatibility
   createdAt?: string;
-  created_at?: string;
+  created_at?: string; // For API compatibility
   updatedAt?: string;
-  updated_at?: string;
+  updated_at?: string; // For API compatibility
   scenes?: CanvasScene[];
   cover_image_url?: string;
 }
@@ -24,26 +24,26 @@ export interface CanvasScene {
   description?: string;
   script?: string;
   imagePrompt?: string;
-  image_prompt?: string;
+  image_prompt?: string; // For API compatibility
   imageUrl?: string;
-  image_url?: string;
+  image_url?: string; // For API compatibility
   productImageUrl?: string;
-  product_image_url?: string;
+  product_image_url?: string; // For API compatibility
   videoUrl?: string;
-  video_url?: string;
+  video_url?: string; // For API compatibility
   voiceOverUrl?: string;
-  voice_over_url?: string;
+  voice_over_url?: string; // For API compatibility
   voiceOverText?: string;
-  voice_over_text?: string;
+  voice_over_text?: string; // For API compatibility
   backgroundMusicUrl?: string;
-  background_music_url?: string;
+  background_music_url?: string; // For API compatibility
   scene_order?: number;
-  sceneOrder?: number;
-  order?: number; // Alias for scene_order
+  sceneOrder?: number; // Alias for scene_order
+  order?: number; // Alias for scene_order/sceneOrder
   createdAt?: string;
-  created_at?: string;
+  created_at?: string; // For API compatibility
   updatedAt?: string;
-  updated_at?: string;
+  updated_at?: string; // For API compatibility
   duration?: number;
 }
 
@@ -63,17 +63,17 @@ export interface SceneData {
 }
 
 export type SceneUpdateType = 
-  'script' | 
-  'imagePrompt' | 
-  'description' | 
-  'image' | 
-  'imageUrl' |
-  'videoUrl' |
-  'productImage' | 
-  'video' | 
-  'voiceOver' | 
-  'backgroundMusic' | 
-  'voiceOverText';
+  | 'script' 
+  | 'imagePrompt' 
+  | 'description' 
+  | 'image' 
+  | 'imageUrl' 
+  | 'videoUrl' 
+  | 'productImage' 
+  | 'video' 
+  | 'voiceOver' 
+  | 'backgroundMusic' 
+  | 'voiceOverText';
 
 // Add workflow types
 export interface WorkflowState {

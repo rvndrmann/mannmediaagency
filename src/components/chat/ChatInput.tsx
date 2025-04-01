@@ -25,7 +25,7 @@ interface ChatInputProps {
 }
 
 export const ChatInput = ({ 
-  input = '', // Provide default empty string
+  input, 
   isLoading, 
   onInputChange, 
   onSubmit,
@@ -40,8 +40,7 @@ export const ChatInput = ({
 }: ChatInputProps) => {
   const MAX_WORDS = 350;
 
-  const countWords = (text: string | undefined) => {
-    if (!text) return 0;
+  const countWords = (text: string) => {
     return text.trim().split(/\s+/).filter(word => word.length > 0).length;
   };
 
@@ -59,7 +58,7 @@ export const ChatInput = ({
   const handleInputKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!isLoading && ((input && input.trim() !== '') || (attachments && attachments.length > 0))) {
+      if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
         onSubmit(e as any);
       }
     }
@@ -70,7 +69,7 @@ export const ChatInput = ({
     e.preventDefault();
     
     // Only submit if there's input or attachments and not already loading
-    if (!isLoading && ((input && input.trim() !== '') || (attachments && attachments.length > 0))) {
+    if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
       // Call the onSubmit handler with the event
       onSubmit(e as any);
     }
@@ -79,7 +78,7 @@ export const ChatInput = ({
   return (
     <form onSubmit={(e) => {
       e.preventDefault();
-      if (!isLoading && ((input && input.trim() !== '') || (attachments && attachments.length > 0))) {
+      if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
         onSubmit(e);
       }
     }} className="space-y-1 w-full">
@@ -94,7 +93,7 @@ export const ChatInput = ({
       <div className="flex gap-2 items-end w-full">
         <div className="flex-1 relative">
           <Textarea
-            value={input || ''}
+            value={input}
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={handleInputKeyPress}
             placeholder="Type your message..."
@@ -124,7 +123,7 @@ export const ChatInput = ({
         <Button 
           type="button" 
           onClick={handleSubmitClick}
-          disabled={isLoading || !input || input.trim() === '' && (!attachments || attachments.length === 0)}
+          disabled={isLoading || (input.trim() === '' && (!attachments || attachments.length === 0))}
           variant="gradient"
           size="icon"
           className="rounded-full h-10 w-10 p-0 flex items-center justify-center"

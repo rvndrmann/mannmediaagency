@@ -14,8 +14,7 @@ export const ScriptInputSection = ({
 }: ScriptInputSectionProps) => {
   const MAX_WORDS = 350;
   
-  const countWords = (text: string | undefined) => {
-    if (!text) return 0;
+  const countWords = (text: string) => {
     return text.trim().split(/\s+/).filter(word => word.length > 0).length;
   };
 
@@ -36,7 +35,7 @@ export const ScriptInputSection = ({
       </Label>
       <Textarea
         id="source"
-        value={source || ''}
+        value={source}
         onChange={(e) => handleChange(e.target.value)}
         placeholder="Enter your script or idea"
         className="w-full min-h-[200px] p-4 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-none"

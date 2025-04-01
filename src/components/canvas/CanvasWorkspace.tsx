@@ -21,7 +21,6 @@ interface CanvasWorkspaceProps {
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;
-  agent?: any; // Added agent prop
 }
 
 export function CanvasWorkspace({
@@ -35,8 +34,7 @@ export function CanvasWorkspace({
   divideScriptToScenes,
   saveFullScript,
   createNewProject,
-  updateProjectTitle,
-  agent // Added agent parameter
+  updateProjectTitle
 }: CanvasWorkspaceProps) {
   const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("script");
@@ -121,7 +119,7 @@ export function CanvasWorkspace({
             
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-2">
-                {project.scenes && project.scenes.map((scene) => (
+                {project.scenes.map((scene) => (
                   <div 
                     key={scene.id}
                     className={`p-3 border rounded-md cursor-pointer transition-colors ${

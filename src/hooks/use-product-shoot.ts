@@ -1,245 +1,299 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { GeneratedImage, ProductShotFormData } from '@/types/product-shoot';
-import { useQueryClient } from '@tanstack/react-query';
-import { productHistoryService } from './product-shoot/history-service';
+import { useProductShootApi } from './product-shoot/use-product-shoot-api';
+import { useGenerationQueue } from './product-shoot/use-generation-queue';
+import { ProductShootHistoryService } from './product-shoot/history-service';
+import { GeneratedImage, ProductShootSettings } from '@/types/product-shoot';
 
-export const useProductShoot = () => {
-  const [formData, setFormData] = useState<ProductShotFormData | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [images, setImages] = useState<GeneratedImage[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [availableCredits, setAvailableCredits] = useState<number>(0);
-  const queryClient = useQueryClient();
+// Default settings
+const defaultSettings: ProductShootSettings = {
+  sourceImageUrl: '',
+  prompt: '',
+  stylePreset: 'product',
+  version: 'v1',
+  placement: 'original',
+  background: 'transparent',
+  outputFormat: 'png',
+  imageWidth: 1024,
+  imageHeight: 1024,
+  quality: 'standard'
+};
+
+export function useProductShoot() {
+  const { toast } = useToast();
+  const [settings, setSettings] = useState<ProductShootSettings>(defaultSettings);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [savedImages, setSavedImages] = useState<GeneratedImage[]>([]);
+  const [defaultImages, setDefaultImages] = useState<GeneratedImage[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   
-  // Get the history service instance
-  const historyService = productHistoryService;
-
+  const productShootApi = useProductShootApi();
+  const { submitGenerationJob, checkJobStatus } = productShootApi;
+  
+  const generationQueue = useGenerationQueue();
+  const historyService = new ProductShootHistoryService();
+  
+  // Set the check status function for the queue
   useEffect(() => {
-    fetchAvailableCredits();
-  }, []);
+    generationQueue.setCheckStatusFunction(checkImageStatus);
+  }, [checkJobStatus]);
 
-  const fetchAvailableCredits = async () => {
+  // Generate a product shot
+  const generateProductShot = useCallback(async (sourceImageUrl: string) => {
     try {
-      const { data, error } = await supabase.from('user_credits').select('*').single();
-      if (error) throw error;
-      // Use credits_remaining field instead of credits
-      setAvailableCredits(data?.credits_remaining || 0);
-    } catch (err) {
-      console.error('Error fetching credits:', err);
-      setAvailableCredits(0);
-    }
-  };
-
-  const handleProductShotSubmit = async (formData: ProductShotFormData) => {
-    if (!formData.sourceFile) {
-      toast.error('Please select a product image');
-      return;
-    }
-
-    setFormData(formData);
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      // Create a placeholder for the processing image
-      const placeholderImage: GeneratedImage = {
-        id: crypto.randomUUID(),
-        status: 'processing',
-        prompt: formData.prompt,
-        createdAt: new Date().toISOString(),
-        url: ''
-      };
+      setIsGenerating(true);
       
-      setImages(prev => [...prev, placeholderImage]);
-
-      // Upload the source image
-      const sourceImageFile = formData.sourceFile;
-      const sourceImageFileName = `${crypto.randomUUID()}.${sourceImageFile.name.split('.').pop()}`;
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from('product-shots-source')
-        .upload(sourceImageFileName, sourceImageFile);
-      
-      if (uploadError) throw uploadError;
-
-      // Get the source image URL
-      const { data: { publicUrl: sourceImageUrl } } = supabase.storage
-        .from('product-shots-source')
-        .getPublicUrl(sourceImageFileName);
-
-      // Process reference image if provided
-      let referenceImageUrl: string | undefined;
-
-      if (formData.referenceFile) {
-        const refImageFileName = `${crypto.randomUUID()}.${formData.referenceFile.name.split('.').pop()}`;
-        
-        const { error: refUploadError } = await supabase.storage
-          .from('product-shots-references')
-          .upload(refImageFileName, formData.referenceFile);
-        
-        if (refUploadError) throw refUploadError;
-
-        const { data: { publicUrl: refUrl } } = supabase.storage
-          .from('product-shots-references')
-          .getPublicUrl(refImageFileName);
-        
-        referenceImageUrl = refUrl;
-      }
-
-      // Create the product shot request using RPC function to avoid deep type errors
-      const { data, error: insertError } = await supabase.rpc('create_product_shot_request', {
-        p_source_image_url: sourceImageUrl,
-        p_reference_image_url: referenceImageUrl,
-        p_prompt: formData.prompt,
-        p_scene_description: formData.sceneDescription,
-        p_aspect_ratio: formData.aspectRatio,
-        p_placement_type: formData.placementType,
-        p_manual_placement: formData.manualPlacement,
-        p_generation_type: formData.generationType,
-        p_optimize_description: formData.optimizeDescription,
-        p_fast_mode: formData.fastMode,
-        p_original_quality: formData.originalQuality
-      });
-
-      if (insertError) throw insertError;
-
-      // Update the placeholder image with the actual ID
-      const requestId = data?.id || placeholderImage.id;
-      setImages(prev => 
-        prev.map(img => 
-          img.id === placeholderImage.id 
-            ? { ...img, id: requestId } 
-            : img
-        )
-      );
-
-      // Start a polling process to check the status
-      pollProductShotStatus(requestId);
-      
-      toast.success('Product Shot request submitted successfully');
-    } catch (err) {
-      console.error('Error submitting product shot:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit product shot request');
-      toast.error('Failed to submit product shot request');
-      
-      // Remove the placeholder image
-      setImages(prev => prev.filter(img => img.status !== 'processing'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const pollProductShotStatus = async (id: string) => {
-    const checkStatus = async () => {
-      try {
-        // Use RPC function to get status
-        const { data, error } = await supabase.rpc('get_product_shot_status', {
-          p_request_id: id
+      // Validate input
+      if (!sourceImageUrl) {
+        toast({
+          title: 'Error',
+          description: 'No source image provided',
+          variant: 'destructive'
         });
-
-        if (error) throw error;
-
-        if (data?.status === 'completed' && data.result_url) {
-          // Update the image in the state
-          setImages(prev => 
-            prev.map(img => 
-              img.id === id
-                ? { 
-                    ...img, 
-                    status: 'completed',
-                    url: data.result_url,
-                    prompt: data.prompt || img.prompt
-                  } 
-                : img
-            )
-          );
-          
-          // Refresh history
-          await historyService.fetchHistory();
-          queryClient.invalidateQueries({ queryKey: ['product-shot-history'] });
-          
-          return true; // Stop polling
-        } else if (data?.status === 'failed') {
-          setImages(prev => 
-            prev.map(img => 
-              img.id === id
-                ? { ...img, status: 'failed', error: data.error_message } 
-                : img
-            )
-          );
-          return true; // Stop polling
-        }
-        
-        return false; // Continue polling
-      } catch (err) {
-        console.error('Error checking product shot status:', err);
-        return true; // Stop polling on error
+        setIsGenerating(false);
+        return null;
       }
-    };
-
-    // Initial delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Poll every 5 seconds until completed or failed
-    let completed = await checkStatus();
-    while (!completed) {
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      completed = await checkStatus();
-    }
-  };
-
-  const retryStatusCheck = async (imageId: string): Promise<boolean> => {
-    try {
-      // Use RPC function to get status
-      const { data, error } = await supabase.rpc('get_product_shot_status', {
-        p_request_id: imageId
+      
+      // Submit job to API
+      const response = await submitGenerationJob(sourceImageUrl, settings.prompt, {
+        stylePreset: settings.stylePreset,
+        background: settings.background,
+        placement: settings.placement,
+        outputFormat: settings.outputFormat,
+        version: settings.version,
+        width: settings.imageWidth,
+        height: settings.imageHeight,
+        quality: settings.quality
       });
+      
+      if (!response?.imageId) {
+        toast({
+          title: 'Error',
+          description: 'Failed to generate product shot',
+          variant: 'destructive'
+        });
+        setIsGenerating(false);
+        return null;
+      }
+      
+      // Add job to polling queue
+      generationQueue.addToQueue(response.imageId);
+      
+      // Return the response
+      return response;
+    } catch (error) {
+      console.error('Error generating product shot:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive'
+      });
+      setIsGenerating(false);
+      return null;
+    }
+  }, [settings, submitGenerationJob, toast, generationQueue]);
 
-      if (error) throw error;
+  // Check the status of a product shot generation job
+  const checkImageStatus = useCallback(async (imageId: string) => {
+    try {
+      const status = await checkJobStatus(imageId);
+      
+      if (status.status === 'completed' && status.resultUrl) {
+        // Add to generated images
+        const newImage: GeneratedImage = {
+          id: imageId,
+          status: 'completed',
+          prompt: settings.prompt,
+          createdAt: new Date().toISOString(),
+          resultUrl: status.resultUrl,
+          inputUrl: settings.sourceImageUrl,
+          settings: settings
+        };
+        
+        setGeneratedImages(prev => [newImage, ...prev]);
+        setIsGenerating(false);
+        
+        toast({
+          title: 'Success',
+          description: 'Product shot generated successfully'
+        });
+        
+        return newImage;
+      } else if (status.status === 'failed') {
+        setIsGenerating(false);
+        toast({
+          title: 'Error',
+          description: status.error || 'Failed to generate product shot',
+          variant: 'destructive'
+        });
+        return null;
+      }
+      
+      // Still processing
+      return null;
+    } catch (error) {
+      console.error('Error checking image status:', error);
+      setIsGenerating(false);
+      toast({
+        title: 'Error',
+        description: 'Failed to check generation status',
+        variant: 'destructive'
+      });
+      return null;
+    }
+  }, [settings, checkJobStatus, toast]);
 
-      if (data?.status === 'completed' && data.result_url) {
-        setImages(prev => 
-          prev.map(img => 
-            img.id === imageId
-              ? { 
-                  ...img, 
-                  status: 'completed', 
-                  url: data.result_url,
-                  prompt: data.prompt || img.prompt 
-                } 
-              : img
-          )
-        );
-        toast.success('Image is ready!');
-        return true;
-      } else if (data?.status === 'failed') {
-        toast.error(data.error_message || 'Image generation failed');
-        return false;
-      } else {
-        toast.info('Image is still processing. Please check back later.');
+  // Save a generated image to the user's account
+  const saveImage = useCallback(async (imageId: string) => {
+    try {
+      const image = generatedImages.find(img => img.id === imageId);
+      
+      if (!image) {
+        toast({
+          title: 'Error',
+          description: 'Image not found',
+          variant: 'destructive'
+        });
         return false;
       }
-    } catch (err) {
-      console.error('Error retrying status check:', err);
-      toast.error('Failed to check image status');
+      
+      await historyService.saveProductShot(image);
+      
+      toast({
+        title: 'Success',
+        description: 'Image saved successfully'
+      });
+      
+      await fetchSavedImages();
+      return true;
+    } catch (error) {
+      console.error('Error saving image:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save image',
+        variant: 'destructive'
+      });
       return false;
     }
-  };
+  }, [generatedImages, toast, historyService]);
 
-  const clearImages = () => {
-    setImages([]);
-  };
+  // Set an image as the default product image
+  const setAsDefault = useCallback(async (imageId: string) => {
+    try {
+      const image = [...generatedImages, ...savedImages].find(img => img.id === imageId);
+      
+      if (!image) {
+        toast({
+          title: 'Error',
+          description: 'Image not found',
+          variant: 'destructive'
+        });
+        return false;
+      }
+      
+      await historyService.setAsDefaultProductImage(image);
+      
+      toast({
+        title: 'Success',
+        description: 'Set as default product image'
+      });
+      
+      await fetchDefaultImages();
+      return true;
+    } catch (error) {
+      console.error('Error setting as default:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to set as default',
+        variant: 'destructive'
+      });
+      return false;
+    }
+  }, [generatedImages, savedImages, toast, historyService]);
 
+  // Upload an image and return its URL
+  const uploadImage = useCallback(async (file: File) => {
+    try {
+      const uniqueId = uuidv4();
+      const ext = file.name.split('.').pop();
+      const filePath = `product-shots/${uniqueId}.${ext}`;
+      
+      const { error: uploadError, data } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+      
+      if (uploadError) {
+        throw uploadError;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to upload image',
+        variant: 'destructive'
+      });
+      return null;
+    }
+  }, [toast]);
+
+  // Fetch saved images from history
+  async function fetchSavedImages() {
+    try {
+      const images = await historyService.getSavedProductShots();
+      setSavedImages(images);
+      return images;
+    } catch (error) {
+      console.error('Error fetching saved images:', error);
+      return [];
+    }
+  }
+
+  // Fetch default product images
+  async function fetchDefaultImages() {
+    try {
+      const images = await historyService.getDefaultProductImages();
+      setDefaultImages(images);
+      return images;
+    } catch (error) {
+      console.error('Error fetching default images:', error);
+      return [];
+    }
+  }
+
+  // Listen for queue status changes
+  useEffect(() => {
+    if (!generationQueue.isPolling && generationQueue.completedJobs.length > 0) {
+      setIsGenerating(false);
+    }
+  }, [generationQueue.isPolling, generationQueue.completedJobs]);
+
+  // Return the hook API
   return {
-    formData,
-    images,
-    isSubmitting,
-    error,
-    availableCredits,
-    handleProductShotSubmit,
-    retryStatusCheck,
-    clearImages
+    settings,
+    setSettings,
+    isGenerating,
+    generatedImages,
+    savedImages,
+    defaultImages,
+    generateProductShot,
+    checkImageStatus,
+    saveImage,
+    setAsDefault,
+    uploadImage,
+    fetchSavedImages,
+    fetchDefaultImages,
+    // Provide the queue methods
+    addToQueue: generationQueue.addToQueue,
+    checkStatus: generationQueue.checkStatus,
+    isLoading: generationQueue.isPolling
   };
-};
+}

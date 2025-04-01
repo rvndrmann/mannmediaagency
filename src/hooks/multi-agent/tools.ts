@@ -1,100 +1,49 @@
 
-import { ToolContext, ToolDefinition, ToolExecutionResult, CommandExecutionState } from './tools/types';
-import { dataTool } from './tools/data-tool';
-import { browserUseTool } from './tools/browser-use-tool';
-import { canvasTool } from './tools/default-tools/canvas-tool';
+import { CommandExecutionState } from "./runner/types";
+import { toast } from "sonner";
+import { availableTools, executeTool, getAvailableTools, initializeToolSystem } from "./tools/index";
+import { ToolContext } from "./types";
 
-// Helper to ensure error is a string
-export const errorToString = (error: unknown): string => {
-  if (error === null || error === undefined) {
-    return 'Unknown error';
-  }
-  
-  if (typeof error === 'string') {
-    return error;
-  }
-  
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
-};
-
-// Create wrapper for tool definitions to ensure error is always string
-export const adaptToolDefinition = (tool: any): ToolDefinition => {
-  const originalExecute = tool.execute;
-
-  return {
-    ...tool,
-    execute: async (parameters: any, context: ToolContext): Promise<ToolExecutionResult> => {
-      try {
-        const result = await originalExecute(parameters, context);
-        
-        // Ensure error is always a string if present
-        if (result.error) {
-          return {
-            ...result,
-            error: errorToString(result.error)
-          };
-        }
-        
-        return result;
-      } catch (error) {
-        return {
-          success: false,
-          message: `Error executing tool ${tool.name}: ${errorToString(error)}`,
-          error: errorToString(error),
-          state: CommandExecutionState.FAILED
-        };
-      }
-    }
-  };
-};
-
-// Adapt tools to ensure consistent types
-export const adaptedTools = [
-  adaptToolDefinition(dataTool),
-  adaptToolDefinition(browserUseTool),
-  adaptToolDefinition(canvasTool)
-];
-
-// Function to get all available tools
-export const getAvailableTools = (): ToolDefinition[] => {
-  return [...adaptedTools];
-};
-
-// Execute a tool by name with parameters
-export const executeTool = async (
-  toolName: string,
-  parameters: Record<string, any>,
+export const executeCommand = async (
+  commandName: string,
+  parameters: any,
   context: ToolContext
-): Promise<ToolExecutionResult> => {
+): Promise<{
+  state: CommandExecutionState;
+  message: string;
+  data?: any;
+}> => {
   try {
-    // Get all available tools
-    const tools = getAvailableTools();
+    // Call the centralized tool executor
+    const result = await executeTool(commandName, parameters, context);
     
-    // Find the requested tool
-    const tool = tools.find(t => t.name === toolName);
-    
-    if (!tool) {
-      return {
-        success: false,
-        message: `Tool with name "${toolName}" not found`,
-        error: `Tool "${toolName}" not found`,
-        state: CommandExecutionState.FAILED
-      };
-    }
-    
-    // Execute the tool
-    return await tool.execute(parameters, context);
-  } catch (error) {
-    console.error(`Error executing tool ${toolName}:`, error);
     return {
-      success: false,
-      message: `Error executing tool: ${errorToString(error)}`,
-      error: errorToString(error),
-      state: CommandExecutionState.FAILED
+      state: result.state,
+      message: result.message,
+      data: result.data
+    };
+  } catch (error) {
+    console.error(`Error executing command ${commandName}:`, error);
+    return {
+      state: CommandExecutionState.ERROR,
+      message: error instanceof Error ? error.message : `Unknown error executing ${commandName}`
     };
   }
+};
+
+// Initialize the tool system
+export const initializeTools = async () => {
+  try {
+    await initializeToolSystem();
+    console.log("Tool system initialized with", availableTools.length, "tools");
+    return true;
+  } catch (error) {
+    console.error("Error initializing tool system:", error);
+    return false;
+  }
+};
+
+// Get all available tools
+export const getAllTools = () => {
+  return getAvailableTools();
 };

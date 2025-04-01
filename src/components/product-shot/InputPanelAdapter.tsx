@@ -36,8 +36,6 @@ export const InputPanelAdapter: React.FC<{
     onStylePresetChange: (style: string) => void;
     isLoading: boolean;
     onSubmit: () => any;
-    isGenerating: boolean;
-    onGenerate: () => any;
   }
 
   // Map the received props to what InputPanel expects
@@ -56,9 +54,7 @@ export const InputPanelAdapter: React.FC<{
     stylePreset: props.stylePreset,
     onStylePresetChange: props.onStylePresetChange,
     isLoading: props.isGenerating,
-    onSubmit: props.onGenerate,
-    isGenerating: props.isGenerating,
-    onGenerate: props.onGenerate
+    onSubmit: props.onGenerate
   };
 
   return <InputPanel {...adaptedProps} />;

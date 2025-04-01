@@ -1,311 +1,226 @@
-import React, { useEffect, useState } from 'react';
-import { useCanvasProjects } from '@/hooks/use-canvas-projects';
-import { useCanvasAgent } from '@/hooks/use-canvas-agent';
-import {
-  CanvasEmptyStateAdapter,
-  CanvasHeaderAdapter,
-  CanvasSidebarAdapter,
-  CanvasWorkspaceAdapter,
-  CanvasDetailPanelAdapter,
-  CanvasScriptPanelAdapter
-} from '@/components/canvas/adapters/CanvasProjectAdapter';
-import { CanvasScene, CanvasProject } from '@/types/canvas';
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProjectContext } from '@/hooks/multi-agent/project-context';
-import { CanvasChat } from '@/components/canvas/CanvasChat';
+import { ProjectSelector } from '@/components/canvas/ProjectSelector';
+import { useCanvas } from '@/hooks/use-canvas';
 
 export default function Canvas() {
-  const [showScriptPanel, setShowScriptPanel] = useState(false);
-  const [showDetailPanel, setShowDetailPanel] = useState(true);
-  const [showChatPanel, setShowChatPanel] = useState(false);
-  const [project, setProject] = useState<CanvasProject | null>(null);
-  const [scenes, setScenes] = useState<CanvasScene[]>([]);
-  const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const { setActiveProject, setActiveScene } = useProjectContext();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState('projects');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   
-  const {
-    projects,
-    isLoading,
+  const { 
+    project, 
+    scenes, 
+    selectedScene,
+    selectedSceneId,
+    setSelectedSceneId,
     createProject,
-    updateProject,
-    deleteProject
-  } = useCanvasProjects();
+    addScene,
+    deleteScene,
+    updateScene,
+    divideScriptToScenes,
+    saveFullScript,
+    updateProjectTitle,
+    loading
+  } = useCanvas(selectedProjectId);
   
-  const updateScene = async (sceneId: string, type: string, value: string) => {
-    console.log('Updating scene', sceneId, type, value);
-    setScenes(prevScenes => {
-      return prevScenes.map(scene => {
-        if (scene.id === sceneId) {
-          return { ...scene, [type]: value };
-        }
-        return scene;
-      });
-    });
-    
-    if (selectedScene && selectedScene.id === sceneId) {
-      setSelectedScene(prevScene => ({
-        ...prevScene!,
-        [type]: value
-      }));
-    }
-  };
-  
-  const {
-    generateSceneScript,
-    generateSceneDescription,
-    generateImagePrompt,
-    generateSceneImage,
-    generateSceneVideo,
-    isLoading: isAgentLoading,
-    messages,
-    addUserMessage,
-    addAgentMessage,
-    addSystemMessage,
-    activeAgent
-  } = useCanvasAgent({
-    projectId,
-    sceneId: selectedSceneId,
-    updateScene
-  });
-  
-  const createScene = async (projectId: string, data: any) => {
-    console.log('Creating scene for project', projectId, data);
-    const newSceneId = `scene-${Date.now()}`;
-    const newScene = { 
-      id: newSceneId, 
-      title: data.title || 'New Scene', 
-      project_id: projectId,
-      description: '',
-      script: '',
-      image_prompt: '',
-      image_url: '',
-      voice_over_text: '',
-      duration: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      ...data 
-    };
-    
-    setScenes(prev => [...prev, newScene]);
-    
-    return newSceneId;
-  };
-  
-  const deleteScene = async (sceneId: string) => {
-    console.log('Deleting scene', sceneId);
-    setScenes(prev => prev.filter(scene => scene.id !== sceneId));
-    
-    if (selectedSceneId === sceneId) {
-      setSelectedSceneId(null);
-      setSelectedScene(null);
-    }
-  };
-  
-  const fetchProject = async (id: string) => {
-    setLoading(true);
-    console.log('Fetching project', id);
-    const dummyProject = {
-      id,
-      title: 'Project ' + id,
-      description: '',
-      user_id: 'user-1',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      full_script: '',
-      scenes: []
-    };
-    
-    setProject(dummyProject);
-    setScenes([]);
-    setLoading(false);
-  };
-  
-  const addScene = async () => {
-    if (!project) return '';
-    
-    const newSceneId = await createScene(project.id, { title: 'New Scene' });
-    return newSceneId;
-  };
-  
-  const saveFullScript = async (script: string) => {
-    console.log('Saving full script', script);
-    if (project) {
-      setProject(prev => prev ? {...prev, full_script: script} : null);
-      toast.success("Script saved successfully");
-    }
-  };
-  
-  const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
-    console.log('Dividing script to scenes', sceneScripts);
-    for (const sceneScript of sceneScripts) {
-      if (sceneScript.id) {
-        await updateScene(sceneScript.id, 'script', sceneScript.content || '');
-        await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText || '');
-      }
-    }
-    toast.success("Script divided into scenes successfully");
-  };
-  
-  const createNewProject = async (title: string, description?: string) => {
-    console.log('Creating new project', title, description);
-    try {
-      const newProjectData = await createProject(title, description);
-      if (newProjectData && newProjectData.id) {
-        setProjectId(newProjectData.id);
-        return newProjectData.id;
-      }
-      return "";
-    } catch (error) {
-      console.error("Error creating project:", error);
-      toast.error("Failed to create project");
-      return "";
-    }
-  };
-  
-  const updateProjectTitle = async (title: string) => {
-    console.log('Updating project title', title);
-    if (project && project.id) {
-      try {
-        await updateProject(project.id, { title });
-        setProject(prev => prev ? {...prev, title} : null);
-        toast.success("Project title updated successfully");
-      } catch (error) {
-        console.error("Error updating project title:", error);
-        toast.error("Failed to update project title");
-      }
-    }
-  };
-  
-  const agentProps = {
-    isLoading: isAgentLoading,
-    messages,
-    generateSceneScript,
-    generateSceneDescription,
-    generateImagePrompt,
-    generateSceneImage,
-    generateSceneVideo,
-    addUserMessage,
-    addAgentMessage,
-    addSystemMessage,
-    activeAgent,
-    isMcpEnabled: true,
-    isMcpConnected: true,
-    toggleMcp: () => {},
-    isGeneratingDescription: false,
-    isGeneratingImagePrompt: false,
-    isGeneratingImage: false,
-    isGeneratingVideo: false,
-    isGeneratingScript: false,
-    isGenerating: isAgentLoading
-  };
-  
+  // useEffect to load project details if projectId is in the URL
   useEffect(() => {
+    // Use URLSearchParams to extract the query parameters
+    const searchParams = new URLSearchParams(location.search);
+    const projectId = searchParams.get('projectId');
+    
     if (projectId) {
-      fetchProject(projectId);
-      setActiveProject(projectId);
-    } else {
-      setProjectId('project-123');
+      setSelectedProjectId(projectId);
+      setActiveTab('editor');
     }
-  }, [projectId]);
+  }, [location.search]);
   
-  useEffect(() => {
-    if (project) {
-      setProject(prev => prev ? {...prev, scenes} : null);
-    }
-  }, [scenes]);
-  
-  useEffect(() => {
-    if (selectedSceneId) {
-      const scene = scenes.find(s => s.id === selectedSceneId);
-      setSelectedScene(scene || null);
-      setActiveScene(selectedSceneId);
-    } else {
-      setSelectedScene(null);
-      setActiveScene(null);
-    }
-  }, [selectedSceneId, scenes, setActiveScene]);
-  
-  const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
-  const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
-  const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
-  
-  if (!project && !loading) {
-    return <CanvasEmptyStateAdapter createProject={createNewProject} />;
-  }
-  
-  return (
-    <div className="flex flex-col h-screen">
-      <CanvasHeaderAdapter 
-        project={project}
-        updateProject={updateProject}
-        onToggleScriptPanel={toggleScriptPanel}
-        onToggleDetailPanel={toggleDetailPanel}
-        onToggleChatPanel={toggleChatPanel}
-        showChatButton={true}
-      />
+  const handleCreateProject = async (title: string) => {
+    try {
+      const projectId = await createProject(title);
       
-      <div className="flex flex-1 overflow-hidden">
-        <CanvasSidebarAdapter 
-          project={project}
-          selectedSceneId={selectedSceneId}
-          setSelectedSceneId={setSelectedSceneId}
-          createScene={createScene}
-          deleteScene={deleteScene}
-          loading={loading}
-        />
+      if (projectId) {
+        toast.success(`Project "${title}" created successfully!`);
+        setSelectedProjectId(projectId);
+        // Navigate to the editor tab
+        setActiveTab('editor');
+        // Update URL with project ID
+        navigate(`/canvas?projectId=${projectId}`, { replace: true });
+        return projectId;
+      }
+    } catch (error) {
+      toast.error(`Failed to create project: ${error}`);
+    }
+    return null;
+  };
+  
+  const handleSelectProject = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    // Navigate to the editor tab
+    setActiveTab('editor');
+    // Update URL with project ID
+    navigate(`/canvas?projectId=${projectId}`, { replace: true });
+  };
+  
+  const handleBackToProjects = () => {
+    setActiveTab('projects');
+    navigate('/canvas', { replace: true });
+  };
+  
+  // Wrapper functions to adapt return types
+  const createSceneWrapper = async () => {
+    await addScene();
+  };
+  
+  const deleteSceneWrapper = async (id: string) => {
+    await deleteScene(id);
+  };
+  
+  const updateSceneScriptsWrapper = async (sceneScripts: { id: string; content: string; voiceOverText?: string; }[]) => {
+    // If there's content and it's just a string, save it as the full script
+    if (sceneScripts && sceneScripts.length > 0) {
+      await updateScene(sceneScripts[0].id, 'script', sceneScripts[0].content);
+    }
+  };
+  
+  const updateSceneScriptWrapper = async (script: string) => {
+    if (selectedSceneId) {
+      await updateScene(selectedSceneId, 'script', script);
+    }
+  };
+  
+  const updateProjectTitleWrapper = async (title: string) => {
+    await updateProjectTitle(title);
+  };
+
+  return (
+    <PageLayout>
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold">Canvas</h1>
+        <p className="text-gray-500">Create, edit, and publish interactive video content</p>
+      </div>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-2 w-full max-w-md">
+          <TabsTrigger value="projects">Projects</TabsTrigger>
+          <TabsTrigger value="editor" disabled={!selectedProjectId}>Editor</TabsTrigger>
+        </TabsList>
         
-        <main className="flex-1 overflow-hidden flex flex-col bg-[#1a1a1a]">
-          <CanvasWorkspaceAdapter 
-            project={project}
-            selectedScene={selectedScene}
-            selectedSceneId={selectedSceneId}
-            setSelectedSceneId={setSelectedSceneId}
-            updateScene={updateScene}
-            addScene={addScene}
-            deleteScene={deleteScene}
-            divideScriptToScenes={divideScriptToScenes}
-            saveFullScript={saveFullScript}
-            createNewProject={createNewProject}
-            updateProjectTitle={updateProjectTitle}
-            agent={agentProps}
-          />
-        </main>
-        
-        {showDetailPanel && (
-          <CanvasDetailPanelAdapter 
-            scene={selectedScene}
-            projectId={project?.id || ''}
-            updateScene={updateScene}
-            collapsed={false}
-            setCollapsed={() => setShowDetailPanel(false)}
-          />
-        )}
-        
-        {showScriptPanel && (
-          <CanvasScriptPanelAdapter 
-            project={project}
-            projectId={project?.id || ''}
-            onUpdateScene={updateScene}
-            onClose={() => setShowScriptPanel(false)}
-            onSaveFullScript={saveFullScript}
-            onDivideScriptToScenes={divideScriptToScenes}
-          />
-        )}
-        
-        {showChatPanel && (
-          <div className="w-80 bg-[#111827] text-white">
-            <CanvasChat
-              projectId={project?.id}
-              sceneId={selectedSceneId}
-              onClose={() => setShowChatPanel(false)}
-              updateScene={updateScene}
+        <TabsContent value="projects" className="mt-4">
+          <div className="project-selector-container">
+            <ProjectSelector 
+              onBack={() => navigate('/')} 
+              onSelectProject={handleSelectProject}
+              onCreateProject={handleCreateProject}
             />
           </div>
-        )}
-      </div>
-    </div>
+        </TabsContent>
+        
+        <TabsContent value="editor" className="mt-4">
+          {selectedProjectId && project ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">{project.title || 'Untitled Project'}</h2>
+                <Button variant="outline" onClick={handleBackToProjects}>
+                  Back to Projects
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-1">
+                  <CardHeader>
+                    <CardTitle>Scenes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {scenes.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No scenes yet. Create your first scene to get started.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {scenes.map(scene => (
+                          <div 
+                            key={scene.id}
+                            className={`p-3 rounded-md cursor-pointer hover:bg-secondary ${selectedSceneId === scene.id ? 'bg-secondary' : ''}`}
+                            onClick={() => setSelectedSceneId(scene.id)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>{scene.title}</span>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteSceneWrapper(scene.id);
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter>
+                    <Button onClick={createSceneWrapper} className="w-full">
+                      Add Scene
+                    </Button>
+                  </CardFooter>
+                </Card>
+                
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle>
+                      {selectedSceneId 
+                        ? `Edit Scene: ${scenes.find(s => s.id === selectedSceneId)?.title || 'Untitled Scene'}`
+                        : 'Scene Editor'
+                      }
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedSceneId ? (
+                      <div className="space-y-4">
+                        <textarea
+                          className="w-full min-h-[200px] p-3 border rounded-md"
+                          placeholder="Enter your scene script here..."
+                          value={scenes.find(s => s.id === selectedSceneId)?.script || ''}
+                          onChange={(e) => updateSceneScriptWrapper(e.target.value)}
+                        />
+                        
+                        <div className="flex gap-2">
+                          <Button>Generate Voice-over</Button>
+                          <Button>Generate Image</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center min-h-[200px] text-center">
+                        <p className="text-muted-foreground mb-4">Select a scene to edit or create a new one</p>
+                        <Button onClick={createSceneWrapper}>Create New Scene</Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          ) : (
+            <div className="p-12 text-center">
+              <h3 className="text-xl font-semibold mb-2">No Project Selected</h3>
+              <p className="text-muted-foreground mb-4">Please select or create a project to continue</p>
+              <Button onClick={() => setActiveTab('projects')}>
+                Go to Projects
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </PageLayout>
   );
 }

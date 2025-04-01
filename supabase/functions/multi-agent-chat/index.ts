@@ -1,6 +1,6 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "./cors.ts";
-import { formatCanvasProjectInfo, getCanvasTools } from "./canvas-tools.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const BASE_MODEL = "gpt-4o";
@@ -21,14 +21,7 @@ serve(async (req: Request) => {
 
     // Get request body
     const requestData = await req.json();
-    const { 
-      input, 
-      agentType = "main", 
-      conversationHistory = [], 
-      usePerformanceModel = false,
-      projectId,
-      sceneId
-    } = requestData;
+    const { input, agentType = "main", conversationHistory = [], usePerformanceModel = false } = requestData;
 
     // Extract user ID from JWT if present
     const authHeader = req.headers.get("authorization");
@@ -45,57 +38,33 @@ serve(async (req: Request) => {
       previousAgentType: requestData.previousAgentType || "main",
       runId: requestData.runId || requestId,
       groupId: requestData.groupId || requestId,
-      projectId,
-      sceneId
     });
 
-    // Process project context
-    let projectContext = "";
-    if (projectId) {
-      const projectDetails = await getProjectDetails(projectId, sceneId);
-      if (projectDetails) {
-        projectContext = formatCanvasProjectInfo(projectDetails);
-        console.log(`[INFO] [${requestId}] Added canvas project context for project ${projectId}`);
-      }
+    // Process any project context
+    if (requestData.contextData?.projectId) {
+      const projectDetails = await getProjectDetails(requestData.contextData.projectId);
+      console.log(`[INFO] [${requestId}] Request includes project context for project ${requestData.contextData.projectId}`, {
+        title: projectDetails?.title || "Unknown",
+        scenesCount: projectDetails?.scenes?.length || 0,
+        hasFullScript: projectDetails?.hasFullScript || false,
+      });
     }
 
     console.log(`[INFO] [${requestId}] Processing conversation history with ${conversationHistory.length} messages `);
 
     // Process conversation history
     const processedHistory = processConversationHistory(conversationHistory);
-    
-    // Add project context as a system message if available
-    let messages = [...processedHistory];
-    if (projectContext) {
-      // Insert project context as a system message after the first system message if one exists
-      const hasSystemMessage = messages.some(msg => msg.role === "system");
-      if (hasSystemMessage) {
-        const firstSystemIndex = messages.findIndex(msg => msg.role === "system");
-        messages.splice(firstSystemIndex + 1, 0, {
-          role: "system",
-          content: `Current Canvas project information: ${projectContext}`
-        });
-      } else {
-        // Otherwise add it as the first message
-        messages.unshift({
-          role: "system",
-          content: `Current Canvas project information: ${projectContext}`
-        });
-      }
-    }
-    
-    // Always add a user message for the current input
-    if (input) {
-      messages.push({
-        role: "user",
-        content: input
-      });
-    }
+    console.log(`[INFO] [${requestId}] Processed ${processedHistory.length} messages from history`, {
+      lastMessage: processedHistory.length > 0 ? processedHistory[processedHistory.length - 1].role : "none",
+    });
 
-    console.log(`[INFO] [${requestId}] Calling OpenAI API with ${messages.length} messages`, {
-      model: usePerformanceModel ? MINI_MODEL : BASE_MODEL,
+    // Determine which model to use
+    const model = usePerformanceModel ? MINI_MODEL : BASE_MODEL;
+
+    console.log(`[INFO] [${requestId}] Calling OpenAI API with ${processedHistory.length} messages`, {
+      model,
       agentType,
-      functionsCount: getToolsForAgent(agentType, projectId, sceneId).length,
+      functionsCount: getToolsForAgent(agentType).length,
       isHandoffContinuation: !!requestData.isHandoffContinuation,
       previousAgent: requestData.previousAgentType || "main",
       handoffReason: requestData.handoffReason || "",
@@ -104,16 +73,16 @@ serve(async (req: Request) => {
     // Call OpenAI API with retry mechanism
     const completion = await callOpenAIWithRetry(
       requestId,
-      usePerformanceModel ? MINI_MODEL : BASE_MODEL,
-      messages,
-      getToolsForAgent(agentType, projectId, sceneId),
+      model,
+      processedHistory,
+      getToolsForAgent(agentType),
       agentType
     );
 
     // Process the response
     let responseContent = "";
     let handoffDetails = null;
-    let command = null;
+    let structuredOutput = null;
 
     // Check if there's a tool call in the response
     if (completion.choices[0]?.message?.tool_calls?.length > 0) {
@@ -135,31 +104,9 @@ serve(async (req: Request) => {
         
         // For handoffs, we'll return a special message
         responseContent = `I'm handing this off to our ${getAgentName(targetAgent)} who can better assist you with this. ${args.reason || ""}`;
-      } 
-      // Check if it's a canvas tool call
-      else if (toolCall.function.name.startsWith("generate_scene_") || toolCall.function.name === "update_scene_content") {
-        const args = JSON.parse(toolCall.function.arguments || "{}");
-        
-        // Create a command object for the UI to handle
-        command = {
-          action: toolCall.function.name.replace("generate_scene_", "generate_"),
-          sceneId: args.sceneId || sceneId,
-          content: args.context || args.content || ""
-        };
-        
-        if (toolCall.function.name === "update_scene_content") {
-          command.action = `update_${args.contentType}`;
-        }
-        
-        console.log(`[INFO] [${requestId}] Canvas command detected: ${command.action} for scene ${command.sceneId}`);
-        
-        // Return a message about the command
-        responseContent = completion.choices[0]?.message?.content || 
-          `I'll ${command.action.replace("generate_", "generate ")} for the selected scene.`;
-      }
-      else {
-        // Handle other tool calls
-        responseContent = completion.choices[0]?.message?.content || "I need to execute a tool to help with your request...";
+      } else {
+        // Handle other tool calls (could be expanded)
+        responseContent = "I need to execute a tool to help with your request...";
       }
     } else {
       // Regular text response
@@ -172,7 +119,7 @@ serve(async (req: Request) => {
       content: responseContent,
       agentType: agentType,
       handoffRequest: handoffDetails,
-      command: command,
+      structured_output: structuredOutput,
       conversationId: requestData.runId || requestId,
       sessionId: requestData.groupId || requestId,
     };
@@ -230,7 +177,7 @@ function processConversationHistory(history: any[]) {
 }
 
 // Helper to get tools for a specific agent type
-function getToolsForAgent(agentType: string, projectId?: string, sceneId?: string) {
+function getToolsForAgent(agentType: string) {
   // Define tools for different agent types
   const commonTools = [
     {
@@ -334,11 +281,6 @@ function getToolsForAgent(agentType: string, projectId?: string, sceneId?: strin
     }
   ];
   
-  // Add canvas-specific tools if we have a project ID
-  if (projectId && sceneId) {
-    return [...commonTools, ...getCanvasTools()];
-  }
-  
   // Return appropriate tools based on agent type
   return commonTools;
 }
@@ -426,24 +368,11 @@ function extractUserIdFromJWT(token: string): string {
 }
 
 // Helper to get project details
-async function getProjectDetails(projectId: string, sceneId?: string) {
+async function getProjectDetails(projectId: string) {
   // In a real implementation, this would fetch project details from a database
-  // For now, return mock data
   return {
-    id: projectId,
     title: `Canvas Project ${projectId}`,
-    created_at: new Date().toISOString(),
-    scenes: [
-      {
-        id: sceneId || "scene-1",
-        title: `Scene ${sceneId || "1"}`,
-        description: "A scene in the project"
-      },
-      {
-        id: "scene-2",
-        title: "Scene 2",
-        description: "Another scene in the project"
-      }
-    ]
+    scenes: [1, 2, 3, 4, 5, 6, 7], // Mock scene count
+    hasFullScript: true
   };
 }

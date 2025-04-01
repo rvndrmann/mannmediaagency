@@ -1,90 +1,132 @@
 
-import { supabase } from '@/integrations/supabase/client';
-import { MCPService } from './MCPService';
+import { supabase } from "@/integrations/supabase/client";
+import { CanvasService } from "../canvas/CanvasService";
+import { MCPService } from "../mcp/MCPService";
 
+/**
+ * Service for managing integrations with third-party services and APIs
+ */
 export class IntegrationService {
   private static instance: IntegrationService;
   private mcpService: MCPService;
+  private canvasService: CanvasService;
   
   private constructor() {
-    // Initialize with a new instance of MCPService
-    this.mcpService = new MCPService();
+    this.mcpService = MCPService.getInstance();
+    this.canvasService = CanvasService.getInstance();
   }
   
-  public static getInstance(): IntegrationService {
+  static getInstance(): IntegrationService {
     if (!IntegrationService.instance) {
       IntegrationService.instance = new IntegrationService();
     }
     return IntegrationService.instance;
   }
-
-  async connectToMcpServer(url: string, projectId: string): Promise<boolean> {
+  
+  /**
+   * Initialize the MCP connection for a project
+   */
+  async initMcpForProject(projectId: string): Promise<boolean> {
     try {
-      return await this.mcpService.connect(url, projectId);
+      // Check if the project exists
+      const project = await this.canvasService.getProject(projectId);
+      if (!project) {
+        console.error(`Project ${projectId} not found`);
+        return false;
+      }
+      
+      // Check if an MCP connection already exists for this project
+      const connection = await this.getMcpConnectionForProject(projectId);
+      
+      if (connection) {
+        // Connection already exists, reconnect to it
+        return await this.mcpService.connectToServer(connection.connection_url);
+      }
+      
+      // Create a new MCP connection
+      const newConnection = await this.createMcpConnection(projectId);
+      
+      if (!newConnection) {
+        console.error(`Failed to create MCP connection for project ${projectId}`);
+        return false;
+      }
+      
+      // Connect to the server
+      return await this.mcpService.connectToServer(newConnection.connection_url);
     } catch (error) {
-      console.error('Error connecting to MCP server:', error);
+      console.error("Error initializing MCP for project:", error);
       return false;
     }
   }
   
-  async initMcpForProject(projectId: string): Promise<boolean> {
+  /**
+   * Get an MCP connection for a project
+   */
+  private async getMcpConnectionForProject(projectId: string): Promise<any> {
     try {
-      const mcpUrl = process.env.REACT_APP_MCP_URL || 'https://api.mcp-server.com';
-      return await this.connectToMcpServer(mcpUrl, projectId);
-    } catch (error) {
-      console.error('Error initializing MCP for project:', error);
-      return false;
-    }
-  }
-
-  getMcpConnectionUrlForProject(projectId: string): string | null {
-    return this.mcpService.getUrl(projectId);
-  }
-
-  async getWorkflowState(projectId: string): Promise<any> {
-    try {
-      const { data, error } = await supabase
-        .rpc('get_workflow_state', { p_project_id: projectId });
-        
-      if (error) throw error;
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
       
-      return data && data.length > 0 ? data[0] : null;
+      if (!user) {
+        console.error("No user found");
+        return null;
+      }
+      
+      // Get the connection from the database via RPC
+      const { data, error } = await supabase.rpc('get_mcp_connection_for_project', {
+        project_id: projectId,
+        user_id: user.id
+      });
+      
+      if (error) {
+        console.error("Error getting MCP connection:", error);
+        return null;
+      }
+      
+      return data;
     } catch (error) {
-      console.error('Error getting workflow state:', error);
+      console.error("Error getting MCP connection:", error);
       return null;
     }
   }
   
-  async startVideoWorkflow(projectId: string): Promise<boolean> {
+  /**
+   * Create a new MCP connection
+   */
+  private async createMcpConnection(projectId: string): Promise<any> {
     try {
-      const { data, error } = await supabase
-        .rpc('start_video_workflow', { 
-          p_project_id: projectId 
-        });
-        
-      if (error) throw error;
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
       
-      return !!data;
-    } catch (error) {
-      console.error('Error starting video workflow:', error);
-      return false;
-    }
-  }
-  
-  async retryWorkflowFromStage(projectId: string, stage: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase
-        .rpc('retry_workflow_from_stage', { 
-          p_project_id: projectId,
-          p_stage: stage 
-        });
-        
-      if (error) throw error;
+      if (!user) {
+        console.error("No user found");
+        return null;
+      }
       
-      return !!data;
+      // Initialize the MCP service
+      const connectionUrl = await this.mcpService.getConnectionUrl();
+      
+      if (!connectionUrl) {
+        console.error("Failed to get MCP connection URL");
+        return null;
+      }
+      
+      // Create a new connection in the database via RPC
+      const { data, error } = await supabase.rpc('create_mcp_connection', {
+        project_id: projectId,
+        user_id: user.id,
+        connection_url: connectionUrl
+      });
+      
+      if (error) {
+        console.error("Error creating MCP connection:", error);
+        return null;
+      }
+      
+      return data;
     } catch (error) {
-      console.error('Error retrying workflow:', error);
-      return false;
+      console.error("Error creating MCP connection:", error);
+      return null;
     }
   }
 }

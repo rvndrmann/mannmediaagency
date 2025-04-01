@@ -1,5 +1,8 @@
 
-import { ToolDefinition, CommandExecutionState } from "./types";
+import { ToolDefinition } from "./types";
+import { CommandExecutionState } from "./types";
+import { canvasTool } from "./canvas-tool";
+import { canvasContentTool } from "./canvas-content-tool";
 
 // Create dataTool
 export const dataTool: ToolDefinition = {
@@ -50,11 +53,15 @@ export const browserUseTool: ToolDefinition = {
   }
 };
 
-// Helper function to get all available tools
+// Register all available tools
 export const availableTools: ToolDefinition[] = [
   dataTool,
+  canvasTool,
+  canvasContentTool,
   browserUseTool
 ];
 
-// Export getAvailableTools function explicitly
-export const getAvailableTools = () => availableTools;
+// Function to get all available tools
+export const getAvailableTools = (): ToolDefinition[] => {
+  return [...availableTools];
+};

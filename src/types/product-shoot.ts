@@ -12,9 +12,6 @@ export interface GeneratedImage {
   visibility?: 'public' | 'private';
   isSaved?: boolean;
   isDefault?: boolean;
-  // Add compatibility properties
-  url?: string;
-  source_image_url?: string;
 }
 
 export interface ProductShootSettings {
@@ -52,38 +49,4 @@ export interface ProductHistoryItem {
   settings: Record<string, any>;
   createdAt: string;
   isDefault?: boolean;
-}
-
-// Add the missing types
-export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-
-export interface ProductShotFormData {
-  sourceImage: File | null;
-  sourceImageUrl: string;
-  prompt: string;
-  stylePreset: string;
-  aspectRatio: AspectRatio;
-  placement: string;
-  background: string;
-  sourceFile?: File | null;
-  referenceFile?: File | null;
-  sceneDescription?: string;
-  generationType?: 'description' | 'reference';
-  placementType?: 'original' | 'automatic' | 'manual_placement' | 'manual_padding';
-  manualPlacement?: string;
-  optimizeDescription?: boolean;
-  fastMode?: boolean;
-  originalQuality?: boolean;
-}
-
-export interface ProductShotResult {
-  id: string;
-  inputUrl: string;
-  resultUrl: string;
-  placementType: string;
-  metadata?: {
-    model: string;
-    size: string;
-    [key: string]: any;
-  };
 }

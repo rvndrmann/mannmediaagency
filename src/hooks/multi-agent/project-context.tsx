@@ -1,236 +1,117 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { CanvasProject, CanvasScene } from '@/types/canvas';
 
-export interface ProjectContextType {
-  activeProject: string | null;
-  activeScene: string | null;
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { CanvasProject } from "@/services/canvas/types";
+
+interface ProjectContextProps {
+  children: React.ReactNode;
+}
+
+export interface ProjectContextState {
+  activeProjectId: string | null;
+  projectDetails: CanvasProject | null;
+  projectContent: string | null;
+  loadingProject: boolean;
+  hasLoadedProjects: boolean;
   setActiveProject: (projectId: string | null) => void;
-  setActiveScene: (sceneId: string | null) => void;
-  createProject: (title: string, description?: string) => Promise<string>;
-  updateProject: (id: string, data: Partial<CanvasProject>) => Promise<void>;
-  createScene: (projectId: string, data: Partial<CanvasScene>) => Promise<string>;
-  updateScene: (id: string, data: Partial<CanvasScene>) => Promise<void>;
-  projects: CanvasProject[];
-  scenes: Record<string, CanvasScene[]>;
-  isSDKMode: boolean;
-  toggleSDKMode: () => void;
-  // Add these properties to support multi-agent chat
-  projectDetails?: any;
-  projectContent?: any;
-  fetchProjectDetails?: (projectId: string) => Promise<any>;
+  refreshProject: () => Promise<void>;
 }
 
-const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
+const ProjectContext = createContext<ProjectContextState>({
+  activeProjectId: null,
+  projectDetails: null,
+  projectContent: null,
+  loadingProject: false,
+  hasLoadedProjects: false,
+  setActiveProject: () => {},
+  refreshProject: async () => {}
+});
 
-interface ProjectProviderProps {
-  children: ReactNode;
-}
+export const ProjectProvider: React.FC<ProjectContextProps> = ({ children }) => {
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [projectDetails, setProjectDetails] = useState<CanvasProject | null>(null);
+  const [projectContent, setProjectContent] = useState<string | null>(null);
+  const [loadingProject, setLoadingProject] = useState<boolean>(false);
+  const [hasLoadedProjects, setHasLoadedProjects] = useState<boolean>(false);
 
-export const ProjectProvider = ({ children }: ProjectProviderProps) => {
-  const [activeProject, setActiveProject] = useState<string | null>(null);
-  const [activeScene, setActiveScene] = useState<string | null>(null);
-  const [projects, setProjects] = useState<CanvasProject[]>([]);
-  const [scenes, setScenes] = useState<Record<string, CanvasScene[]>>({});
-  const [isSDKMode, setIsSDKMode] = useState<boolean>(true);
-  const [projectDetails, setProjectDetails] = useState<any>(null);
-  const [projectContent, setProjectContent] = useState<any>(null);
-
-  // Load projects on mount
+  // Load project details when active project changes
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        // In a real app, this would be loaded from the database
-        const mockProjects: CanvasProject[] = [
-          {
-            id: 'project-123',
-            title: 'Demo Project',
-            description: 'A demo project for testing',
-            user_id: 'user-1',
-            scenes: [],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            full_script: ''
-          }
-        ];
-        setProjects(mockProjects);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
+    if (activeProjectId) {
+      loadProjectDetails(activeProjectId);
+    } else {
+      setProjectDetails(null);
+      setProjectContent(null);
+    }
+  }, [activeProjectId]);
+
+  const loadProjectDetails = async (projectId: string) => {
+    if (!projectId) return;
+    
+    setLoadingProject(true);
+    try {
+      const { data: project, error } = await supabase
+        .from('canvas_projects')
+        .select('*, canvas_scenes(*)')
+        .eq('id', projectId)
+        .single();
+      
+      if (error) {
+        console.error("Error loading project:", error);
+        setProjectDetails(null);
+        setProjectContent(null);
+      } else if (project) {
+        // Convert database format to the expected format
+        const formattedProject: CanvasProject = {
+          id: project.id,
+          title: project.title,
+          description: project.description || '',
+          user_id: project.user_id,
+          userId: project.user_id,
+          fullScript: project.full_script || '',
+          full_script: project.full_script || '',
+          created_at: project.created_at,
+          createdAt: project.created_at,
+          updated_at: project.updated_at,
+          updatedAt: project.updated_at,
+          scenes: project.canvas_scenes
+        };
+        
+        setProjectDetails(formattedProject);
+        
+        // Generate a summary of project content for context
+        const content = [
+          `Project Title: ${formattedProject.title}`,
+          `Description: ${formattedProject.description || 'No description'}`,
+          `Full Script: ${formattedProject.fullScript || 'No full script'}`,
+          `Number of Scenes: ${formattedProject.scenes?.length || 0}`,
+        ].join('\n\n');
+        
+        setProjectContent(content);
+        setHasLoadedProjects(true);
       }
-    };
-
-    fetchProjects();
-  }, []);
-
-  // Normalize project data to match the expected structure
-  const normalizeProject = (project: any): CanvasProject => {
-    return {
-      id: project.id,
-      title: project.title,
-      description: project.description || '',
-      user_id: project.userId || 'user-1',
-      scenes: project.scenes || [],
-      created_at: project.createdAt || new Date().toISOString(),
-      updated_at: project.updatedAt || project.updated_at || new Date().toISOString(),
-      full_script: project.fullScript || project.full_script || ''
-    };
-  };
-
-  // Normalize scene data to match the expected structure
-  const normalizeScene = (scene: any): CanvasScene => {
-    return {
-      id: scene.id,
-      title: scene.title || 'Untitled Scene',
-      description: scene.description || '',
-      script: scene.script || '',
-      image_prompt: scene.imagePrompt || scene.image_prompt || '',
-      image_url: scene.imageUrl || scene.image_url || '',
-      voice_over_text: scene.voiceOverText || scene.voice_over_text || '',
-      duration: scene.duration || 0,
-      project_id: scene.projectId || scene.project_id || '',
-      created_at: scene.createdAt || scene.created_at || new Date().toISOString(),
-      updated_at: scene.updatedAt || scene.updated_at || new Date().toISOString()
-    };
-  };
-
-  const createProject = async (title: string, description?: string): Promise<string> => {
-    try {
-      // In a real app, this would create a project in the database
-      const projectId = `project-${Date.now()}`;
-      const newProject = normalizeProject({
-        id: projectId,
-        title,
-        description,
-        userId: 'user-1',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      
-      setProjects(prev => [...prev, newProject]);
-      return projectId;
-    } catch (error) {
-      console.error('Error creating project:', error);
-      throw error;
+    } catch (err) {
+      console.error("Error in loadProjectDetails:", err);
+    } finally {
+      setLoadingProject(false);
     }
   };
 
-  const updateProject = async (id: string, data: Partial<CanvasProject>): Promise<void> => {
-    try {
-      // In a real app, this would update a project in the database
-      setProjects(prev => 
-        prev.map(project => 
-          project.id === id 
-            ? normalizeProject({ ...project, ...data }) 
-            : project
-        )
-      );
-    } catch (error) {
-      console.error('Error updating project:', error);
-      throw error;
-    }
-  };
-
-  const createScene = async (projectId: string, data: Partial<CanvasScene>): Promise<string> => {
-    try {
-      // In a real app, this would create a scene in the database
-      const sceneId = `scene-${Date.now()}`;
-      const newScene = normalizeScene({
-        id: sceneId,
-        projectId,
-        ...data,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      
-      setScenes(prev => ({
-        ...prev,
-        [projectId]: [...(prev[projectId] || []), newScene]
-      }));
-      
-      return sceneId;
-    } catch (error) {
-      console.error('Error creating scene:', error);
-      throw error;
-    }
-  };
-
-  const updateScene = async (id: string, data: Partial<CanvasScene>): Promise<void> => {
-    try {
-      // In a real app, this would update a scene in the database
-      setScenes(prev => {
-        const newScenes = { ...prev };
-        
-        // Find which project this scene belongs to
-        for (const projectId in newScenes) {
-          const sceneIndex = newScenes[projectId].findIndex(scene => scene.id === id);
-          
-          if (sceneIndex !== -1) {
-            newScenes[projectId] = [
-              ...newScenes[projectId].slice(0, sceneIndex),
-              normalizeScene({ ...newScenes[projectId][sceneIndex], ...data }),
-              ...newScenes[projectId].slice(sceneIndex + 1)
-            ];
-            break;
-          }
-        }
-        
-        return newScenes;
-      });
-    } catch (error) {
-      console.error('Error updating scene:', error);
-      throw error;
-    }
-  };
-  
-  const toggleSDKMode = () => {
-    setIsSDKMode(prev => !prev);
-  };
-
-  // Add fetchProjectDetails method to support multi-agent chat
-  const fetchProjectDetails = async (projectId: string): Promise<any> => {
-    try {
-      // Mock implementation
-      console.log(`Fetching project details for ${projectId}`);
-      
-      // In a real app, this would fetch project details from an API
-      setProjectDetails({
-        id: projectId,
-        title: 'Sample Project',
-        description: 'A sample project for testing',
-      });
-      
-      setProjectContent({
-        files: [],
-        dependencies: {}
-      });
-      
-      return {
-        details: projectDetails,
-        content: projectContent
-      };
-    } catch (error) {
-      console.error('Error fetching project details:', error);
-      throw error;
+  const refreshProject = async () => {
+    if (activeProjectId) {
+      await loadProjectDetails(activeProjectId);
     }
   };
 
   return (
     <ProjectContext.Provider
       value={{
-        activeProject,
-        activeScene,
-        setActiveProject,
-        setActiveScene,
-        createProject,
-        updateProject,
-        createScene,
-        updateScene,
-        projects,
-        scenes,
-        isSDKMode,
-        toggleSDKMode,
+        activeProjectId,
         projectDetails,
         projectContent,
-        fetchProjectDetails
+        loadingProject,
+        hasLoadedProjects,
+        setActiveProject: setActiveProjectId,
+        refreshProject
       }}
     >
       {children}
@@ -238,10 +119,14 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
   );
 };
 
-export const useProjectContext = () => {
+export const useProjectContext = ({ initialProjectId }: { initialProjectId?: string } = {}) => {
   const context = useContext(ProjectContext);
-  if (context === undefined) {
-    throw new Error('useProjectContext must be used within a ProjectProvider');
-  }
+  
+  useEffect(() => {
+    if (initialProjectId && initialProjectId !== context.activeProjectId) {
+      context.setActiveProject(initialProjectId);
+    }
+  }, [initialProjectId, context.activeProjectId, context.setActiveProject]);
+  
   return context;
 };

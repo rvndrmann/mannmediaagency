@@ -1,5 +1,5 @@
 
-import { initializeTools } from "./tools/index";
+import { initializeTools } from "./tools";
 
 /**
  * Initializes the Multi-Agent system and its components

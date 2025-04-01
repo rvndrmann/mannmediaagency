@@ -2,6 +2,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import MultiAgentChat from "./pages/MultiAgentChat";
+import { VideoProjectPage } from "./pages/VideoProjectPage";
 import Index from "./pages/Index";
 import { MCPProvider } from "./contexts/MCPContext";
 import Canvas from "./pages/Canvas";
@@ -35,6 +36,8 @@ function App() {
           <Route path="/browser-use" element={<BrowserUse />} />
           <Route path="/trace-analytics" element={<TraceAnalytics />} />
           <Route path="/custom-orders" element={<CustomOrders />} />
+          <Route path="/video-projects" element={<VideoProjectPage />} />
+          <Route path="/video-projects/:projectId" element={<VideoProjectPage />} />
           
           {/* Auth routes */}
           <Route path="/auth/login" element={<LoginForm />} />

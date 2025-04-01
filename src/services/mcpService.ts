@@ -74,11 +74,122 @@ export class MCPServerService implements MCPConnection {
   public async listTools(): Promise<MCPToolDefinition[]> {
     return [
       {
+        name: "create_video_project",
+        description: "Create a new video project",
+        parameters: {
+          type: "object",
+          properties: {
+            name: {
+              type: "string",
+              description: "Name of the video project",
+            },
+            description: {
+              type: "string",
+              description: "Description of the video project",
+            },
+          },
+          required: ["name"],
+        },
+      },
+      {
+        name: "get_video_project",
+        description: "Get video project details",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
+          },
+          required: ["projectId"],
+        },
+      },
+      {
+        name: "update_video_project",
+        description: "Update video project details",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
+            name: {
+              type: "string",
+              description: "Updated name of the video project",
+            },
+            description: {
+              type: "string",
+              description: "Updated description of the video project",
+            },
+            status: {
+              type: "string",
+              enum: ["draft", "in_progress", "completed", "failed"],
+              description: "Updated status of the video project",
+            },
+          },
+          required: ["projectId"],
+        },
+      },
+      {
+        name: "add_scene",
+        description: "Add a new scene to the video project",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
+            name: {
+              type: "string",
+              description: "Name of the scene",
+            },
+            description: {
+              type: "string",
+              description: "Description of the scene",
+            },
+            order: {
+              type: "number",
+              description: "Order of the scene in the project",
+            },
+          },
+          required: ["projectId", "name"],
+        },
+      },
+      {
+        name: "upload_product_image",
+        description: "Upload a product image for scene creation",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
+            filename: {
+              type: "string",
+              description: "Name of the file being uploaded",
+            },
+            fileData: {
+              type: "string",
+              description: "Base64 encoded image data or reference",
+            },
+          },
+          required: ["projectId", "filename"],
+        },
+      },
+      {
         name: "generate_image_prompt",
         description: "Generate image prompt for the current scene",
         parameters: {
           type: "object",
           properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
             sceneId: {
               type: "string",
               description: "ID of the scene to generate prompt for",
@@ -88,7 +199,7 @@ export class MCPServerService implements MCPConnection {
               description: "Optional image analysis to use as context",
             },
           },
-          required: ["sceneId"],
+          required: ["projectId", "sceneId"],
         },
       },
       {
@@ -97,6 +208,10 @@ export class MCPServerService implements MCPConnection {
         parameters: {
           type: "object",
           properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
             sceneId: {
               type: "string",
               description: "ID of the scene to generate description for",
@@ -106,7 +221,7 @@ export class MCPServerService implements MCPConnection {
               description: "Whether to use existing description as context",
             },
           },
-          required: ["sceneId"],
+          required: ["projectId", "sceneId"],
         },
       },
       {
@@ -115,6 +230,10 @@ export class MCPServerService implements MCPConnection {
         parameters: {
           type: "object",
           properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
             sceneId: {
               type: "string",
               description: "ID of the scene to generate image for",
@@ -124,8 +243,12 @@ export class MCPServerService implements MCPConnection {
               enum: ["v1", "v2", "v3"],
               description: "Version of the product shot generator to use",
             },
+            imagePrompt: {
+              type: "string",
+              description: "Prompt to use for image generation",
+            },
           },
-          required: ["sceneId"],
+          required: ["projectId", "sceneId"],
         },
       },
       {
@@ -134,6 +257,10 @@ export class MCPServerService implements MCPConnection {
         parameters: {
           type: "object",
           properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
             sceneId: {
               type: "string",
               description: "ID of the scene to generate video for",
@@ -144,7 +271,7 @@ export class MCPServerService implements MCPConnection {
               description: "Aspect ratio of the video",
             },
           },
-          required: ["sceneId"],
+          required: ["projectId", "sceneId"],
         },
       },
       {
@@ -153,6 +280,10 @@ export class MCPServerService implements MCPConnection {
         parameters: {
           type: "object",
           properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
             sceneId: {
               type: "string",
               description: "ID of the scene to generate script for",
@@ -162,7 +293,30 @@ export class MCPServerService implements MCPConnection {
               description: "Additional context for script generation",
             },
           },
-          required: ["sceneId"],
+          required: ["projectId", "sceneId"],
+        },
+      },
+      {
+        name: "compile_video",
+        description: "Compile all scenes into a final video",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: {
+              type: "string",
+              description: "ID of the video project",
+            },
+            outputFormat: {
+              type: "string",
+              enum: ["mp4", "webm"],
+              description: "Output format of the compiled video",
+            },
+            config: {
+              type: "object",
+              description: "Configuration for the video compilation",
+            },
+          },
+          required: ["projectId"],
         },
       },
     ];
@@ -181,14 +335,122 @@ export class MCPServerService implements MCPConnection {
     // In a real implementation, this would make an API call to the MCP server
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Simulate a successful response
-    return {
-      success: true,
-      data: {
-        result: `Result from ${name} with parameters ${JSON.stringify(parameters)}`,
-        timestamp: new Date().toISOString(),
-      },
-    };
+    switch (name) {
+      case 'create_video_project':
+        return {
+          success: true,
+          data: {
+            project: {
+              id: crypto.randomUUID(),
+              name: parameters.name,
+              description: parameters.description,
+              status: 'draft',
+              scenes: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          }
+        };
+        
+      case 'get_video_project':
+        return {
+          success: true,
+          data: {
+            project: {
+              id: parameters.projectId,
+              name: 'Sample Project',
+              description: 'Sample project description',
+              status: 'in_progress',
+              scenes: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          }
+        };
+        
+      case 'add_scene':
+        return {
+          success: true,
+          data: {
+            scene: {
+              id: crypto.randomUUID(),
+              projectId: parameters.projectId,
+              name: parameters.name,
+              description: parameters.description,
+              status: 'pending',
+              order: parameters.order || 0,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          }
+        };
+        
+      case 'upload_product_image':
+        return {
+          success: true,
+          data: {
+            imageUrl: `https://example.com/uploads/${parameters.projectId}/${parameters.filename}`,
+            timestamp: new Date().toISOString(),
+          }
+        };
+        
+      case 'generate_image_prompt':
+        return {
+          success: true,
+          data: {
+            prompt: `Enhanced prompt based on ${parameters.imageAnalysis || 'default analysis'}`,
+            timestamp: new Date().toISOString(),
+          }
+        };
+        
+      case 'generate_scene_image':
+        return {
+          success: true,
+          data: {
+            result: `Generated scene_image for scene ${parameters.sceneId}`,
+            imageUrl: `https://example.com/images/${parameters.projectId}/${parameters.sceneId}.jpg`,
+            timestamp: new Date().toISOString(),
+          }
+        };
+        
+      case 'generate_scene_video':
+        return {
+          success: true,
+          data: {
+            result: `Generated scene_video for scene ${parameters.sceneId}`,
+            videoUrl: `https://example.com/videos/${parameters.projectId}/${parameters.sceneId}.mp4`,
+            timestamp: new Date().toISOString(),
+          }
+        };
+        
+      case 'generate_scene_script':
+        return {
+          success: true,
+          data: {
+            result: `Generated scene_script for scene ${parameters.sceneId}`,
+            script: "This is a sample script for the scene.",
+            timestamp: new Date().toISOString(),
+          }
+        };
+        
+      case 'compile_video':
+        return {
+          success: true,
+          data: {
+            videoUrl: `https://example.com/videos/${parameters.projectId}/output.${parameters.outputFormat || 'mp4'}`,
+            timestamp: new Date().toISOString(),
+          }
+        };
+        
+      default:
+        return {
+          success: true,
+          data: {
+            result: `Result from ${name} with parameters ${JSON.stringify(parameters)}`,
+            timestamp: new Date().toISOString(),
+          }
+        };
+    }
   }
 
   public async executeToolById(params: MCPToolExecutionParams): Promise<MCPToolExecutionResult> {

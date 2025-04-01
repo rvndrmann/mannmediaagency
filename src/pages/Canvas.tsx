@@ -10,6 +10,7 @@ import {
   CanvasDetailPanelAdapter,
   CanvasScriptPanelAdapter
 } from '@/components/canvas/adapters/CanvasProjectAdapter';
+import { CanvasScene } from '@/types/canvas';
 
 export default function Canvas() {
   const [showScriptPanel, setShowScriptPanel] = useState(false);
@@ -34,24 +35,74 @@ export default function Canvas() {
   const createScene = async (projectId, data) => {
     console.log('Creating scene for project', projectId, data);
     // Mock implementation
-    return { id: 'mock-scene-id', title: 'New Scene', projectId };
+    const newSceneId = `scene-${Date.now()}`;
+    const newScene = { 
+      id: newSceneId, 
+      title: data.title || 'New Scene', 
+      projectId,
+      ...data 
+    };
+    
+    // Add to local state
+    setScenes(prev => [...prev, newScene]);
+    
+    return newScene;
   };
   
   const updateScene = async (sceneId, type, value) => {
     console.log('Updating scene', sceneId, type, value);
-    // Mock implementation
+    // Mock implementation - update scene in local state
+    setScenes(prevScenes => {
+      return prevScenes.map(scene => {
+        if (scene.id === sceneId) {
+          return { ...scene, [type]: value };
+        }
+        return scene;
+      });
+    });
+    
+    // If the selected scene is being updated, also update that state
+    if (selectedScene && selectedScene.id === sceneId) {
+      setSelectedScene(prevScene => ({
+        ...prevScene,
+        [type]: value
+      }));
+    }
   };
   
   const deleteScene = async (sceneId) => {
     console.log('Deleting scene', sceneId);
-    // Mock implementation
+    // Mock implementation - remove from local state
+    setScenes(prev => prev.filter(scene => scene.id !== sceneId));
+    
+    // If the deleted scene was selected, clear selection
+    if (selectedSceneId === sceneId) {
+      setSelectedSceneId(null);
+      setSelectedScene(null);
+    }
   };
   
   const fetchProject = async (id) => {
     setLoading(true);
     console.log('Fetching project', id);
-    // Mock implementation
+    // Mock implementation - create a dummy project
+    const dummyProject = {
+      id,
+      title: 'Project ' + id,
+      user_id: 'user-1',
+      scenes: []
+    };
+    
+    setProject(dummyProject);
+    setScenes([]);
     setLoading(false);
+  };
+  
+  const addScene = async () => {
+    if (!project) return;
+    
+    const newScene = await createScene(project.id, { title: 'New Scene' });
+    return newScene.id;
   };
   
   // Initialize agent context with mock/default values
@@ -90,6 +141,16 @@ export default function Canvas() {
     }
   }, [projectId]);
   
+  // Effect to update selectedScene when selectedSceneId changes
+  useEffect(() => {
+    if (selectedSceneId) {
+      const scene = scenes.find(s => s.id === selectedSceneId);
+      setSelectedScene(scene || null);
+    } else {
+      setSelectedScene(null);
+    }
+  }, [selectedSceneId, scenes]);
+  
   // Toggle panels
   const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
   const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
@@ -104,8 +165,6 @@ export default function Canvas() {
       <CanvasHeaderAdapter 
         project={project}
         updateProject={updateProject}
-        showScriptPanel={showScriptPanel}
-        showDetailPanel={showDetailPanel}
         onToggleScriptPanel={toggleScriptPanel}
         onToggleDetailPanel={toggleDetailPanel}
       />
@@ -124,9 +183,11 @@ export default function Canvas() {
           <CanvasWorkspaceAdapter 
             project={project}
             selectedScene={selectedScene}
-            selectedSceneId={selectedSceneId || ""}
+            selectedSceneId={selectedSceneId}
             setSelectedSceneId={setSelectedSceneId}
             updateScene={updateScene}
+            addScene={addScene}
+            deleteScene={deleteScene}
             agent={agentProps}
           />
         </main>
@@ -134,7 +195,7 @@ export default function Canvas() {
         {showDetailPanel && (
           <CanvasDetailPanelAdapter 
             scene={selectedScene}
-            projectId={projectId || ''}
+            projectId={project?.id || ''}
             updateScene={updateScene}
             collapsed={false}
             setCollapsed={() => setShowDetailPanel(false)}
@@ -144,9 +205,25 @@ export default function Canvas() {
         {showScriptPanel && (
           <CanvasScriptPanelAdapter 
             project={project}
-            projectId={projectId || ''}
+            projectId={project?.id || ''}
             onUpdateScene={updateScene}
             onClose={() => setShowScriptPanel(false)}
+            saveFullScript={async (script) => {
+              console.log('Saving full script', script);
+              if (project) {
+                setProject(prev => ({...prev, fullScript: script}));
+              }
+            }}
+            divideScriptToScenes={async (sceneScripts) => {
+              console.log('Dividing script to scenes', sceneScripts);
+              // Mock implementation
+              for (const sceneScript of sceneScripts) {
+                if (sceneScript.id) {
+                  await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText || '');
+                  await updateScene(sceneScript.id, 'script', sceneScript.content || '');
+                }
+              }
+            }}
           />
         )}
       </div>

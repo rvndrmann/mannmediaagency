@@ -31,7 +31,7 @@ export interface CanvasSidebarProps {
   addScene: () => Promise<string | undefined>;
   deleteScene: (id: string) => Promise<void>;
   collapsed: boolean;
-  loading?: boolean;
+  loading?: boolean; // Added loading prop to match CanvasSidebar component
 }
 
 // Updated to match actual CanvasWorkspace component props
@@ -45,7 +45,7 @@ export interface CanvasWorkspaceProps {
   updateScene: (sceneId: string, type: string, value: string) => Promise<void>;
   divideScriptToScenes?: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript?: (script: string) => Promise<void>;
-  agent?: any;
+  agent?: any; // Added agent prop to match CanvasWorkspace
 }
 
 // Updated to match actual CanvasScriptPanel component props

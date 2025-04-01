@@ -31,6 +31,7 @@ interface CanvasSidebarProps {
   addScene: () => Promise<string | undefined>;
   deleteScene: (id: string) => Promise<void>;
   collapsed: boolean;
+  loading?: boolean; // Added loading prop
 }
 
 export function CanvasSidebar({
@@ -40,6 +41,7 @@ export function CanvasSidebar({
   addScene,
   deleteScene,
   collapsed,
+  loading = false, // Default value for loading
 }: CanvasSidebarProps) {
   const handleAddScene = async () => {
     await addScene();

@@ -21,6 +21,7 @@ interface CanvasWorkspaceProps {
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;
+  agent?: any; // Added agent prop
 }
 
 export function CanvasWorkspace({
@@ -34,7 +35,8 @@ export function CanvasWorkspace({
   divideScriptToScenes,
   saveFullScript,
   createNewProject,
-  updateProjectTitle
+  updateProjectTitle,
+  agent // Added agent parameter
 }: CanvasWorkspaceProps) {
   const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("script");

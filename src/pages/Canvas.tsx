@@ -32,6 +32,28 @@ export default function Canvas() {
     deleteProject
   } = useCanvasProjects();
   
+  // Define updateScene here, before it's used in useCanvasAgent
+  const updateScene = async (sceneId, type, value) => {
+    console.log('Updating scene', sceneId, type, value);
+    // Mock implementation - update scene in local state
+    setScenes(prevScenes => {
+      return prevScenes.map(scene => {
+        if (scene.id === sceneId) {
+          return { ...scene, [type]: value };
+        }
+        return scene;
+      });
+    });
+    
+    // If the selected scene is being updated, also update that state
+    if (selectedScene && selectedScene.id === sceneId) {
+      setSelectedScene(prevScene => ({
+        ...prevScene,
+        [type]: value
+      }));
+    }
+  };
+  
   // Get canvas agent for AI functionality
   const {
     generateSceneScript,
@@ -67,27 +89,6 @@ export default function Canvas() {
     setScenes(prev => [...prev, newScene]);
     
     return newScene;
-  };
-  
-  const updateScene = async (sceneId, type, value) => {
-    console.log('Updating scene', sceneId, type, value);
-    // Mock implementation - update scene in local state
-    setScenes(prevScenes => {
-      return prevScenes.map(scene => {
-        if (scene.id === sceneId) {
-          return { ...scene, [type]: value };
-        }
-        return scene;
-      });
-    });
-    
-    // If the selected scene is being updated, also update that state
-    if (selectedScene && selectedScene.id === sceneId) {
-      setSelectedScene(prevScene => ({
-        ...prevScene,
-        [type]: value
-      }));
-    }
   };
   
   const deleteScene = async (sceneId) => {

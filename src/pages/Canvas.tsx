@@ -15,19 +15,23 @@ export default function Canvas() {
   const [showScriptPanel, setShowScriptPanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(true);
   
-  // Initialize canvas context
+  // Get projects instead of project
   const {
+    projects,
+    createProject,
+    updateProject,
+    deleteProject,
+    isLoading,
+    // These properties need to be fixed in the hook
     project,
     scenes,
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,
-    createProject,
     createScene,
     updateScene,
     deleteScene,
     loading,
-    updateProject,
     projectId,
     fetchProject
   } = useCanvasProjects();
@@ -41,16 +45,30 @@ export default function Canvas() {
   
   // Initialize agent context
   const {
-    sendCanvasMessage,
-    isGenerating,
-    generatedContent,
-    setGeneratedContent,
-    generateImage,
-    isMcpConnected
-  } = useCanvasAgent(project, selectedScene);
-  
-  // Initialize messages context
-  const { messages, addMessage } = useCanvasMessages();
+    isLoading: agentLoading,
+    messages,
+    generateSceneScript,
+    generateSceneDescription,
+    generateImagePrompt,
+    generateSceneImage,
+    generateSceneVideo,
+    addUserMessage,
+    addAgentMessage,
+    addSystemMessage,
+    activeAgent,
+    isMcpEnabled,
+    isMcpConnected,
+    toggleMcp,
+    isGeneratingDescription,
+    isGeneratingImagePrompt,
+    isGeneratingImage,
+    isGeneratingVideo,
+    isGeneratingScript
+  } = useCanvasAgent({
+    projectId,
+    sceneId: selectedSceneId,
+    updateScene
+  });
   
   // Effect to load project data on mount
   useEffect(() => {
@@ -65,80 +83,81 @@ export default function Canvas() {
   
   // Project creation if no project exists
   if (!project && !loading) {
-    return <CanvasEmptyState onCreate={createProject} />;
+    return <CanvasEmptyState createProject={createProject} />;
   }
   
-  // Enhanced context with fetchProjects method
-  const enhancedContext = {
-    project,
-    scenes, 
-    selectedScene,
-    selectedSceneId,
-    setSelectedSceneId,
-    createProject,
-    createScene,
-    updateScene,
-    deleteScene,
-    loading,
-    updateProject,
-    projectId,
-    fetchProject,
-    fetchProjects
+  // Create agent props object
+  const agentProps = {
+    isLoading: agentLoading,
+    messages,
+    generateSceneScript,
+    generateSceneDescription,
+    generateImagePrompt,
+    generateSceneImage,
+    generateSceneVideo,
+    addUserMessage,
+    addAgentMessage,
+    addSystemMessage,
+    activeAgent,
+    isMcpEnabled,
+    isMcpConnected,
+    toggleMcp,
+    isGenerating: isGeneratingScript || isGeneratingDescription || isGeneratingImagePrompt || isGeneratingImage || isGeneratingVideo
   };
   
   return (
     <div className="flex flex-col h-screen">
       <CanvasHeader 
         project={project}
-        toggleScriptPanel={toggleScriptPanel}
-        toggleDetailPanel={toggleDetailPanel}
+        updateProject={updateProject}
         showScriptPanel={showScriptPanel}
         showDetailPanel={showDetailPanel}
-        updateProject={updateProject}
+        onToggleScriptPanel={toggleScriptPanel}
+        onToggleDetailPanel={toggleDetailPanel}
       />
       
       <div className="flex flex-1 overflow-hidden">
         <CanvasSidebar 
-          context={enhancedContext}
+          project={project}
+          projects={projects}
+          scenes={scenes}
+          selectedScene={selectedScene}
+          selectedSceneId={selectedSceneId}
+          setSelectedSceneId={setSelectedSceneId}
+          createScene={createScene}
+          deleteScene={deleteScene}
           loading={loading}
         />
         
         <main className="flex-1 overflow-hidden flex flex-col bg-[#1a1a1a]">
           <CanvasWorkspace 
-            context={enhancedContext}
-            agent={{
-              sendCanvasMessage,
-              isGenerating,
-              generatedContent,
-              setGeneratedContent,
-              generateImage,
-              messages,
-              addMessage,
-              isMcpConnected
-            }}
+            project={project}
+            scenes={scenes}
+            selectedScene={selectedScene}
+            selectedSceneId={selectedSceneId}
+            setSelectedSceneId={setSelectedSceneId}
+            createScene={createScene}
+            updateScene={updateScene}
+            agent={agentProps}
           />
         </main>
         
         {showDetailPanel && (
           <CanvasDetailPanel 
-            context={enhancedContext}
-            agent={{
-              sendCanvasMessage,
-              isGenerating,
-              generatedContent,
-              setGeneratedContent,
-              generateImage,
-              messages,
-              addMessage,
-              isMcpConnected
-            }}
+            scene={selectedScene}
+            projectId={projectId || ''}
+            updateScene={updateScene}
+            collapsed={false}
+            setCollapsed={() => setShowDetailPanel(false)}
           />
         )}
         
         {showScriptPanel && (
           <CanvasScriptPanel 
-            project={project}
-            updateProject={updateProject}
+            scene={selectedScene}
+            projectId={projectId || ''}
+            onUpdateScene={updateScene}
+            onClose={() => setShowScriptPanel(false)}
           />
         )}
       </div>

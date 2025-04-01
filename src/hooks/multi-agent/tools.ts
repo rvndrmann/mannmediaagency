@@ -1,18 +1,17 @@
 
-import { ToolDefinition as MultiAgentToolDefinition, CommandExecutionState, ToolContext } from './types';
-import { ToolDefinition as ToolsToolDefinition } from './tools/types';
+import { CommandExecutionState as MultiAgentCommandExecutionState, ToolContext, ToolExecutionResult as MultiAgentToolExecutionResult } from './types';
+import { ToolDefinition as ToolsToolDefinition, CommandExecutionState as ToolsCommandExecutionState, ToolContext as ToolsToolContext, ToolExecutionResult as ToolsToolExecutionResult } from './tools/types';
 import { canvasTool } from './tools/canvas-tool';
 import { canvasContentTool } from './tools/canvas-content-tool';
-import { dataTool } from './tools/tool-registry';
-import { browserUseTool } from './tools/tool-registry';
+import { dataTool, browserUseTool } from './tools/tool-registry';
 import { productShotV2Tool } from './tools/product-shot-v2-tool';
 import { imageToVideoTool } from './tools/image-to-video-tool';
 
 // This function adapts a tool from the tools/types.ts format to types.ts format
-export function adaptToolDefinition(tool: ToolsToolDefinition): MultiAgentToolDefinition {
+export function adaptToolDefinition(tool: ToolsToolDefinition): any {
   return {
     ...tool,
-    execute: async (params, context) => {
+    execute: async (params: any, context: ToolContext) => {
       // Adapt the context for the original execute function
       const adaptedContext = {
         ...context,
@@ -25,37 +24,44 @@ export function adaptToolDefinition(tool: ToolsToolDefinition): MultiAgentToolDe
       // Call the original execute function
       const result = await tool.execute(params, adaptedContext);
       
-      // Map the state to the correct enum value
+      // Map the state to the correct enum value if needed
       let state = result.state;
       if (typeof state === 'string') {
         switch(state) {
           case 'completed': 
-            state = CommandExecutionState.COMPLETED;
+            state = ToolsCommandExecutionState.COMPLETED;
             break;
           case 'failed': 
-            state = CommandExecutionState.FAILED;
+            state = ToolsCommandExecutionState.FAILED;
             break;
           case 'processing': 
-            state = CommandExecutionState.PROCESSING;
+            state = ToolsCommandExecutionState.PROCESSING;
             break;
           case 'error': 
-            state = CommandExecutionState.ERROR;
+            state = ToolsCommandExecutionState.ERROR;
             break;
           case 'pending':
-            state = CommandExecutionState.PENDING;
+            state = ToolsCommandExecutionState.PENDING;
             break;
           case 'running':
-            state = CommandExecutionState.RUNNING;
+            state = ToolsCommandExecutionState.RUNNING;
             break;
           case 'cancelled':
-            state = CommandExecutionState.CANCELLED;
+            state = ToolsCommandExecutionState.CANCELLED;
             break;
         }
+      }
+      
+      // Convert Error objects to strings for compatibility
+      let errorValue = result.error;
+      if (errorValue instanceof Error) {
+        errorValue = errorValue.message;
       }
       
       // Return an adapted result
       return {
         ...result,
+        error: errorValue,
         state
       };
     }
@@ -81,7 +87,7 @@ export const adaptedTools = [
 ];
 
 // Function to get all available tools
-export const getAvailableTools = (): MultiAgentToolDefinition[] => {
+export const getAvailableTools = (): any[] => {
   return [...adaptedTools];
 };
 

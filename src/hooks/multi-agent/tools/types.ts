@@ -56,5 +56,5 @@ export interface ToolDefinition {
   };
   requiredCredits?: number;
   version?: string;
-  execute: (parameters: any, context: ToolContext) => Promise<ToolResult>;
+  execute: (parameters: any, context: ToolContext) => Promise<ToolResult | ToolExecutionResult>;
 }

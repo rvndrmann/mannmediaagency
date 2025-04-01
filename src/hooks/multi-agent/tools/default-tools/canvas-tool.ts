@@ -1,14 +1,19 @@
 
 import { ToolDefinition, ToolContext, ToolResult, CommandExecutionState } from "../types";
 import { supabase } from "@/integrations/supabase/client";
+import { SceneUpdateType } from "@/types/canvas";
+import { mapSceneUpdateTypeToDbField } from "@/utils/canvas-data-utils";
 
 // Create a singleton instance to avoid multiple service instantiation
 const canvasService = {
-  async updateScene(sceneId: string, data: any) {
+  async updateScene(sceneId: string, updateType: SceneUpdateType, value: string) {
     try {
+      const dbField = mapSceneUpdateTypeToDbField(updateType);
+      const updates = { [dbField]: value };
+      
       const { error } = await supabase
         .from('canvas_scenes')
-        .update(data)
+        .update(updates)
         .eq('id', sceneId);
       
       return !error;
@@ -20,6 +25,22 @@ const canvasService = {
   
   async createScene(projectId: string, data: any) {
     try {
+      // Ensure scene_order is provided or calculated
+      if (!data.scene_order) {
+        const { data: existingScenes } = await supabase
+          .from('canvas_scenes')
+          .select('scene_order')
+          .eq('project_id', projectId)
+          .order('scene_order', { ascending: false })
+          .limit(1);
+          
+        const nextOrder = existingScenes && existingScenes.length > 0
+          ? (existingScenes[0].scene_order || 0) + 1
+          : 1;
+          
+        data.scene_order = nextOrder;
+      }
+      
       const { data: newScene, error } = await supabase
         .from('canvas_scenes')
         .insert([{
@@ -58,6 +79,11 @@ export const canvasTool: ToolDefinition = {
         type: "string",
         description: "The ID of the scene to update (for update operations)"
       },
+      updateType: {
+        type: "string",
+        enum: ["script", "imagePrompt", "description", "image", "imageUrl", "productImage", "video", "voiceOver", "backgroundMusic", "voiceOverText"],
+        description: "The type of update to perform"
+      },
       content: {
         type: "string",
         description: "The content to set (description, image prompt, etc.)"
@@ -89,29 +115,31 @@ export const canvasTool: ToolDefinition = {
   
   execute: async (params, context): Promise<ToolResult> => {
     try {
-      const { action, projectId, sceneId, content } = params;
+      const { action, projectId, sceneId, updateType, content } = params;
       
       // Handle different actions
       switch (action) {
         case "updateScene": {
-          if (!sceneId) {
+          if (!sceneId || !updateType) {
             return {
               success: false,
-              message: "sceneId is required for updateScene action",
-              error: "sceneId is required for updateScene action",
+              message: "sceneId and updateType are required for updateScene action",
+              error: "sceneId and updateType are required for updateScene action",
               state: CommandExecutionState.FAILED
             };
           }
           
-          // Update scene script
-          const success = await canvasService.updateScene(sceneId, {
-            script: content
-          });
+          // Update scene with specified update type
+          const success = await canvasService.updateScene(
+            sceneId, 
+            updateType as SceneUpdateType, 
+            content || ""
+          );
           
           return {
             success,
-            message: success ? "Scene updated" : "Failed to update scene",
-            data: { sceneId },
+            message: success ? `Scene ${updateType} updated` : `Failed to update scene ${updateType}`,
+            data: { sceneId, updateType },
             state: success ? CommandExecutionState.COMPLETED : CommandExecutionState.FAILED
           };
         }
@@ -119,7 +147,8 @@ export const canvasTool: ToolDefinition = {
         case "createScene": {
           // Create a new scene
           const scene = await canvasService.createScene(projectId, {
-            script: content || ""
+            script: content || "",
+            title: "New Scene"
           });
           
           return {

@@ -54,7 +54,13 @@ export function normalizeScene(scene: any): CanvasScene {
     createdAt: scene.createdAt || scene.created_at || new Date().toISOString(),
     created_at: scene.created_at || scene.createdAt || new Date().toISOString(),
     updatedAt: scene.updatedAt || scene.updated_at || new Date().toISOString(),
-    updated_at: scene.updated_at || scene.updatedAt || new Date().toISOString()
+    updated_at: scene.updated_at || scene.updatedAt || new Date().toISOString(),
+    // Add compatibility fields for old references
+    image: scene.image || scene.imageUrl || scene.image_url || '',
+    video: scene.video || scene.videoUrl || scene.video_url || '',
+    voiceOver: scene.voiceOver || scene.voiceOverUrl || scene.voice_over_url || '',
+    backgroundMusic: scene.backgroundMusic || scene.backgroundMusicUrl || scene.background_music_url || '',
+    productImage: scene.productImage || scene.productImageUrl || scene.product_image_url || ''
   };
 }
 

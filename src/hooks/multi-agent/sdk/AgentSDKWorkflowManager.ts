@@ -1,7 +1,7 @@
 
 import { VideoWorkflowService } from "@/services/workflow/VideoWorkflowService";
 import { WorkflowRPC } from "@/services/workflow/WorkflowRPC";
-import { CanvasScene, WorkflowStage, WorkflowState } from "@/types/canvas";
+import { WorkflowStage, WorkflowState } from "@/types/canvas";
 import { v4 as uuidv4 } from "uuid";
 
 /**

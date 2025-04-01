@@ -2,6 +2,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
+import { CommandExecutionState } from "../types";
 
 export const canvasDataTool: ToolDefinition = {
   name: "canvas_data",
@@ -47,7 +48,8 @@ export const canvasDataTool: ToolDefinition = {
         return {
           success: false,
           message: "Canvas data tool is not available",
-          error: "Tool unavailable"
+          error: "Tool unavailable",
+          state: CommandExecutionState.FAILED
         };
       }
       
@@ -56,7 +58,8 @@ export const canvasDataTool: ToolDefinition = {
         return {
           success: false,
           message: "User ID is required to access canvas data",
-          error: "Missing user ID"
+          error: "Missing user ID",
+          state: CommandExecutionState.FAILED
         };
       }
       
@@ -81,7 +84,8 @@ export const canvasDataTool: ToolDefinition = {
           return {
             success: false,
             message: `Unknown operation: ${params.operation}`,
-            error: "Invalid operation"
+            error: "Invalid operation",
+            state: CommandExecutionState.FAILED
           };
       }
     } catch (error: any) {
@@ -90,7 +94,8 @@ export const canvasDataTool: ToolDefinition = {
       return {
         success: false,
         message: `Canvas data error: ${error.message}`,
-        error: error.message
+        error: error.message,
+        state: CommandExecutionState.ERROR
       };
     }
   }
@@ -102,7 +107,8 @@ async function getCanvasProject(projectId: string | undefined, context: ToolCont
     return {
       success: false,
       message: "Project ID is required for the get_project operation",
-      error: "Missing project ID"
+      error: "Missing project ID",
+      state: CommandExecutionState.FAILED
     };
   }
   
@@ -122,20 +128,23 @@ async function getCanvasProject(projectId: string | undefined, context: ToolCont
       return {
         success: false,
         message: `No project found with ID: ${projectId}`,
-        error: "Project not found"
+        error: "Project not found",
+        state: CommandExecutionState.FAILED
       };
     }
     
     return {
       success: true,
       message: "Canvas project retrieved successfully",
-      data
+      data,
+      state: CommandExecutionState.COMPLETED
     };
   } catch (error: any) {
     return {
       success: false,
       message: `Error retrieving canvas project: ${error.message}`,
-      error: error.message
+      error: error.message,
+      state: CommandExecutionState.ERROR
     };
   }
 }
@@ -146,7 +155,8 @@ async function getCanvasScene(sceneId: string | undefined, projectId: string | u
     return {
       success: false,
       message: "Scene ID is required for the get_scene operation",
-      error: "Missing scene ID"
+      error: "Missing scene ID",
+      state: CommandExecutionState.FAILED
     };
   }
   
@@ -179,20 +189,23 @@ async function getCanvasScene(sceneId: string | undefined, projectId: string | u
       return {
         success: false,
         message: "You don't have permission to access this scene",
-        error: "Access denied"
+        error: "Access denied",
+        state: CommandExecutionState.FAILED
       };
     }
     
     return {
       success: true,
       message: "Canvas scene retrieved successfully",
-      data
+      data,
+      state: CommandExecutionState.COMPLETED
     };
   } catch (error: any) {
     return {
       success: false,
       message: `Error retrieving canvas scene: ${error.message}`,
-      error: error.message
+      error: error.message,
+      state: CommandExecutionState.ERROR
     };
   }
 }
@@ -214,13 +227,15 @@ async function listCanvasProjects(limit: number, context: ToolContext): Promise<
     return {
       success: true,
       message: `Retrieved ${data.length} canvas projects`,
-      data
+      data,
+      state: CommandExecutionState.COMPLETED
     };
   } catch (error: any) {
     return {
       success: false,
       message: `Error listing canvas projects: ${error.message}`,
-      error: error.message
+      error: error.message,
+      state: CommandExecutionState.ERROR
     };
   }
 }
@@ -231,7 +246,8 @@ async function listCanvasScenes(projectId: string | undefined, limit: number, co
     return {
       success: false,
       message: "Project ID is required for the list_scenes operation",
-      error: "Missing project ID"
+      error: "Missing project ID",
+      state: CommandExecutionState.FAILED
     };
   }
   
@@ -248,7 +264,8 @@ async function listCanvasScenes(projectId: string | undefined, limit: number, co
       return {
         success: false,
         message: "You don't have permission to access this project's scenes",
-        error: "Access denied"
+        error: "Access denied",
+        state: CommandExecutionState.FAILED
       };
     }
     
@@ -267,13 +284,15 @@ async function listCanvasScenes(projectId: string | undefined, limit: number, co
     return {
       success: true,
       message: `Retrieved ${data.length} canvas scenes for project ${projectId}`,
-      data
+      data,
+      state: CommandExecutionState.COMPLETED
     };
   } catch (error: any) {
     return {
       success: false,
       message: `Error listing canvas scenes: ${error.message}`,
-      error: error.message
+      error: error.message,
+      state: CommandExecutionState.ERROR
     };
   }
 }

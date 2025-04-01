@@ -1,58 +1,97 @@
 
-import { SupabaseClient } from "@supabase/supabase-js";
+export type AgentType = 
+  | "main" 
+  | "script" 
+  | "image" 
+  | "tool" 
+  | "scene" 
+  | "data" 
+  | "assistant" 
+  | "scene-generator";
 
-// Agent types
-export type AgentType = "main" | "script" | "image" | "tool" | "scene" | "data";
-
-// Runner context interface for agent execution
 export interface RunnerContext {
-  supabase: SupabaseClient<any, "public", any>;
   userId?: string;
-  sessionId?: string;
   projectId?: string;
-  groupId?: string;
-  history?: any[];
+  sceneId?: string;
+  metadata?: Record<string, any>;
   tracingEnabled?: boolean;
+  addMessage?: (message: string, type: string) => void;
+  groupId?: string;
+  runId?: string;
+  // Additional properties used in components
+  supabase?: any;
   usePerformanceModel?: boolean;
   enableDirectToolExecution?: boolean;
-  addMessage?: (message: string, type: string) => void;
-  metadata?: Record<string, any>;
 }
 
-// Result from agent execution
 export interface AgentResult {
   response: string;
-  output?: string;
-  nextAgent: AgentType | null;
+  output: string;
+  nextAgent?: AgentType | null;
   handoffReason?: string;
   additionalContext?: Record<string, any>;
-  commandSuggestion?: any;
-  structured_output?: any;
+  metadata?: Record<string, any>;
   handoff?: {
     targetAgent: AgentType;
     reason: string;
     additionalContext?: Record<string, any>;
   };
+  // Additional properties for SDK compatibility
+  structured_output?: any;
+  commandSuggestion?: any;
 }
 
-// Agent option for initialization
+export interface BaseAgent {
+  name: string;
+  run: (input: string, context: RunnerContext) => Promise<AgentResult>;
+  getInstructions: () => string;
+  getTools: () => any[];
+}
+
+export type RunnerCallbacks = {
+  onHandoff?: (from: AgentType, to: AgentType, reason: string) => void;
+  onHandoffStart?: (from: AgentType, to: AgentType, reason: string) => void;
+  onHandoffEnd?: (from: AgentType, to: AgentType, result: AgentResult) => void;
+  onError?: (error: Error) => void;
+};
+
+export interface OnHandoffWithInput<TInput> {
+  (runContext: any, input: TInput): Promise<any>;
+}
+
+export interface OnHandoffWithoutInput {
+  (runContext: any): Promise<any>;
+}
+
 export interface AgentOptions {
-  context: RunnerContext;
+  name: string;
+  description?: string;
+  instructions?: string;
+  tools?: any[];
+  context?: RunnerContext;
   traceId?: string;
   model?: string;
-  config?: any;
+  contextData?: Record<string, any>;
 }
 
-// Base agent interface
-export interface BaseAgent {
-  run(input: string, context: RunnerContext): Promise<AgentResult>;
-  getType(): AgentType;
+// Define CommandExecutionState as enum for proper usage
+export enum CommandExecutionState {
+  PENDING = "pending",
+  RUNNING = "running",
+  COMPLETED = "completed",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
+  ERROR = "error",
+  PROCESSING = "processing"
 }
 
-// For callback handling
-export interface RunnerCallbacks {
-  onHandoff?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
-  onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
-  onHandoffEnd?: (fromAgent: AgentType, toAgent: AgentType, result: AgentResult) => void;
-  onError?: (error: Error) => void;
+export interface ToolExecutionResult {
+  success: boolean;
+  message?: string;
+  state: CommandExecutionState; 
+  error?: string | Error;
+  data?: any;
+  usage?: {
+    creditsUsed?: number;
+  };
 }

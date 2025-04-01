@@ -1,13 +1,54 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
-// Tool execution result states
+// Agent types
+export type AgentType = "main" | "script" | "image" | "tool" | "scene" | "data";
+
+export interface AgentOptions {
+  name: string;
+  instructions?: string;
+  context?: RunnerContext;
+  traceId?: string;
+}
+
+export interface RunnerContext {
+  userId?: string;
+  sessionId?: string;
+  projectId?: string;
+  runId?: string;
+  groupId?: string;
+  tracingEnabled?: boolean;
+  addMessage?: (message: string, type: string) => void;
+  metadata?: Record<string, any>;
+  supabase?: SupabaseClient<any, "public", any>;
+  usePerformanceModel?: boolean;
+  enableDirectToolExecution?: boolean;
+}
+
+export interface AgentResult {
+  response: string;
+  output: string; 
+  nextAgent: AgentType | null;
+  handoffReason?: string;
+  additionalContext?: Record<string, any>;
+  structured_output?: any;
+}
+
+// Define BaseAgent interface
+export interface BaseAgent {
+  run(input: string, context: RunnerContext): Promise<AgentResult>;
+  getType(): AgentType;
+}
+
+// Make sure both CommandExecutionState enums are compatible
 export enum CommandExecutionState {
   PENDING = "pending",
   RUNNING = "running",
   COMPLETED = "completed",
   FAILED = "failed",
-  ERROR = "error" // Add ERROR state
+  CANCELLED = "cancelled",
+  ERROR = "error",
+  PROCESSING = "processing"
 }
 
 // Tool context interface - provided to all tools during execution
@@ -22,10 +63,11 @@ export interface ToolContext {
   usePerformanceModel?: boolean;
   enableDirectToolExecution?: boolean;
   addMessage?: (message: string, type: string) => void;
-  toolAvailable: boolean; // Required property to ensure the tool is available
+  toolAvailable?: boolean; 
   history?: any[];
   tracingEnabled?: boolean;
-  // Add any other context-specific properties tools might need
+  user?: any;
+  session?: any;
 }
 
 // Tool definition interface
@@ -43,6 +85,7 @@ export interface ToolDefinition {
     displayName?: string;
     icon?: string;
   };
+  version?: string;
   execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
 }
 
@@ -50,11 +93,10 @@ export interface ToolDefinition {
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
-  state?: CommandExecutionState; // Add state property
-  error?: string;
+  state: CommandExecutionState; 
+  error?: string | Error;
   data?: any;
   usage?: {
     creditsUsed?: number;
-    // Add other usage metrics as needed
   };
 }

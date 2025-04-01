@@ -1,16 +1,25 @@
-
 import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions } from "../types";
+import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
 export class ScriptWriterAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
-    super(options);
+    super({
+      name: options.name || "Script Writer Agent",
+      instructions: options.instructions || "You are an AI agent specialized in writing scripts.",
+      context: options.context,
+      traceId: options.traceId,
+      ...options
+    });
   }
 
-  async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
+  getType(): AgentType {
+    return "script";
+  }
+
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      console.log("Running ScriptWriterAgent with input:", input.substring(0, 50), "attachments:", attachments.length);
+      console.log("Running ScriptWriterAgent with input:", input.substring(0, 50));
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -19,7 +28,10 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       }
       
       // Get dynamic instructions if needed
-      const instructions = await this.getInstructions(this.context);
+      const instructions = this.getInstructions();
+      
+      // Handle attachments if they exist in metadata
+      const attachments = this.context.metadata?.attachments || [];
       
       // Enhanced context handling: Get conversation history from context if available
       const conversationHistory = this.context.metadata?.conversationHistory || [];
@@ -119,10 +131,10 @@ CREATE AND PROVIDE THE ACTUAL COMPLETE SCRIPT in your response.
           userId: user.id,
           usePerformanceModel: this.context.usePerformanceModel,
           enableDirectToolExecution: this.context.enableDirectToolExecution,
-          tracingDisabled: this.context.tracingDisabled,
+          tracingEnabled: !this.context.tracingEnabled,
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
-            attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
+            attachmentTypes: attachments.map((att: Attachment) => att.type.startsWith('image') ? 'image' : 'file'),
             isHandoffContinuation: isHandoffContinuation,
             previousAgentType: previousAgentType,
             handoffReason: handoffReason,
@@ -278,13 +290,13 @@ CREATE AND PROVIDE THE ACTUAL COMPLETE SCRIPT in your response.
       }
       
       // Handle handoff if present or force handoff based on workflow
-      let nextAgent = null;
+      let nextAgent: AgentType | null = null;
       let handoffReasonResponse = null;
       let additionalContextForNext = null;
       
       if (data?.handoffRequest) {
         console.log("Handoff requested to:", data.handoffRequest.targetAgent);
-        nextAgent = data.handoffRequest.targetAgent;
+        nextAgent = data.handoffRequest.targetAgent as AgentType;
         handoffReasonResponse = data.handoffRequest.reason;
         additionalContextForNext = data.handoffRequest.additionalContext || continuityData?.additionalContext;
         
@@ -332,6 +344,7 @@ CREATE AND PROVIDE THE ACTUAL COMPLETE SCRIPT in your response.
       
       return {
         response: data?.completion || "I processed your request but couldn't generate a script response.",
+        output: data?.completion || "I processed your request but couldn't generate a script response.",
         nextAgent: nextAgent,
         handoffReason: handoffReasonResponse,
         structured_output: data?.structured_output || {
@@ -350,9 +363,5 @@ CREATE AND PROVIDE THE ACTUAL COMPLETE SCRIPT in your response.
       console.error("ScriptWriterAgent run error:", error);
       throw error;
     }
-  }
-  
-  getType() {
-    return "script";
   }
 }

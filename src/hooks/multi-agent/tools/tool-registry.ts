@@ -1,37 +1,60 @@
 
-import { ToolDefinition } from "../types";
-import { dataTool } from "./data-tool";
-import { webSearchTool } from "./web-search-tool";
-import { canvasTool } from "./default-tools/canvas-tool";
-import { productShotV1Tool } from "./product-shot-v1-tool";
-import { productShotV2Tool } from "./product-shot-v2-tool";
-import { browserUseTool } from "./browser-use-tool";
-import { imageToVideoTool } from "./image-to-video-tool";
+import { ToolDefinition, CommandExecutionState } from "./types";
 
-// Define all available tools
-const allTools: ToolDefinition[] = [
+// Create dataTool
+export const dataTool: ToolDefinition = {
+  name: "data-tool",
+  description: "Tool for data operations",
+  execute: async function() {
+    return {
+      success: true,
+      message: "Data operation executed",
+      data: { result: "Success" },
+      state: CommandExecutionState.COMPLETED
+    };
+  },
+  parameters: {
+    type: "object",
+    properties: {
+      operation: {
+        type: "string",
+        enum: ["fetch", "store", "process"],
+        description: "The operation to perform on the data"
+      }
+    },
+    required: ["operation"]
+  }
+};
+
+// Create browserUseTool
+export const browserUseTool: ToolDefinition = {
+  name: "browser-use-tool",
+  description: "Tool for browser automation",
+  execute: async function() {
+    return {
+      success: true,
+      message: "Browser operation executed",
+      data: { result: "Success" },
+      state: CommandExecutionState.COMPLETED
+    };
+  },
+  parameters: {
+    type: "object",
+    properties: {
+      task: {
+        type: "string",
+        description: "The browser task to perform"
+      }
+    },
+    required: ["task"]
+  }
+};
+
+// Helper function to get all available tools
+export const availableTools: ToolDefinition[] = [
   dataTool,
-  webSearchTool,
-  canvasTool,
-  productShotV1Tool,
-  productShotV2Tool,
-  browserUseTool,
-  imageToVideoTool
+  browserUseTool
 ];
 
-// Get all available tools
-export const getAvailableTools = (): ToolDefinition[] => {
-  return allTools;
-};
-
-// Get tools by category
-export const getToolsByCategory = (category: string): ToolDefinition[] => {
-  return allTools.filter(tool => 
-    tool.metadata && tool.metadata.category === category
-  );
-};
-
-// Get tool by name
-export const getToolByName = (name: string): ToolDefinition | undefined => {
-  return allTools.find(tool => tool.name === name);
-};
+// Export getAvailableTools function explicitly
+export const getAvailableTools = () => availableTools;

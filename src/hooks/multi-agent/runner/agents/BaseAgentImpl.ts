@@ -1,96 +1,99 @@
 
-import { AgentOptions, AgentResult, AgentType, RunnerContext } from "../types";
+import { AgentType, AgentResult, RunnerContext, BaseAgent, AgentOptions } from "../types";
+import { v4 as uuidv4 } from "uuid";
 
-/**
- * Base implementation of an agent with common functionality
- */
-export abstract class BaseAgentImpl {
+export abstract class BaseAgentImpl implements BaseAgent {
+  public name: string;
+  protected instructions: string;
+  protected tools: any[];
   protected context: RunnerContext;
   protected traceId: string;
   protected model: string;
-  protected config: any;
-  
+
   constructor(options: AgentOptions) {
-    this.context = options.context;
-    this.traceId = options.traceId || `agent-${Date.now()}`;
-    this.model = options.model || "gpt-3.5-turbo";
-    this.config = options.config || {};
+    this.name = options.name;
+    this.instructions = options.instructions || `You are a helpful AI ${options.name} agent.`;
+    this.tools = options.tools || [];
+    this.context = options.context || {};
+    this.traceId = options.traceId || uuidv4();
+    this.model = options.model || 'gpt-4o';
   }
-  
-  /**
-   * Get the agent type
-   */
+
   abstract getType(): AgentType;
   
-  /**
-   * Process the input and generate a response
-   */
   abstract process(input: string, context: RunnerContext): Promise<AgentResult>;
   
-  /**
-   * Run the agent with the given input
-   */
+  getInstructions(): string {
+    return this.instructions;
+  }
+  
+  getTools(): any[] {
+    return this.tools;
+  }
+  
+  getModel(): string {
+    return this.model;
+  }
+  
+  getTraceId(): string {
+    return this.traceId;
+  }
+  
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      if (context.tracingEnabled && context.addMessage) {
-        context.addMessage(`Running ${this.getType()} agent with input: ${input.substring(0, 100)}...`, "agent_start");
-      }
-      
-      const result = await this.process(input, context);
-      
-      if (context.tracingEnabled && context.addMessage) {
-        context.addMessage(`Completed ${this.getType()} agent run`, "agent_end");
-      }
-      
-      return {
-        response: result.response || result.output || "",
-        nextAgent: result.nextAgent,
-        handoffReason: result.handoffReason,
-        structured_output: result.structured_output,
-        additionalContext: result.additionalContext
+      // Merge context with this.context
+      const mergedContext: RunnerContext = {
+        ...this.context,
+        ...context,
+        metadata: {
+          ...this.context.metadata,
+          ...context.metadata
+        }
       };
       
+      // Record trace event if enabled
+      this.recordTraceEvent("run_start", { 
+        message: `Starting agent run with ${this.name}`,
+        input_length: input.length
+      });
+      
+      // Process the input with the agent
+      const result = await this.process(input, mergedContext);
+      
+      // Record trace event if enabled
+      this.recordTraceEvent("run_complete", { 
+        message: `Completed agent run with ${this.name}`,
+        output_length: result.response.length,
+        has_handoff: !!result.nextAgent
+      });
+      
+      return result;
     } catch (error) {
-      console.error(`Error in ${this.getType()} agent:`, error);
+      // Record trace error event if enabled
+      this.recordTraceEvent("run_error", { 
+        message: `Error in agent run with ${this.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error_type: error instanceof Error ? error.name : 'Unknown'
+      });
       
-      if (context.tracingEnabled && context.addMessage) {
-        context.addMessage(`Error in ${this.getType()} agent: ${error}`, "agent_error");
-      }
-      
+      console.error(`Error in ${this.name} run:`, error);
       return {
-        response: `Error processing request with ${this.getType()} agent: ${error instanceof Error ? error.message : String(error)}`,
+        response: `The ${this.name} agent encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        output: `The ${this.name} agent encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         nextAgent: null
       };
     }
   }
   
-  /**
-   * Record a trace event for debugging purposes
-   */
-  protected recordTraceEvent(event: Record<string, any>): void {
+  protected recordTraceEvent(eventType: string, data: Record<string, any>): void {
     if (this.context.tracingEnabled && this.context.addMessage) {
-      this.context.addMessage(JSON.stringify(event), "trace");
+      this.context.addMessage(JSON.stringify({
+        event_type: eventType,
+        agent_type: this.getType(),
+        agent_name: this.name,
+        timestamp: new Date().toISOString(),
+        trace_id: this.traceId,
+        ...data
+      }), 'trace');
     }
-  }
-  
-  /**
-   * Get the instructions for this agent
-   */
-  protected getInstructions(): string {
-    return `You are an AI assistant specialized in ${this.getType()} tasks.`;
-  }
-  
-  /**
-   * Apply input guardrails - placeholder
-   */
-  protected async applyInputGuardrails(input: string): Promise<string> {
-    return input;
-  }
-  
-  /**
-   * Apply output guardrails - placeholder
-   */
-  protected async applyOutputGuardrails(output: any): Promise<any> {
-    return output;
   }
 }

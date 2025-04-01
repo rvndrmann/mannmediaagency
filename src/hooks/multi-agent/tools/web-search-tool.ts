@@ -1,50 +1,67 @@
 
-// Fix import
-import { ToolContext, ToolExecutionResult } from "../types";
+import { CommandExecutionState, ToolContext, ToolExecutionResult } from '../types';
+
+interface WebSearchParams {
+  query: string;
+  num_results?: number;
+}
+
+export async function executeWebSearch(
+  parameters: WebSearchParams, 
+  context: ToolContext
+): Promise<ToolExecutionResult> {
+  try {
+    // Mock web search results
+    const results = [
+      {
+        title: 'Sample Search Result 1',
+        snippet: 'This is a sample search result description',
+        url: 'https://example.com/result1'
+      },
+      {
+        title: 'Sample Search Result 2',
+        snippet: 'Another sample search result with different information',
+        url: 'https://example.com/result2'
+      },
+      {
+        title: 'Sample Search Result 3',
+        snippet: 'Yet another interesting search result example',
+        url: 'https://example.com/result3'
+      }
+    ];
+
+    return {
+      success: true,
+      data: { results: results.slice(0, parameters.num_results || 3) },
+      message: `Found ${results.length} results for query: ${parameters.query}`,
+      state: CommandExecutionState.COMPLETED
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      message: `Failed to execute web search for query: ${parameters.query}`,
+      state: CommandExecutionState.FAILED
+    };
+  }
+}
 
 export const webSearchTool = {
   name: "web_search",
-  description: "Search the web for information on a given topic",
-  version: "1.0",
-  requiredCredits: 0.2,
+  description: "Search the web for information",
   parameters: {
     type: "object",
     properties: {
       query: {
         type: "string",
-        description: "The search query to run"
+        description: "The search query"
       },
-      numResults: {
+      num_results: {
         type: "number",
-        description: "Number of results to return (max 10)"
+        description: "Number of results to return"
       }
     },
     required: ["query"]
   },
-  
-  execute: async (params: { query: string; numResults?: number }, context: ToolContext): Promise<ToolExecutionResult> => {
-    try {
-      // This is a placeholder implementation
-      return {
-        success: true,
-        data: {
-          results: [
-            {
-              title: "Example search result",
-              snippet: "This is a placeholder for web search results. In production, this would connect to a real search API.",
-              url: "https://example.com"
-            }
-          ]
-        },
-        message: "Web search completed"
-      };
-    } catch (error) {
-      console.error("Web search tool error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error in web search",
-        message: "Web search failed"
-      };
-    }
-  }
+  execute: executeWebSearch
 };

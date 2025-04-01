@@ -1,5 +1,5 @@
 
-import { AgentType, RunnerContext, RunnerCallbacks, AgentResult } from "./types";
+import { AgentType, RunnerContext, AgentResult, RunnerCallbacks } from "./types";
 import { v4 as uuidv4 } from "uuid";
 import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
 
@@ -45,7 +45,7 @@ export class SDKAgentRunner {
 
   private async initializeTrace() {
     // If OpenAI tracing is enabled, set up the trace
-    if (!this.context.tracingDisabled && typeof window !== 'undefined' && window.fetch) {
+    if (!this.context.tracingEnabled && typeof window !== 'undefined' && window.fetch) {
       try {
         const traceDetails = {
           trace_id: this.traceId,
@@ -63,7 +63,7 @@ export class SDKAgentRunner {
         
         // Send an initial trace event to OpenAI
         const success = await initializeTrace(this.traceId, {
-          user_id: this.context.userId,
+          user_id: this.context.userId || 'anonymous',
           conversation_id: this.context.groupId,
           initial_agent: this.currentAgentType,
           application: 'multi-agent-chat',
@@ -91,7 +91,9 @@ export class SDKAgentRunner {
     if (this.isProcessing) {
       console.warn("Already processing a request, ignoring new input");
       return {
-        output: "I'm still processing your previous request, please wait a moment."
+        response: "I'm still processing your previous request, please wait a moment.",
+        output: "I'm still processing your previous request, please wait a moment.",
+        nextAgent: null
       };
     }
 
@@ -105,40 +107,46 @@ export class SDKAgentRunner {
       // For now, we're simulating by directly calling the edge function
       const response = await this.callAgentAPI(input);
       
-      // Handle handoffs
-      if (response.handoff) {
-        const { targetAgent, reason } = response.handoff;
+      // Handle handoffs between response.handoff and response.nextAgent for backward compatibility
+      if (response.handoff || response.nextAgent) {
+        // Extract handoff info from either response.handoff or the legacy nextAgent
+        const targetAgent = response.handoff?.targetAgent || response.nextAgent;
+        const reason = response.handoff?.reason || response.handoffReason || "Specialized assistance";
         
-        // Add to handoff history
-        this.handoffHistory.push({
-          from: this.currentAgentType,
-          to: targetAgent,
-          reason
-        });
-        
-        // Notify about handoff
-        if (this.callbacks.onHandoff) {
-          this.callbacks.onHandoff(this.currentAgentType, targetAgent, reason);
+        if (targetAgent) {
+          // Add to handoff history
+          this.handoffHistory.push({
+            from: this.currentAgentType,
+            to: targetAgent,
+            reason
+          });
+          
+          // Notify about handoff
+          if (this.callbacks.onHandoff) {
+            this.callbacks.onHandoff(this.currentAgentType, targetAgent, reason);
+          }
+          
+          // Update current agent
+          this.currentAgentType = targetAgent;
+          
+          // Update context with handoff info
+          this.context.metadata = {
+            ...this.context.metadata,
+            isHandoffContinuation: true,
+            previousAgentType: targetAgent,
+            handoffReason: reason,
+            handoffHistory: [...this.handoffHistory]
+          };
         }
-        
-        // Update current agent
-        this.currentAgentType = targetAgent;
-        
-        // Update context with handoff info
-        this.context.metadata = {
-          ...this.context.metadata,
-          isHandoffContinuation: true,
-          previousAgentType: response.handoff.targetAgent,
-          handoffReason: response.handoff.reason,
-          handoffHistory: [...this.handoffHistory]
-        };
       }
 
       return response;
     } catch (error) {
       console.error("Error in SDKAgentRunner.processInput:", error);
       return {
-        output: "I encountered an error while processing your request. Please try again."
+        response: "I encountered an error while processing your request. Please try again.",
+        output: "I encountered an error while processing your request. Please try again.",
+        nextAgent: null
       };
     } finally {
       this.isProcessing = false;
@@ -195,40 +203,44 @@ export class SDKAgentRunner {
           const targetAgent = toolCall.function.name.replace("transfer_to_", "").replace("_agent", "") as AgentType;
           const args = JSON.parse(toolCall.function.arguments || "{}");
           
+          // Use appropriate fields in AgentResult for the handoff
           result = {
+            response: `I'll transfer you to our ${this.getAgentName(targetAgent)} who can better assist with this. ${args.reason || ""}`,
             output: `I'll transfer you to our ${this.getAgentName(targetAgent)} who can better assist with this. ${args.reason || ""}`,
+            nextAgent: targetAgent,
+            handoffReason: args.reason || `Transferring to ${targetAgent} agent for specialized assistance`,
+            additionalContext: args.additionalContext || {},
+            // Also include the handoff field for compatibility with newer code
             handoff: {
               targetAgent,
               reason: args.reason || `Transferring to ${targetAgent} agent for specialized assistance`,
               additionalContext: args.additionalContext || {}
-            },
-            // Add compatibility fields
-            handoffReason: args.reason,
-            nextAgent: targetAgent,
-            additionalContext: args.additionalContext || {}
+            }
           };
         } else {
           // Handle other tool calls in the future
           result = {
-            output: data.choices[0].message.content || "I need to use a tool to help with your request."
+            response: data.choices[0].message.content || "I need to use a tool to help with your request.",
+            output: data.choices[0].message.content || "I need to use a tool to help with your request.",
+            nextAgent: null
           };
         }
       } else {
         // Regular text response
         result = {
-          output: data.choices[0].message.content || "I'm not sure how to respond to that."
+          response: data.choices[0].message.content || "I'm not sure how to respond to that.",
+          output: data.choices[0].message.content || "I'm not sure how to respond to that.",
+          nextAgent: null
         };
       }
-      
-      // Add response field for compatibility
-      result.response = result.output;
       
       return result;
     } catch (error) {
       console.error("Error in callAgentAPI:", error);
       return {
+        response: "I encountered an error while processing your request. Please try again.",
         output: "I encountered an error while processing your request. Please try again.",
-        response: "I encountered an error while processing your request. Please try again."
+        nextAgent: null
       };
     }
   }
@@ -393,5 +405,33 @@ export class SDKAgentRunner {
       case "data": return "Data Agent";
       default: return "Specialist";
     }
+  }
+  
+  /**
+   * Get the current agent type
+   */
+  getCurrentAgent(): AgentType {
+    return this.currentAgentType;
+  }
+  
+  /**
+   * Get the trace ID
+   */
+  getTraceId(): string {
+    return this.traceId;
+  }
+  
+  /**
+   * Set callbacks for the runner
+   */
+  setCallbacks(callbacks: RunnerCallbacks): void {
+    this.callbacks = callbacks;
+  }
+
+  /**
+   * Initialize the SDK agent runner
+   */
+  async initialize(): Promise<void> {
+    // Placeholder for future SDK initialization code
   }
 }

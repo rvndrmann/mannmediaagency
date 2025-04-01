@@ -4,7 +4,7 @@ import { CommandExecutionState } from "../types";
 
 export const canvasTool: ToolDefinition = {
   name: "canvas_tool",
-  description: "Generate content for canvas scenes",
+  description: "Generate and update content for canvas scenes",
   parameters: {
     type: "object",
     properties: {
@@ -19,11 +19,17 @@ export const canvasTool: ToolDefinition = {
       action: {
         type: "string",
         description: "Action to perform",
-        enum: ["generate_description", "generate_script", "generate_image_prompt", "generate_voiceover"]
+        enum: [
+          "generate_script", 
+          "generate_description", 
+          "generate_image_prompt", 
+          "generate_scene_image", 
+          "generate_voiceover"
+        ]
       },
       content: {
         type: "string",
-        description: "Content to add"
+        description: "Content to use for generation or direct update"
       }
     },
     required: ["projectId", "action"]
@@ -53,10 +59,27 @@ export const canvasTool: ToolDefinition = {
         };
       }
       
+      if (!sceneId && action !== "list_scenes") {
+        return {
+          success: false,
+          message: "Scene ID is required for this action",
+          state: CommandExecutionState.FAILED
+        };
+      }
+      
+      // For now, we'll return a command object that will be processed by the UI
+      // In a full implementation, you might handle this in the edge function
       return {
         success: true,
-        message: `Canvas action ${action} performed successfully for project ${projectId}${sceneId ? ` scene ${sceneId}` : ''}`,
-        data: { projectId, sceneId, action },
+        message: `Canvas action "${action}" will be performed for scene ${sceneId} in project ${projectId}`,
+        data: { 
+          command: {
+            action,
+            projectId,
+            sceneId,
+            content: content || ""
+          }
+        },
         state: CommandExecutionState.COMPLETED
       };
     } catch (error) {

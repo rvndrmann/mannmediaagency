@@ -1,4 +1,3 @@
-
 import { AgentType, RunnerContext, AgentResult } from "../runner/types";
 
 // Define interfaces that we need
@@ -74,6 +73,7 @@ export class SDKAgentRunner {
       console.warn("Already processing a request, ignoring new input");
       return {
         response: "I'm still processing your previous request, please wait a moment.",
+        output: "I'm still processing your previous request, please wait a moment.",
         nextAgent: null
       };
     }
@@ -87,6 +87,7 @@ export class SDKAgentRunner {
       // Simple mock response for now
       const response: AgentResult = {
         response: `Response from ${this.currentAgentType} agent: ${input.length > 10 ? input.substring(0, 10) + '...' : input}`,
+        output: `Response from ${this.currentAgentType} agent: ${input.length > 10 ? input.substring(0, 10) + '...' : input}`,
         nextAgent: null
       };
       
@@ -97,8 +98,11 @@ export class SDKAgentRunner {
       this.isProcessing = false;
       return {
         response: "I encountered an error while processing your request. Please try again.",
+        output: "I encountered an error while processing your request. Please try again.",
         nextAgent: null
       };
+    } finally {
+      this.isProcessing = false;
     }
   }
 }

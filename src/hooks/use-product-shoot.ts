@@ -1,301 +1,245 @@
 
-// Import necessary dependencies and types
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "./use-toast";
-import { Json } from "@/integrations/supabase/types";
-import { historyService } from "./product-shoot/history-service";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { GeneratedImage, ProductShotFormData } from '@/types/product-shoot';
+import { useQueryClient } from '@tanstack/react-query';
+import { productHistoryService } from './product-shoot/history-service';
 
-// Define types
-export interface GeneratedImage {
-  id: string;
-  url: string;
-  prompt: string;
-  createdAt: string;
-  status?: string;
-}
+export const useProductShoot = () => {
+  const [formData, setFormData] = useState<ProductShotFormData | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [images, setImages] = useState<GeneratedImage[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [availableCredits, setAvailableCredits] = useState<number>(0);
+  const queryClient = useQueryClient();
+  
+  // Get the history service instance
+  const historyService = productHistoryService;
 
-export interface ProductShootSettings {
-  prompt: string;
-  outputFormat: string;
-  imageWidth: number;
-  imageHeight: number;
-  quality: number;
-  seed?: number;
-  scale?: number;
-}
-
-export function useProductShoot() {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
-  const [savedImages, setSavedImages] = useState<GeneratedImage[]>([]);
-  const [defaultImages, setDefaultImages] = useState<GeneratedImage[]>([]);
-  const [settings, setSettings] = useState<ProductShootSettings>({
-    prompt: "",
-    outputFormat: "png",
-    imageWidth: 1024,
-    imageHeight: 1024,
-    quality: 80,
-    seed: undefined,
-    scale: undefined,
-  });
-  const { toast } = useToast();
-
-  // Load saved images on component mount
   useEffect(() => {
-    fetchSavedImages();
-    fetchDefaultImages();
+    fetchAvailableCredits();
   }, []);
 
-  // Fetch saved images from database
-  const fetchSavedImages = async () => {
+  const fetchAvailableCredits = async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-
-      const { data, error } = await supabase
-        .from("product_shots")
-        .select("*")
-        .eq("user_id", userData.user.id)
-        .eq("visibility", "saved")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        const formattedImages: GeneratedImage[] = data.map((item) => ({
-          id: item.id,
-          url: item.result_url,
-          prompt: item.prompt,
-          createdAt: item.created_at,
-          status: item.status
-        }));
-        setSavedImages(formattedImages);
-      }
-    } catch (error) {
-      console.error("Error fetching saved images:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load saved images",
-        variant: "destructive",
-      });
+      const { data, error } = await supabase.from('user_credits').select('*').single();
+      if (error) throw error;
+      // Use credits_remaining field instead of credits
+      setAvailableCredits(data?.credits_remaining || 0);
+    } catch (err) {
+      console.error('Error fetching credits:', err);
+      setAvailableCredits(0);
     }
   };
 
-  // Fetch default images
-  const fetchDefaultImages = async () => {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-
-      const { data, error } = await supabase
-        .from("product_shots")
-        .select("*")
-        .eq("user_id", userData.user.id)
-        .eq("visibility", "default")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        const formattedImages: GeneratedImage[] = data.map((item) => ({
-          id: item.id,
-          url: item.result_url,
-          prompt: item.prompt,
-          createdAt: item.created_at,
-          status: item.status
-        }));
-        setDefaultImages(formattedImages);
-      }
-    } catch (error) {
-      console.error("Error fetching default images:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load default images",
-        variant: "destructive",
-      });
+  const handleProductShotSubmit = async (formData: ProductShotFormData) => {
+    if (!formData.sourceFile) {
+      toast.error('Please select a product image');
+      return;
     }
-  };
 
-  // Generate image function
-  const generateImage = async (customSettings?: Partial<ProductShootSettings>) => {
+    setFormData(formData);
+    setIsSubmitting(true);
+    setError(null);
+
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) {
-        toast({
-          title: "Authentication required",
-          description: "Please log in to generate images",
-          variant: "destructive",
-        });
-        return;
+      // Create a placeholder for the processing image
+      const placeholderImage: GeneratedImage = {
+        id: crypto.randomUUID(),
+        status: 'processing',
+        prompt: formData.prompt,
+        createdAt: new Date().toISOString(),
+        url: ''
+      };
+      
+      setImages(prev => [...prev, placeholderImage]);
+
+      // Upload the source image
+      const sourceImageFile = formData.sourceFile;
+      const sourceImageFileName = `${crypto.randomUUID()}.${sourceImageFile.name.split('.').pop()}`;
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('product-shots-source')
+        .upload(sourceImageFileName, sourceImageFile);
+      
+      if (uploadError) throw uploadError;
+
+      // Get the source image URL
+      const { data: { publicUrl: sourceImageUrl } } = supabase.storage
+        .from('product-shots-source')
+        .getPublicUrl(sourceImageFileName);
+
+      // Process reference image if provided
+      let referenceImageUrl: string | undefined;
+
+      if (formData.referenceFile) {
+        const refImageFileName = `${crypto.randomUUID()}.${formData.referenceFile.name.split('.').pop()}`;
+        
+        const { error: refUploadError } = await supabase.storage
+          .from('product-shots-references')
+          .upload(refImageFileName, formData.referenceFile);
+        
+        if (refUploadError) throw refUploadError;
+
+        const { data: { publicUrl: refUrl } } = supabase.storage
+          .from('product-shots-references')
+          .getPublicUrl(refImageFileName);
+        
+        referenceImageUrl = refUrl;
       }
 
-      setIsGenerating(true);
-      const currentSettings = { ...settings, ...customSettings };
+      // Create the product shot request using RPC function to avoid deep type errors
+      const { data, error: insertError } = await supabase.rpc('create_product_shot_request', {
+        p_source_image_url: sourceImageUrl,
+        p_reference_image_url: referenceImageUrl,
+        p_prompt: formData.prompt,
+        p_scene_description: formData.sceneDescription,
+        p_aspect_ratio: formData.aspectRatio,
+        p_placement_type: formData.placementType,
+        p_manual_placement: formData.manualPlacement,
+        p_generation_type: formData.generationType,
+        p_optimize_description: formData.optimizeDescription,
+        p_fast_mode: formData.fastMode,
+        p_original_quality: formData.originalQuality
+      });
 
-      // If prompt is empty, show error
-      if (!currentSettings.prompt.trim()) {
-        toast({
-          title: "Prompt required",
-          description: "Please enter a prompt for the image",
-          variant: "destructive",
-        });
-        setIsGenerating(false);
-        return;
-      }
+      if (insertError) throw insertError;
 
-      // Call function to generate image
-      const { data, error } = await supabase.functions.invoke(
-        "generate-product-shot",
-        {
-          body: {
-            prompt: currentSettings.prompt,
-            outputFormat: currentSettings.outputFormat,
-            width: currentSettings.imageWidth,
-            height: currentSettings.imageHeight,
-            quality: currentSettings.quality,
-            seed: currentSettings.seed,
-            scale: currentSettings.scale,
-          },
-        }
+      // Update the placeholder image with the actual ID
+      const requestId = data?.id || placeholderImage.id;
+      setImages(prev => 
+        prev.map(img => 
+          img.id === placeholderImage.id 
+            ? { ...img, id: requestId } 
+            : img
+        )
       );
 
-      if (error) throw error;
-
-      if (data && data.id) {
-        // Add to generated images
-        const newImage: GeneratedImage = {
-          id: data.id,
-          url: data.url,
-          content_type: data.content_type,
-          status: "completed",
-          prompt: currentSettings.prompt,
-          createdAt: new Date().toISOString()
-        };
-
-        setGeneratedImages((prev) => [newImage, ...prev]);
-
-        // Show success message
-        toast({
-          title: "Success",
-          description: "Image generated successfully",
-        });
-
-        // Refresh history
-        await historyService.getHistory();
-      }
-    } catch (error) {
-      console.error("Error generating image:", error);
-      toast({
-        title: "Error",
-        description:
-          "Failed to generate image. Please try again later.",
-        variant: "destructive",
-      });
+      // Start a polling process to check the status
+      pollProductShotStatus(requestId);
+      
+      toast.success('Product Shot request submitted successfully');
+    } catch (err) {
+      console.error('Error submitting product shot:', err);
+      setError(err instanceof Error ? err.message : 'Failed to submit product shot request');
+      toast.error('Failed to submit product shot request');
+      
+      // Remove the placeholder image
+      setImages(prev => prev.filter(img => img.status !== 'processing'));
     } finally {
-      setIsGenerating(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Save image to collection
-  const saveImage = async (imageId: string) => {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
+  const pollProductShotStatus = async (id: string) => {
+    const checkStatus = async () => {
+      try {
+        // Use RPC function to get status
+        const { data, error } = await supabase.rpc('get_product_shot_status', {
+          p_request_id: id
+        });
 
-      const { error } = await supabase
-        .from("product_shots")
-        .update({ visibility: "saved" })
-        .eq("id", imageId)
-        .eq("user_id", userData.user.id);
+        if (error) throw error;
 
-      if (error) throw error;
-
-      // Update the local state
-      const imageToSave = generatedImages.find((img) => img.id === imageId);
-      if (imageToSave) {
-        setSavedImages((prev) => [imageToSave, ...prev]);
+        if (data?.status === 'completed' && data.result_url) {
+          // Update the image in the state
+          setImages(prev => 
+            prev.map(img => 
+              img.id === id
+                ? { 
+                    ...img, 
+                    status: 'completed',
+                    url: data.result_url,
+                    prompt: data.prompt || img.prompt
+                  } 
+                : img
+            )
+          );
+          
+          // Refresh history
+          await historyService.fetchHistory();
+          queryClient.invalidateQueries({ queryKey: ['product-shot-history'] });
+          
+          return true; // Stop polling
+        } else if (data?.status === 'failed') {
+          setImages(prev => 
+            prev.map(img => 
+              img.id === id
+                ? { ...img, status: 'failed', error: data.error_message } 
+                : img
+            )
+          );
+          return true; // Stop polling
+        }
+        
+        return false; // Continue polling
+      } catch (err) {
+        console.error('Error checking product shot status:', err);
+        return true; // Stop polling on error
       }
+    };
 
-      toast({
-        title: "Success",
-        description: "Image saved to your collection",
-      });
-    } catch (error) {
-      console.error("Error saving image:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save image",
-        variant: "destructive",
-      });
+    // Initial delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Poll every 5 seconds until completed or failed
+    let completed = await checkStatus();
+    while (!completed) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      completed = await checkStatus();
     }
   };
 
-  // Set image as default
-  const setAsDefault = async (imageId: string) => {
+  const retryStatusCheck = async (imageId: string): Promise<boolean> => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-
-      // First update existing default to saved
-      const { error: updateError } = await supabase
-        .from("product_shots")
-        .update({ visibility: "saved" })
-        .eq("visibility", "default")
-        .eq("user_id", userData.user.id);
-
-      if (updateError) throw updateError;
-
-      // Then set the new default
-      const { error } = await supabase
-        .from("product_shots")
-        .update({ visibility: "default" })
-        .eq("id", imageId)
-        .eq("user_id", userData.user.id);
+      // Use RPC function to get status
+      const { data, error } = await supabase.rpc('get_product_shot_status', {
+        p_request_id: imageId
+      });
 
       if (error) throw error;
 
-      // Update local state
-      const newDefault = [...savedImages, ...generatedImages].find(
-        (img) => img.id === imageId
-      );
-
-      if (newDefault) {
-        // Move old defaults to saved
-        setSavedImages((prev) => [...prev, ...defaultImages]);
-        // Set new default
-        setDefaultImages([newDefault]);
+      if (data?.status === 'completed' && data.result_url) {
+        setImages(prev => 
+          prev.map(img => 
+            img.id === imageId
+              ? { 
+                  ...img, 
+                  status: 'completed', 
+                  url: data.result_url,
+                  prompt: data.prompt || img.prompt 
+                } 
+              : img
+          )
+        );
+        toast.success('Image is ready!');
+        return true;
+      } else if (data?.status === 'failed') {
+        toast.error(data.error_message || 'Image generation failed');
+        return false;
+      } else {
+        toast.info('Image is still processing. Please check back later.');
+        return false;
       }
-
-      toast({
-        title: "Success",
-        description: "Image set as default",
-      });
-    } catch (error) {
-      console.error("Error setting default image:", error);
-      toast({
-        title: "Error",
-        description: "Failed to set default image",
-        variant: "destructive",
-      });
+    } catch (err) {
+      console.error('Error retrying status check:', err);
+      toast.error('Failed to check image status');
+      return false;
     }
+  };
+
+  const clearImages = () => {
+    setImages([]);
   };
 
   return {
-    settings,
-    setSettings,
-    isGenerating,
-    generateImage,
-    generatedImages,
-    savedImages,
-    defaultImages,
-    saveImage,
-    setAsDefault,
-    fetchSavedImages,
-    fetchDefaultImages,
+    formData,
+    images,
+    isSubmitting,
+    error,
+    availableCredits,
+    handleProductShotSubmit,
+    retryStatusCheck,
+    clearImages
   };
-}
+};

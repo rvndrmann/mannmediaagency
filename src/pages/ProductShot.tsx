@@ -1,86 +1,28 @@
 
-import React, { useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageLayout } from "@/components/layout/PageLayout";
-import { InputPanelAdapter } from "@/components/product-shot/InputPanelAdapter";
-import { GalleryPanelAdapter } from "@/components/product-shot/GalleryPanelAdapter";
+import React from 'react';
+import { ProductShotGenerator } from '@/components/product-shoot/ProductShotGenerator';
 import { useProductShoot } from '@/hooks/use-product-shoot';
+import { adaptProductShootProps } from '@/components/product-shoot/ProductShootAdapter';
 
 export default function ProductShot() {
-  const {
-    settings,
-    setSettings,
-    isGenerating,
-    generatedImages,
-    savedImages,
-    defaultImages,
-    uploadImage,
-    saveImage,
-    setAsDefault,
-    fetchSavedImages,
-    fetchDefaultImages,
-    generateProductShot
-  } = useProductShoot();
-
-  // Fetch saved and default images on component mount
-  useEffect(() => {
-    fetchSavedImages();
-    fetchDefaultImages();
-  }, [fetchSavedImages, fetchDefaultImages]);
-
-  // Handle image upload
-  const handleImageUpload = async (file: File) => {
-    const url = await uploadImage(file);
-    if (url) setSettings({ ...settings, sourceImageUrl: url });
+  const productShootHook = useProductShoot();
+  
+  // Fix the retryStatusCheck to return a boolean instead of void
+  const hookWithFixedRetry = {
+    ...productShootHook,
+    retryStatusCheck: async (imageId: string): Promise<boolean> => {
+      try {
+        await productShootHook.retryStatusCheck(imageId);
+        return true;
+      } catch (error) {
+        console.error("Error retrying status check:", error);
+        return false;
+      }
+    }
   };
-
-  // Handle generation
-  const handleGenerate = () => {
-    return generateProductShot(settings.sourceImageUrl);
-  };
-
-  return (
-    <PageLayout>
-      <div className="flex flex-col w-full">
-        <h1 className="text-2xl font-bold mb-4">Product Shot Studio</h1>
-
-        <Tabs defaultValue="input" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="input">Input & Settings</TabsTrigger>
-            <TabsTrigger value="gallery">Gallery</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="input" className="mt-4">
-            <InputPanelAdapter
-              prompt={settings.prompt}
-              onPromptChange={(prompt) => setSettings({ ...settings, prompt })}
-              outputFormat={settings.outputFormat}
-              onOutputFormatChange={(outputFormat) => setSettings({ ...settings, outputFormat })}
-              imageWidth={settings.imageWidth}
-              imageHeight={settings.imageHeight}
-              onDimensionsChange={(width, height) => setSettings({ ...settings, imageWidth: width, imageHeight: height })}
-              sourceImageUrl={settings.sourceImageUrl}
-              onImageUpload={handleImageUpload}
-              onImageSelect={(url) => setSettings({ ...settings, sourceImageUrl: url })}
-              defaultImages={defaultImages}
-              stylePreset={settings.stylePreset}
-              onStylePresetChange={(stylePreset) => setSettings({ ...settings, stylePreset })}
-              isGenerating={isGenerating}
-              onGenerate={handleGenerate}
-            />
-          </TabsContent>
-
-          <TabsContent value="gallery" className="mt-4">
-            <GalleryPanelAdapter
-              generatedImages={generatedImages}
-              savedImages={savedImages}
-              defaultImages={defaultImages}
-              onSaveImage={saveImage}
-              onSetAsDefault={setAsDefault}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </PageLayout>
-  );
+  
+  // Use the adapter to provide default implementations for missing methods
+  const adaptedProps = adaptProductShootProps(hookWithFixedRetry);
+  
+  return <ProductShotGenerator {...adaptedProps} />;
 }

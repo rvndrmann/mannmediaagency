@@ -18,7 +18,7 @@ interface UserMessageFormProps {
 }
 
 export function UserMessageForm({
-  message,
+  message = '', // Provide default empty string
   setMessage,
   onSubmit,
   onFileUpload,
@@ -71,7 +71,7 @@ export function UserMessageForm({
       <div className="flex items-end gap-2">
         <Textarea
           placeholder={placeholder}
-          value={message}
+          value={message || ''}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           className="resize-none min-h-[80px] px-4 py-3 rounded-lg"
@@ -106,7 +106,7 @@ export function UserMessageForm({
               type="submit"
               size="icon"
               className="rounded-full h-10 w-10"
-              disabled={isLoading || (!message.trim() && attachments.length === 0)}
+              disabled={isLoading || (!message || !message.trim()) && attachments.length === 0}
             >
               <Send className="h-5 w-5" />
             </Button>

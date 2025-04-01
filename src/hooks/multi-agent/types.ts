@@ -15,8 +15,8 @@ export interface RunnerContext {
   userId?: string;
   sessionId?: string;
   projectId?: string;
-  groupId?: string;
   runId?: string;
+  groupId?: string;
   tracingEnabled?: boolean;
   addMessage?: (message: string, type: string) => void;
   metadata?: Record<string, any>;
@@ -27,7 +27,7 @@ export interface RunnerContext {
 
 export interface AgentResult {
   response: string;
-  output: string;
+  output: string; 
   nextAgent: AgentType | null;
   handoffReason?: string;
   additionalContext?: Record<string, any>;
@@ -40,14 +40,15 @@ export interface BaseAgent {
   getType(): AgentType;
 }
 
-// Tool execution result states
+// Make sure both CommandExecutionState enums are compatible
 export enum CommandExecutionState {
   PENDING = "pending",
   RUNNING = "running",
   COMPLETED = "completed",
   FAILED = "failed",
   CANCELLED = "cancelled",
-  ERROR = "error"
+  ERROR = "error",
+  PROCESSING = "processing"
 }
 
 // Tool context interface - provided to all tools during execution
@@ -84,6 +85,7 @@ export interface ToolDefinition {
     displayName?: string;
     icon?: string;
   };
+  version?: string;
   execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
 }
 
@@ -91,7 +93,7 @@ export interface ToolDefinition {
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
-  state: CommandExecutionState;
+  state: CommandExecutionState; 
   error?: string | Error;
   data?: any;
   usage?: {

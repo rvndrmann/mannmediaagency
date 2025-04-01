@@ -1,139 +1,183 @@
 
-import { ToolDefinition, ToolExecutionResult } from "../../types";
+import { ToolContext } from "../../tools/types";
+import { SDKTool } from "../types";
 import { CommandExecutionState } from "../../runner/types";
 
-export const sdkCanvasDataTool: ToolDefinition = {
-  name: "sdk_canvas_data",
-  description: "Retrieve data from the Canvas project",
-  parameters: {
+interface UpdateSceneParams {
+  sceneId: string;
+  field: string;
+  value: string;
+}
+
+interface ListScenesParams {
+  projectId: string;
+}
+
+interface CreateSceneParams {
+  projectId: string;
+  title: string;
+  description?: string;
+}
+
+export interface ExtendedToolContext extends ToolContext {
+  updateScene?: (sceneId: string, field: string, value: string) => Promise<void>;
+  createScene?: (projectId: string, data: any) => Promise<string>;
+  scenes?: any[];
+}
+
+class SdkCanvasDataTool implements SDKTool {
+  name = "canvas_data";
+  description = "Get or update canvas project data like scenes, scripts, etc.";
+  version = "1.0";
+  parameters = {
     type: "object",
     properties: {
-      projectId: {
+      action: {
         type: "string",
-        description: "The ID of the project to fetch data from"
+        enum: ["updateScene", "listScenes", "createScene"],
+        description: "The action to perform on canvas data"
       },
-      sceneId: {
-        type: "string",
-        description: "Optional scene ID to fetch specific scene data"
-      },
-      dataType: {
-        type: "string",
-        description: "Type of data to fetch (project, scene, or all)",
-        enum: ["project", "scene", "all"]
+      params: {
+        type: "object",
+        description: "Parameters for the selected action"
       }
     },
-    required: ["projectId", "dataType"]
-  },
-  execute: async (parameters, context): Promise<ToolExecutionResult> => {
+    required: ["action", "params"]
+  };
+  
+  // Static methods to be referenced in the schema
+  static async updateScene(params: UpdateSceneParams, context: ExtendedToolContext) {
+    const { sceneId, field, value } = params;
+    
+    if (!sceneId) {
+      throw new Error("Scene ID is required");
+    }
+    
+    if (!field) {
+      throw new Error("Field name is required");
+    }
+    
     try {
-      const { projectId, sceneId, dataType } = parameters;
-      
-      if (!projectId) {
-        return {
-          success: false,
-          message: "Project ID is required",
-          state: CommandExecutionState.FAILED
-        };
+      if (context.updateScene) {
+        await context.updateScene(sceneId, field, value);
+        return { success: true, message: `Updated ${field} for scene ${sceneId}` };
+      } else {
+        throw new Error("updateScene function not available in context");
       }
-      
-      // Fetch project data
-      if (dataType === "project" || dataType === "all") {
-        const { data: projectData, error: projectError } = await context.supabase
-          .from('canvas_projects')
-          .select('*')
-          .eq('id', projectId)
-          .single();
-          
-        if (projectError) {
-          return {
-            success: false,
-            message: `Failed to fetch project data: ${projectError.message}`,
-            state: CommandExecutionState.FAILED
-          };
-        }
-        
-        // If only project data was requested, return now
-        if (dataType === "project") {
-          return {
-            success: true,
-            message: "Project data retrieved successfully",
-            data: projectData,
-            state: CommandExecutionState.COMPLETED
-          };
-        }
-      }
-      
-      // Fetch scene data if requested
-      if (dataType === "scene" && sceneId) {
-        const { data: sceneData, error: sceneError } = await context.supabase
-          .from('canvas_scenes')
-          .select('*')
-          .eq('id', sceneId)
-          .single();
-          
-        if (sceneError) {
-          return {
-            success: false,
-            message: `Failed to fetch scene data: ${sceneError.message}`,
-            state: CommandExecutionState.FAILED
-          };
-        }
-        
-        return {
-          success: true,
-          message: "Scene data retrieved successfully",
-          data: sceneData,
-          state: CommandExecutionState.COMPLETED
-        };
-      }
-      
-      // Fetch all scenes for the project
-      if (dataType === "all") {
-        const { data: scenesData, error: scenesError } = await context.supabase
-          .from('canvas_scenes')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('scene_order', { ascending: true });
-          
-        if (scenesError) {
-          return {
-            success: false,
-            message: `Failed to fetch scenes data: ${scenesError.message}`,
-            state: CommandExecutionState.FAILED
-          };
-        }
-        
-        // Get project data again
-        const { data: projectData, error: projectError } = await context.supabase
-          .from('canvas_projects')
-          .select('*')
-          .eq('id', projectId)
-          .single();
-          
-        // Combine project and scenes data
-        return {
-          success: true,
-          message: "Project and scenes data retrieved successfully",
-          data: {
-            project: projectData,
-            scenes: scenesData
-          },
-          state: CommandExecutionState.COMPLETED
-        };
-      }
-      
-      return {
-        success: false,
-        message: "Invalid dataType parameter",
-        state: CommandExecutionState.FAILED
-      };
     } catch (error) {
-      console.error("Error executing SDK Canvas Data Tool:", error);
+      console.error("Error updating scene:", error);
+      throw new Error(`Failed to update scene: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  static async listScenes(params: ListScenesParams, context: ExtendedToolContext) {
+    const { projectId } = params;
+    
+    if (!projectId) {
+      throw new Error("Project ID is required");
+    }
+    
+    try {
+      // This would typically get scenes from a database
+      // For now, we'll return mock data if available in context
+      const scenes = context.scenes || [];
+      return { scenes, count: scenes.length };
+    } catch (error) {
+      console.error("Error listing scenes:", error);
+      throw new Error(`Failed to list scenes: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  static async createScene(params: CreateSceneParams, context: ExtendedToolContext) {
+    const { projectId, title, description } = params;
+    
+    if (!projectId) {
+      throw new Error("Project ID is required");
+    }
+    
+    if (!title) {
+      throw new Error("Scene title is required");
+    }
+    
+    try {
+      if (context.createScene) {
+        const sceneData = {
+          title,
+          description: description || ""
+        };
+        
+        const sceneId = await context.createScene(projectId, sceneData);
+        return { success: true, sceneId, message: `Created new scene "${title}"` };
+      } else {
+        throw new Error("createScene function not available in context");
+      }
+    } catch (error) {
+      console.error("Error creating scene:", error);
+      throw new Error(`Failed to create scene: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  schema = {
+    type: "function",
+    function: {
+      name: this.name,
+      description: this.description,
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["updateScene", "listScenes", "createScene"],
+            description: "The action to perform on canvas data"
+          },
+          params: {
+            type: "object",
+            description: "Parameters for the selected action"
+          }
+        },
+        required: ["action", "params"]
+      }
+    }
+  };
+  
+  async execute(parameters: any, context: ExtendedToolContext) {
+    const { action, params } = parameters;
+    
+    if (!action) {
       return {
         success: false,
-        message: `Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: "Action is required",
+        state: CommandExecutionState.ERROR
+      };
+    }
+    
+    try {
+      switch (action) {
+        case "updateScene":
+          return await SdkCanvasDataTool.updateScene(params, context);
+        
+        case "listScenes":
+          return await SdkCanvasDataTool.listScenes(params, context);
+        
+        case "createScene":
+          return await SdkCanvasDataTool.createScene(params, context);
+        
+        default:
+          return {
+            success: false,
+            message: `Unknown action: ${action}`,
+            state: CommandExecutionState.ERROR
+          };
+      }
+    } catch (error) {
+      console.error(`Error executing canvas data tool (${action}):`, error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : String(error),
         state: CommandExecutionState.ERROR
       };
     }
   }
-};
+}
+
+export const sdkCanvasDataTool = new SdkCanvasDataTool();

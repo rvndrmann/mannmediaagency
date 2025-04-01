@@ -1,72 +1,48 @@
 
-import { ToolDefinition, ToolContext, ToolExecutionResult } from '../types';
-import { browserUseTool } from './browser-use-tool';
-import { canvasTool } from './canvas-tool';
-import { toast } from 'sonner';
+import { ToolContext, ToolExecutionResult, CommandExecutionState } from './types';
+import { availableTools, getAvailableTools } from './tool-registry';
 
-// Track registered tools
-export let availableTools: ToolDefinition[] = [];
-
-// Initialize tools and register them
-export const initializeToolSystem = async (): Promise<void> => {
-  try {
-    // Register core tools
-    registerTool(browserUseTool);
-    registerTool(canvasTool);
-    
-    // Register more tools here as needed
-    
-    console.log(`Tool system initialized with ${availableTools.length} tools available`);
-  } catch (error) {
-    console.error("Error initializing tool system:", error);
-    throw error;
-  }
-};
-
-// Register a tool with the system
-export const registerTool = (tool: ToolDefinition): void => {
-  // Check if tool with this name already exists
-  const existingToolIndex = availableTools.findIndex(t => t.name === tool.name);
-  
-  if (existingToolIndex >= 0) {
-    // Replace existing tool
-    availableTools[existingToolIndex] = tool;
-    console.log(`Updated existing tool: ${tool.name}`);
-  } else {
-    // Add new tool
-    availableTools.push(tool);
-    console.log(`Registered new tool: ${tool.name}`);
-  }
-};
-
-// Execute a specific tool by name
+// Execute a tool by name with parameters
 export const executeTool = async (
   toolName: string,
-  parameters: any,
+  parameters: Record<string, any>,
   context: ToolContext
 ): Promise<ToolExecutionResult> => {
   try {
-    const tool = availableTools.find(t => t.name === toolName);
+    // Get all available tools
+    const tools = getAvailableTools();
+    
+    // Find the requested tool
+    const tool = tools.find(t => t.name === toolName);
     
     if (!tool) {
-      throw new Error(`Tool '${toolName}' not found`);
+      return {
+        success: false,
+        message: `Tool with name "${toolName}" not found`,
+        error: `Tool "${toolName}" not found`,
+        state: CommandExecutionState.FAILED
+      };
     }
     
-    console.log(`Executing tool: ${toolName}`, parameters);
+    // Execute the tool
     return await tool.execute(parameters, context);
   } catch (error) {
     console.error(`Error executing tool ${toolName}:`, error);
-    toast.error(`Tool execution error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     
     return {
       success: false,
-      message: `Failed to execute tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      state: CommandExecutionState.ERROR
+      message: `Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error: error instanceof Error ? error.message : String(error),
+      state: CommandExecutionState.FAILED
     };
   }
 };
 
-// Get all available tools
-export const getAvailableTools = (): ToolDefinition[] => {
-  return [...availableTools];
+// Initialize tools system (if needed)
+export const initializeTools = () => {
+  console.log('Tool system initialized with', availableTools.length, 'tools');
+  return {
+    availableTools,
+    executeTool
+  };
 };

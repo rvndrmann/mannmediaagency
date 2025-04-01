@@ -8,7 +8,6 @@ import { Toaster } from '@/components/ui/toaster'
 import { ChatSessionProvider } from '@/contexts/ChatSessionContext'
 import { BrowserRouter } from 'react-router-dom'
 import { ProjectProvider } from '@/hooks/multi-agent/project-context'
-import { AuthProvider } from '@/contexts/AuthContext'
 
 // Create a client for React Query with proper error handling and retry configuration
 const queryClient = new QueryClient({
@@ -33,14 +32,12 @@ createRoot(rootElement).render(
   <React.StrictMode>
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ChatSessionProvider>
-            <ProjectProvider>
-              <App />
-            </ProjectProvider>
-            <Toaster />
-          </ChatSessionProvider>
-        </AuthProvider>
+        <ChatSessionProvider>
+          <ProjectProvider>
+            <App />
+          </ProjectProvider>
+          <Toaster />
+        </ChatSessionProvider>
       </QueryClientProvider>
     </BrowserRouter>
   </React.StrictMode>

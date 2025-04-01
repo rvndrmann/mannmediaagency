@@ -25,12 +25,13 @@ import {
 import clsx from "clsx";
 
 interface CanvasSidebarProps {
-  project: CanvasProject;
+  project: CanvasProject | null;
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string) => void;
   addScene: () => Promise<string | undefined>;
   deleteScene: (id: string) => Promise<void>;
   collapsed: boolean;
+  loading?: boolean; // Added loading prop
 }
 
 export function CanvasSidebar({
@@ -40,6 +41,7 @@ export function CanvasSidebar({
   addScene,
   deleteScene,
   collapsed,
+  loading = false, // Default value for loading
 }: CanvasSidebarProps) {
   const handleAddScene = async () => {
     await addScene();
@@ -49,6 +51,32 @@ export function CanvasSidebar({
     e.stopPropagation();
     await deleteScene(id);
   };
+
+  // If project is null or loading, display a placeholder or loading state
+  if (!project) {
+    return (
+      <div className={`${collapsed ? 'w-14' : 'w-64'} border-r bg-slate-50 dark:bg-slate-900 flex flex-col`}>
+        <div className="p-2 border-b">
+          {collapsed ? (
+            <Button variant="ghost" size="icon" className="w-full" disabled>
+              <Plus className="h-5 w-5 text-slate-400" />
+            </Button>
+          ) : (
+            <div className="flex justify-between items-center">
+              <h3 className="font-medium text-slate-400">Scenes</h3>
+              <Button variant="ghost" size="icon" disabled>
+                <Plus className="h-5 w-5 text-slate-400" />
+              </Button>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center text-slate-400">
+          {loading ? "Loading..." : "No project loaded"}
+        </div>
+      </div>
+    );
+  }
 
   if (collapsed) {
     return (
@@ -73,7 +101,7 @@ export function CanvasSidebar({
         
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-2">
-            {project.scenes.map((scene) => (
+            {project.scenes && project.scenes.map((scene) => (
               <TooltipProvider key={scene.id}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -111,7 +139,7 @@ export function CanvasSidebar({
       
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
-          {project.scenes.map((scene) => (
+          {project.scenes && project.scenes.map((scene) => (
             <div
               key={scene.id}
               className={clsx(

@@ -1,64 +1,49 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { Message, Attachment } from "@/types/message";
+import { Message } from "@/types/message";
 import { AgentType } from "./runner/types";
 
-interface ChatRequest {
+interface SendChatMessageParams {
   input: string;
   agentType: AgentType;
   conversationHistory: Message[];
-  usePerformanceModel?: boolean;
-  attachments?: Attachment[];
-  isHandoffContinuation?: boolean;
-  previousAgentType?: AgentType;
-  handoffReason?: string;
+  usePerformanceModel: boolean;
+  attachments?: any[];
+  runId: string;
+  groupId: string;
   projectId?: string;
   contextData?: Record<string, any>;
-  runId?: string;
-  groupId?: string;
 }
 
-export interface ChatResponse {
-  role: string;
+interface ChatMessageResponse {
   content: string;
   agentType: AgentType;
   handoffRequest?: {
-    targetAgent: string;
+    targetAgent: AgentType;
     reason: string;
     additionalContext?: Record<string, any>;
   };
-  structured_output?: any;
-  conversationId?: string;
-  sessionId?: string;
+  metadata?: Record<string, any>;
 }
 
-export const sendChatMessage = async (request: ChatRequest): Promise<ChatResponse> => {
+export async function sendChatMessage(params: SendChatMessageParams): Promise<ChatMessageResponse> {
   try {
-    console.log("Sending chat request to multi-agent-chat function:", {
-      agentType: request.agentType,
-      inputLength: request.input.length,
-      historyLength: request.conversationHistory.length,
-      attachmentsCount: request.attachments?.length || 0
+    const response = await fetch("/api/multi-agent-chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(params)
     });
-
-    const { data, error } = await supabase.functions.invoke("multi-agent-chat", {
-      body: request
-    });
-
-    if (error) {
-      console.error("Error calling multi-agent-chat function:", error);
-      throw new Error(`Error calling chat function: ${error.message}`);
+    
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
-
-    console.log("Received response from multi-agent-chat function:", {
-      agentType: data.agentType,
-      contentLength: data.content.length,
-      hasHandoff: !!data.handoffRequest
-    });
-
-    return data as ChatResponse;
+    
+    return await response.json();
   } catch (error) {
-    console.error("Exception in sendChatMessage:", error);
+    console.error("Error in sendChatMessage:", error);
     throw error;
   }
 }
+
+// Additional API client functions can be added here

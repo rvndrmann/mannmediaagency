@@ -3,7 +3,10 @@ export enum CommandExecutionState {
   COMPLETED = "completed",
   FAILED = "failed",
   PROCESSING = "processing",
-  ERROR = "error"
+  ERROR = "error",
+  PENDING = "pending",
+  RUNNING = "running",
+  CANCELLED = "cancelled"
 }
 
 export interface ToolExecutionResult {
@@ -12,12 +15,13 @@ export interface ToolExecutionResult {
   data?: any;
   error?: string;
   state: CommandExecutionState;
+  usage?: {
+    creditsUsed?: number;
+  };
 }
 
 export interface ToolContext {
   supabase: any;
-  user: any;
-  session: any;
   userId?: string;
   sessionId?: string;
   projectId?: string;
@@ -30,16 +34,17 @@ export interface ToolContext {
   toolAvailable?: boolean; 
   history?: any[];
   tracingEnabled?: boolean;
+  user?: any;
+  session?: any;
 }
 
 export interface ToolDefinition {
   name: string;
   description: string;
-  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
   parameters: {
     type: string;
     properties: { [key: string]: any };
-    required: string[];
+    required?: string[];
   };
   metadata?: {
     category?: string;
@@ -47,4 +52,6 @@ export interface ToolDefinition {
     icon?: string;
   };
   requiredCredits?: number;
+  version?: string;
+  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
 }

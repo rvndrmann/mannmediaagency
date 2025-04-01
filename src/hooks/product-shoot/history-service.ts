@@ -1,109 +1,101 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { GeneratedImage } from "@/types/product-shoot";
+import { supabase } from '@/integrations/supabase/client';
+import { GeneratedImage } from '@/types/product-shoot';
 
-export class ProductShootHistoryService {
-  /**
-   * Get saved product shots from history
-   */
-  async getSavedProductShots(): Promise<GeneratedImage[]> {
+export class ProductImageHistoryService {
+  private static instance: ProductImageHistoryService;
+  private history: GeneratedImage[] = [];
+  
+  // Make constructor private to enforce singleton pattern
+  private constructor() {}
+  
+  // Provide a static method to get the singleton instance
+  public static getInstance(): ProductImageHistoryService {
+    if (!ProductImageHistoryService.instance) {
+      ProductImageHistoryService.instance = new ProductImageHistoryService();
+    }
+    return ProductImageHistoryService.instance;
+  }
+  
+  async fetchHistory(): Promise<GeneratedImage[]> {
     try {
-      // Use RPC call instead of direct table access
-      const { data, error } = await supabase.rpc('get_product_shots_history');
+      const { data, error } = await supabase
+        .from('product_shot_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
       
       if (error) throw error;
       
-      return data.map((item: any) => ({
-        id: item.id || uuidv4(),
-        prompt: item.scene_description || '',
-        status: 'completed',
-        createdAt: item.created_at || new Date().toISOString(),
-        resultUrl: item.result_url || '',
-        url: item.result_url || '',
-        inputUrl: item.source_image_url || '',
-        source_image_url: item.source_image_url || '',
-        settings: item.settings || {}
-      }));
+      const images: GeneratedImage[] = data.map(item => {
+        // Parse settings safely
+        let aspectRatio = '1:1';
+        let generationType = 'description';
+        let placementType = 'automatic';
+        
+        if (item.settings) {
+          try {
+            // Handle settings based on its type
+            const settingsObj = typeof item.settings === 'string' 
+              ? JSON.parse(item.settings) 
+              : item.settings;
+              
+            aspectRatio = settingsObj?.aspect_ratio || '1:1';
+            generationType = settingsObj?.generation_type || 'description';
+            placementType = settingsObj?.placement_type || 'automatic';
+          } catch (e) {
+            console.error('Error parsing settings:', e);
+          }
+        }
+        
+        // Ensure visibility is either 'public' or 'private'
+        const visibility = (item.visibility === 'public' || item.visibility === 'private') 
+          ? (item.visibility as 'public' | 'private') 
+          : 'public';
+        
+        return {
+          id: item.id,
+          status: 'completed' as const,
+          prompt: item.scene_description || '',
+          createdAt: item.created_at,
+          resultUrl: item.result_url,
+          inputUrl: item.source_image_url,
+          settings: {
+            aspectRatio,
+            generationType,
+            placementType
+          },
+          visibility,
+          url: item.result_url,
+          source_image_url: item.source_image_url
+        };
+      });
+      
+      this.history = images;
+      return images;
     } catch (error) {
       console.error('Error fetching product shot history:', error);
       return [];
     }
   }
-
-  /**
-   * Save a product shot to history
-   */
-  async saveProductShot(image: GeneratedImage): Promise<boolean> {
-    try {
-      // Use RPC call instead of direct table access
-      const { data, error } = await supabase.rpc('save_product_shot', {
-        source_image_url: image.inputUrl || image.source_image_url || '',
-        result_url: image.resultUrl || image.url || '',
-        scene_description: image.prompt || '',
-        settings_json: image.settings || {}
-      });
-      
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error saving product shot:', error);
-      return false;
-    }
+  
+  getHistory(): GeneratedImage[] {
+    return this.history;
   }
-
-  /**
-   * Get default product images
-   */
-  async getDefaultProductImages(): Promise<GeneratedImage[]> {
+  
+  async addToHistory(image: GeneratedImage): Promise<void> {
     try {
-      // Use RPC call instead of direct table access
-      const { data, error } = await supabase.rpc('get_default_product_images');
+      // Add to local state
+      this.history = [image, ...this.history];
       
-      if (error) throw error;
-      
-      return data.map((item: any) => ({
-        id: item.id || uuidv4(),
-        prompt: item.scene_description || '',
-        status: 'completed',
-        createdAt: item.created_at || new Date().toISOString(),
-        resultUrl: item.result_url || item.url || '',
-        url: item.result_url || item.url || '',
-        inputUrl: item.source_image_url || '',
-        source_image_url: item.source_image_url || '',
-        settings: item.settings || {}
-      }));
+      // We could also add to database here if needed
     } catch (error) {
-      console.error('Error fetching default product images:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Set a product image as default
-   */
-  async setAsDefaultProductImage(image: GeneratedImage): Promise<boolean> {
-    try {
-      // Use RPC call instead of direct table access
-      const { data, error } = await supabase.rpc('set_default_product_image', {
-        result_url: image.resultUrl || image.url || '',
-        source_image_url: image.inputUrl || image.source_image_url || '',
-        settings_json: image.settings || {},
-        user_id: (await supabase.auth.getUser()).data.user?.id
-      });
-      
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error setting default product image:', error);
-      return false;
+      console.error('Error adding to history:', error);
     }
   }
 }
 
-// Helper function to generate a UUID
-function uuidv4(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
+// Export the product history service instance for use in other modules
+export const productHistoryService = ProductImageHistoryService.getInstance();
+// Alias for backward compatibility
+export const ProductShootHistoryService = ProductImageHistoryService;

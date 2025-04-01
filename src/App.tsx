@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import MultiAgentChat from "./pages/MultiAgentChat";
@@ -11,7 +12,6 @@ import BrowserUse from "./pages/BrowserUse";
 import TraceAnalytics from "./pages/TraceAnalytics";
 import CustomOrders from "./pages/CustomOrders";
 import NotFound from "./pages/NotFound";
-import { ProjectProvider } from "./hooks/multi-agent/project-context";
 import "./hooks/multi-agent/init"; // Import to auto-initialize the multi-agent system
 
 function App() {
@@ -22,14 +22,7 @@ function App() {
         <Route path="/" element={<Index />} />
         <Route path="/dashboard" element={<Index />} />
         <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
-        <Route 
-          path="/canvas" 
-          element={
-            <ProjectProvider>
-              <Canvas />
-            </ProjectProvider>
-          } 
-        />
+        <Route path="/canvas" element={<Canvas />} />
         <Route path="/product-shoot" element={<ProductShot />} />
         <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
         <Route path="/image-to-video" element={<ImageToVideo />} />

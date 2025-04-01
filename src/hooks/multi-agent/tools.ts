@@ -6,6 +6,7 @@ import { canvasContentTool } from './tools/canvas-content-tool';
 import { dataTool, browserUseTool } from './tools/tool-registry';
 import { productShotV2Tool } from './tools/product-shot-v2-tool';
 import { imageToVideoTool } from './tools/image-to-video-tool';
+import { UnifiedCommandExecutionState, UnifiedToolContext, UnifiedToolExecutionResult, errorToString } from './common-types';
 
 // This function adapts a tool from the tools/types.ts format to types.ts format
 export function adaptToolDefinition(tool: ToolsToolDefinition): any {
@@ -13,7 +14,7 @@ export function adaptToolDefinition(tool: ToolsToolDefinition): any {
     ...tool,
     execute: async (params: any, context: ToolContext) => {
       // Adapt the context for the original execute function
-      const adaptedContext = {
+      const adaptedContext: UnifiedToolContext = {
         ...context,
         // Add missing properties that the original execute might expect
         user: context.user || null,
@@ -21,61 +22,49 @@ export function adaptToolDefinition(tool: ToolsToolDefinition): any {
         supabase: context.supabase
       };
       
-      // Call the original execute function
-      const result = await tool.execute(params, adaptedContext);
-      
-      // Map the state to the correct enum value if needed
-      let state = result.state;
-      if (typeof state === 'string') {
-        switch(state) {
-          case 'completed': 
-            state = ToolsCommandExecutionState.COMPLETED;
-            break;
-          case 'failed': 
-            state = ToolsCommandExecutionState.FAILED;
-            break;
-          case 'processing': 
-            state = ToolsCommandExecutionState.PROCESSING;
-            break;
-          case 'error': 
-            state = ToolsCommandExecutionState.ERROR;
-            break;
-          case 'pending':
-            state = ToolsCommandExecutionState.PENDING;
-            break;
-          case 'running':
-            state = ToolsCommandExecutionState.RUNNING;
-            break;
-          case 'cancelled':
-            state = ToolsCommandExecutionState.CANCELLED;
-            break;
+      try {
+        // Call the original execute function
+        const result = await tool.execute(params, adaptedContext as any);
+        
+        // Map the state to the correct enum value if needed
+        let state = result.state;
+        if (typeof state === 'string') {
+          state = UnifiedCommandExecutionState[state.toUpperCase() as keyof typeof UnifiedCommandExecutionState] || state;
         }
+        
+        // Convert Error objects to strings for compatibility
+        const errorValue = result.error ? errorToString(result.error) : null;
+        
+        // Return an adapted result
+        return {
+          ...result,
+          error: errorValue,
+          state
+        };
+      } catch (error) {
+        // Handle any errors from tool execution
+        console.error(`Error executing tool ${tool.name}:`, error);
+        return {
+          success: false,
+          message: `Error executing tool ${tool.name}: ${errorToString(error)}`,
+          error: errorToString(error),
+          state: UnifiedCommandExecutionState.FAILED
+        };
       }
-      
-      // Convert Error objects to strings for compatibility
-      let errorValue = result.error || null;
-      if (errorValue && typeof errorValue === 'object' && 'message' in errorValue) {
-        errorValue = errorValue.message;
-      }
-      
-      // Return an adapted result
-      return {
-        ...result,
-        error: errorValue,
-        state
-      };
     }
   };
 }
 
+// Type assertion to help TypeScript understand these adaptations
+type AdaptedTool = ReturnType<typeof adaptToolDefinition>;
+
 // Export adapted tools
-// Using type casting to address TypeScript errors while preserving functionality
-export const adaptedCanvasTool = adaptToolDefinition(canvasTool) as unknown as ToolsToolDefinition;
-export const adaptedCanvasContentTool = adaptToolDefinition(canvasContentTool) as unknown as ToolsToolDefinition;
-export const adaptedDataTool = adaptToolDefinition(dataTool) as unknown as ToolsToolDefinition;
-export const adaptedBrowserUseTool = adaptToolDefinition(browserUseTool) as unknown as ToolsToolDefinition;
-export const adaptedProductShotV2Tool = adaptToolDefinition(productShotV2Tool) as unknown as ToolsToolDefinition;
-export const adaptedImageToVideoTool = adaptToolDefinition(imageToVideoTool) as unknown as ToolsToolDefinition;
+export const adaptedCanvasTool = adaptToolDefinition(canvasTool) as AdaptedTool;
+export const adaptedCanvasContentTool = adaptToolDefinition(canvasContentTool) as AdaptedTool;
+export const adaptedDataTool = adaptToolDefinition(dataTool) as AdaptedTool;
+export const adaptedBrowserUseTool = adaptToolDefinition(browserUseTool) as AdaptedTool;
+export const adaptedProductShotV2Tool = adaptToolDefinition(productShotV2Tool) as AdaptedTool;
+export const adaptedImageToVideoTool = adaptToolDefinition(imageToVideoTool) as AdaptedTool;
 
 // Create a list of adapted tools
 export const adaptedTools = [
@@ -88,16 +77,25 @@ export const adaptedTools = [
 ];
 
 // Function to get all available tools
-export const getAvailableTools = (): any[] => {
+export const getAvailableTools = (): AdaptedTool[] => {
   return [...adaptedTools];
 };
 
 // Add executeTool function for compatibility
-export const executeTool = async (toolName: string, parameters: any, context: ToolContext) => {
-  const tool = adaptedTools.find(t => t.name === toolName);
-  if (!tool) {
-    throw new Error(`Tool "${toolName}" not found`);
+export const executeTool = async (toolName: string, parameters: any, context: ToolContext): Promise<UnifiedToolExecutionResult> => {
+  try {
+    const tool = adaptedTools.find(t => t.name === toolName);
+    if (!tool) {
+      throw new Error(`Tool "${toolName}" not found`);
+    }
+    
+    return await tool.execute(parameters, context);
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to execute tool "${toolName}": ${errorToString(error)}`,
+      error: errorToString(error),
+      state: UnifiedCommandExecutionState.FAILED
+    };
   }
-  
-  return await tool.execute(parameters, context);
 };

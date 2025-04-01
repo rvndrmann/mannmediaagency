@@ -14,7 +14,7 @@ export default function Canvas() {
   const [showScriptPanel, setShowScriptPanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(true);
   
-  // Get projects instead of project
+  // Get canvas projects and related data/methods
   const {
     projects,
     project,
@@ -33,13 +33,6 @@ export default function Canvas() {
     fetchProject,
     isLoading
   } = useCanvasProjects();
-  
-  // Add fetchProjects method
-  const fetchProjects = async () => {
-    if (projectId) {
-      await fetchProject(projectId);
-    }
-  };
   
   // Initialize agent context
   const {
@@ -73,7 +66,7 @@ export default function Canvas() {
     if (projectId) {
       fetchProject(projectId);
     }
-  }, [projectId]);
+  }, [projectId, fetchProject]);
   
   // Toggle panels
   const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
@@ -95,6 +88,11 @@ export default function Canvas() {
     isMcpEnabled,
     isMcpConnected,
     toggleMcp,
+    isGeneratingDescription,
+    isGeneratingImagePrompt,
+    isGeneratingImage,
+    isGeneratingVideo,
+    isGeneratingScript,
     isGenerating: isGeneratingScript || isGeneratingDescription || isGeneratingImagePrompt || isGeneratingImage || isGeneratingVideo
   };
   

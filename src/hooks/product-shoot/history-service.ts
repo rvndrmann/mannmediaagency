@@ -27,30 +27,49 @@ export class ProductImageHistoryService {
       
       if (error) throw error;
       
-      const images: GeneratedImage[] = data.map(item => ({
-        id: item.id,
-        status: 'completed' as const,
-        prompt: item.scene_description || '',
-        createdAt: item.created_at,
-        resultUrl: item.result_url,
-        inputUrl: item.source_image_url,
-        settings: {
-          aspectRatio: item.settings && typeof item.settings === 'object' 
-            ? (item.settings as any).aspect_ratio || '1:1' 
-            : '1:1',
-          generationType: item.settings && typeof item.settings === 'object' 
-            ? (item.settings as any).generation_type || 'description' 
-            : 'description',
-          placementType: item.settings && typeof item.settings === 'object' 
-            ? (item.settings as any).placement_type || 'automatic' 
-            : 'automatic'
-        },
-        visibility: (item.visibility === 'public' || item.visibility === 'private') 
+      const images: GeneratedImage[] = data.map(item => {
+        // Parse settings safely
+        let aspectRatio = '1:1';
+        let generationType = 'description';
+        let placementType = 'automatic';
+        
+        if (item.settings) {
+          try {
+            // Handle settings based on its type
+            const settingsObj = typeof item.settings === 'string' 
+              ? JSON.parse(item.settings) 
+              : item.settings;
+              
+            aspectRatio = settingsObj?.aspect_ratio || '1:1';
+            generationType = settingsObj?.generation_type || 'description';
+            placementType = settingsObj?.placement_type || 'automatic';
+          } catch (e) {
+            console.error('Error parsing settings:', e);
+          }
+        }
+        
+        // Ensure visibility is either 'public' or 'private'
+        const visibility = (item.visibility === 'public' || item.visibility === 'private') 
           ? (item.visibility as 'public' | 'private') 
-          : 'public',
-        url: item.result_url,
-        source_image_url: item.source_image_url
-      }));
+          : 'public';
+        
+        return {
+          id: item.id,
+          status: 'completed' as const,
+          prompt: item.scene_description || '',
+          createdAt: item.created_at,
+          resultUrl: item.result_url,
+          inputUrl: item.source_image_url,
+          settings: {
+            aspectRatio,
+            generationType,
+            placementType
+          },
+          visibility,
+          url: item.result_url,
+          source_image_url: item.source_image_url
+        };
+      });
       
       this.history = images;
       return images;
@@ -79,4 +98,4 @@ export class ProductImageHistoryService {
 // Export the product history service instance for use in other modules
 export const productHistoryService = ProductImageHistoryService.getInstance();
 // Alias for backward compatibility
-export { ProductImageHistoryService as ProductShootHistoryService };
+export const ProductShootHistoryService = ProductImageHistoryService;

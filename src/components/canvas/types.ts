@@ -96,7 +96,12 @@ export interface CanvasWorkspaceProps {
     isMcpEnabled?: boolean;
     isMcpConnected?: boolean;
     toggleMcp?: () => void;
-    isGenerating: boolean;
+    isGeneratingDescription?: boolean;
+    isGeneratingImagePrompt?: boolean;
+    isGeneratingImage?: boolean;
+    isGeneratingVideo?: boolean;
+    isGeneratingScript?: boolean;
+    isGenerating?: boolean;
   };
 }
 

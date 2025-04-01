@@ -8,16 +8,21 @@ import { formatDistanceToNow } from 'date-fns';
 export interface ChatMessageProps {
   message: Message;
   showAgentLabel?: boolean;
+  showAgentName?: boolean; // Alias for showAgentLabel for backward compatibility
   onEditContent?: (type: string, content: string, messageId: string) => void;
   compact?: boolean; // Added compact prop
 }
 
 export function ChatMessage({ 
   message, 
-  showAgentLabel = false, 
+  showAgentLabel = false,
+  showAgentName,  // Added for backward compatibility
   onEditContent,
   compact = false // Default value for compact
 }: ChatMessageProps) {
+  
+  // Use showAgentName as fallback for showAgentLabel for compatibility
+  const shouldShowAgentLabel = showAgentLabel || showAgentName;
   
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
@@ -73,7 +78,7 @@ export function ChatMessage({
       <div className="flex-1 space-y-1">
         <div className="flex items-center gap-2">
           <p className="font-medium text-sm">
-            {isUser ? 'You' : isSystem ? 'System' : (showAgentLabel ? getAgentLabel() : 'Assistant')}
+            {isUser ? 'You' : isSystem ? 'System' : (shouldShowAgentLabel ? getAgentLabel() : 'Assistant')}
           </p>
           <p className="text-xs text-muted-foreground">{getTimeDisplay()}</p>
         </div>

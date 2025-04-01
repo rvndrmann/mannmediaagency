@@ -1,24 +1,68 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { MCPServer, MCPTool, MCPConnectionStats, MCPConnectionMetrics } from '@/types/mcp';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 export interface MCPContext {
+  // Current status properties
   status: ConnectionStatus;
-  reconnectToMcp: () => void;
+  connectionStatus: ConnectionStatus; // Alias for status for compatibility
+  isConnecting: boolean;
+  hasConnectionError: boolean;
   lastError: Error | null;
+  
+  // Tools and servers
   mcpTools: any[];
+  mcpServers: MCPServer[];
+  
+  // Configuration
+  useMcp: boolean;
+  setUseMcp: (useMcp: boolean) => void;
+  
+  // Connection management
+  reconnectToMcp: () => Promise<boolean>;
+  
+  // Tool management
   registerTool: (tool: any) => void;
   unregisterTool: (toolId: string) => void;
+  
+  // Statistics and metrics
+  connectionStats: MCPConnectionStats;
+  connectionMetrics: MCPConnectionMetrics;
+  
+  // Additional methods for components
+  callTool?: (toolName: string, parameters: any) => Promise<any>;
+  listAvailableTools?: () => Promise<MCPTool[]>;
 }
+
+const defaultConnectionStats: MCPConnectionStats = {
+  totalClients: 0,
+  connectedClients: 0,
+  lastConnectionAttempt: 0
+};
+
+const defaultConnectionMetrics: MCPConnectionMetrics = {
+  successCount: 0,
+  failureCount: 0,
+  averageConnectTime: 0
+};
 
 const defaultValue: MCPContext = {
   status: 'disconnected',
-  reconnectToMcp: () => {},
+  connectionStatus: 'disconnected',
+  isConnecting: false,
+  hasConnectionError: false,
+  reconnectToMcp: async () => false,
   lastError: null,
   mcpTools: [],
+  mcpServers: [],
+  useMcp: false,
+  setUseMcp: () => {},
   registerTool: () => {},
-  unregisterTool: () => {}
+  unregisterTool: () => {},
+  connectionStats: defaultConnectionStats,
+  connectionMetrics: defaultConnectionMetrics
 };
 
 const MCPContext = createContext<MCPContext>(defaultValue);
@@ -29,39 +73,84 @@ export function useMCPContext() {
 
 interface MCPProviderProps {
   children: ReactNode;
+  projectId?: string;
 }
 
-export function MCPProvider({ children }: MCPProviderProps) {
+export function MCPProvider({ children, projectId }: MCPProviderProps) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [lastError, setLastError] = useState<Error | null>(null);
   const [mcpTools, setMcpTools] = useState<any[]>([]);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [useMcp, setUseMcp] = useState<boolean>(false);
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+  const [connectionStats, setConnectionStats] = useState<MCPConnectionStats>(defaultConnectionStats);
+  const [connectionMetrics, setConnectionMetrics] = useState<MCPConnectionMetrics>(defaultConnectionMetrics);
 
-  // Attempt to connect to MCP on component mount
+  // Attempt to connect to MCP on component mount or when projectId changes
   useEffect(() => {
-    attemptConnection();
-  }, []);
+    if (projectId && useMcp && status === 'disconnected') {
+      attemptConnection();
+    }
+  }, [projectId, useMcp, status]);
 
   const attemptConnection = async () => {
+    if (isConnecting) return false;
+    
+    setIsConnecting(true);
     setStatus('connecting');
-
+    
     try {
+      // Update connection attempt timestamp
+      setConnectionStats(prev => ({
+        ...prev,
+        lastConnectionAttempt: Date.now()
+      }));
+
       // Simulate MCP connection
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // In a real implementation, this would be an actual connection to MCP
-      // For now we'll just set it to connected
       setStatus('connected');
       setLastError(null);
+      
+      // Update connection metrics
+      setConnectionMetrics(prev => ({
+        ...prev,
+        successCount: prev.successCount + 1,
+        lastAttemptTime: Date.now(),
+        averageConnectTime: 
+          (prev.averageConnectTime * prev.successCount + 1000) / (prev.successCount + 1)
+      }));
+      
+      // Update connection stats
+      setConnectionStats(prev => ({
+        ...prev,
+        connectedClients: prev.connectedClients + 1,
+        totalClients: prev.totalClients + 1
+      }));
+      
+      setIsConnecting(false);
+      return true;
     } catch (error) {
       console.error('Failed to connect to MCP:', error);
       setStatus('error');
       setLastError(error instanceof Error ? error : new Error('Unknown error connecting to MCP'));
+      
+      // Update connection metrics
+      setConnectionMetrics(prev => ({
+        ...prev,
+        failureCount: prev.failureCount + 1,
+        lastAttemptTime: Date.now()
+      }));
+      
+      setIsConnecting(false);
+      return false;
     }
   };
 
-  const reconnectToMcp = () => {
-    if (status === 'connecting') return;
-    attemptConnection();
+  const reconnectToMcp = async (): Promise<boolean> => {
+    if (isConnecting) return false;
+    return attemptConnection();
   };
 
   const registerTool = (tool: any) => {
@@ -72,13 +161,23 @@ export function MCPProvider({ children }: MCPProviderProps) {
     setMcpTools(prev => prev.filter(tool => tool.id !== toolId));
   };
 
-  const value = {
+  const hasConnectionError = status === 'error';
+
+  const value: MCPContext = {
     status,
+    connectionStatus: status, // Alias for compatibility
+    isConnecting,
+    hasConnectionError,
     reconnectToMcp,
     lastError,
     mcpTools,
+    mcpServers,
+    useMcp,
+    setUseMcp,
     registerTool,
-    unregisterTool
+    unregisterTool,
+    connectionStats,
+    connectionMetrics
   };
 
   return (

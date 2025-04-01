@@ -12,6 +12,7 @@ import { useMCPContext } from "@/contexts/MCPContext";
 import { useToast } from "@/components/ui/use-toast";
 import { useAgentHistory } from "@/hooks/multi-agent/agent-history";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
+import { AgentType } from "@/hooks/multi-agent/runner/types";
 
 interface MultiAgentChatProps {
   isEmbedded?: boolean;
@@ -39,7 +40,7 @@ export function MultiAgentChat({
   
   const [userInput, setUserInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [activeAgent, setActiveAgent] = useState<string>("main");
+  const [activeAgent, setActiveAgent] = useState<AgentType>("main");
   const messageEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { updateAgentHistory } = useAgentHistory();
@@ -129,8 +130,8 @@ export function MultiAgentChat({
       
       // Handle handoffs between agents
       if (data.handoffRequest) {
-        setActiveAgent(data.handoffRequest.targetAgent);
-        updateAgentHistory(activeAgent, data.handoffRequest.targetAgent, data.handoffRequest.reason);
+        setActiveAgent(data.handoffRequest.targetAgent as AgentType);
+        updateAgentHistory(activeAgent, data.handoffRequest.targetAgent as AgentType, data.handoffRequest.reason);
       }
       
       // Handle agent commands
@@ -183,6 +184,7 @@ export function MultiAgentChat({
               key={message.id} 
               message={message} 
               showAgentLabel={true}
+              compact={compactMode}
             />
           ))}
           
@@ -238,13 +240,16 @@ export function MultiAgentChat({
   );
 }
 
-function getAgentName(agentType: string): string {
+function getAgentName(agentType: AgentType): string {
   switch (agentType) {
     case "main": return "Assistant";
     case "script": return "Script Writer";
     case "image": return "Image Generator";
     case "tool": return "Tool Specialist";
     case "scene": return "Scene Creator";
+    case "data": return "Data Agent";
+    case "assistant": return "Assistant";
+    case "scene-generator": return "Scene Generator";
     default: return "AI Assistant";
   }
 }

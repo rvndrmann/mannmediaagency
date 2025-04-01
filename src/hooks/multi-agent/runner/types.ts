@@ -1,5 +1,13 @@
 
-export type AgentType = "main" | "script" | "image" | "tool" | "scene" | "data";
+export type AgentType = 
+  | "main" 
+  | "script" 
+  | "image" 
+  | "tool" 
+  | "scene" 
+  | "data" 
+  | "assistant" 
+  | "scene-generator";
 
 export interface RunnerContext {
   userId?: string;
@@ -10,6 +18,10 @@ export interface RunnerContext {
   addMessage?: (message: string, type: string) => void;
   groupId?: string;
   runId?: string;
+  // Additional properties used in components
+  supabase?: any;
+  usePerformanceModel?: boolean;
+  enableDirectToolExecution?: boolean;
 }
 
 export interface AgentResult {
@@ -24,6 +36,9 @@ export interface AgentResult {
     reason: string;
     additionalContext?: Record<string, any>;
   };
+  // Additional properties used in components
+  structured_output?: any;
+  commandSuggestion?: any;
 }
 
 export interface BaseAgent {
@@ -46,4 +61,25 @@ export interface OnHandoffWithInput<TInput> {
 
 export interface OnHandoffWithoutInput {
   (runContext: any): Promise<any>;
+}
+
+export interface AgentOptions {
+  name: string;
+  description?: string;
+  instructions?: string;
+  tools?: any[];
+  contextData?: Record<string, any>;
+}
+
+export interface CommandExecutionState {
+  inProgress: boolean;
+  hasError: boolean;
+  output?: any;
+  error?: Error;
+}
+
+export interface ToolExecutionResult {
+  success: boolean;
+  result?: any;
+  error?: string;
 }

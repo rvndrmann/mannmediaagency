@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -55,7 +54,9 @@ const MultiAgentChat = () => {
     ]
   });
   
-  const { connectionStatus, reconnectToMcp } = useMCPContext();
+  const { status, reconnectToMcp } = useMCPContext();
+  const connectionStatus = status; // Use the status from the context
+  
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
 

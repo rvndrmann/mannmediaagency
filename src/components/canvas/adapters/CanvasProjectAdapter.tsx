@@ -71,8 +71,11 @@ export const CanvasSidebarAdapter = ({
 }) => {
   const handleAddScene = async () => {
     if (project) {
-      await createScene(project.id, { title: 'New Scene' });
+      // Fix: Return the string ID from this function
+      const newSceneId = await createScene(project.id, { title: 'New Scene' });
+      return newSceneId;
     }
+    return ''; // Return empty string as fallback to match Promise<string> return type
   };
   
   const handleSetSelectedScene = (id: string) => {
@@ -183,7 +186,7 @@ export const CanvasScriptPanelAdapter = ({
     <CanvasScriptPanel 
       project={project}
       projectId={projectId}
-      updateScene={onUpdateScene}
+      onUpdateScene={onUpdateScene}
       onClose={onClose}
       saveFullScript={saveFullScript}
       divideScriptToScenes={divideScriptToScenes}

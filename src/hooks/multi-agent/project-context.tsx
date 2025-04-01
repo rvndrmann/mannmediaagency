@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { CanvasProject, CanvasScene } from '@/types/canvas';
 
@@ -89,8 +88,7 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
       duration: scene.duration || 0,
       project_id: scene.projectId || scene.project_id || '',
       created_at: scene.createdAt || scene.created_at || new Date().toISOString(),
-      updated_at: scene.updatedAt || scene.updated_at || new Date().toISOString(),
-      status: scene.status || 'draft'
+      updated_at: scene.updatedAt || scene.updated_at || new Date().toISOString()
     };
   };
 

@@ -10,7 +10,7 @@ interface CanvasScriptPanelProps {
   project: CanvasProject | null;
   projectId: string;
   onClose: () => void;
-  onUpdateScene?: (sceneId: string, type: string, value: string) => Promise<void>;
+  onUpdateScene: (sceneId: string, type: string, value: string) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
 }
@@ -23,7 +23,7 @@ export function CanvasScriptPanel({
   saveFullScript,
   divideScriptToScenes
 }: CanvasScriptPanelProps) {
-  const [fullScript, setFullScript] = useState(project?.fullScript || "");
+  const [fullScript, setFullScript] = useState(project?.fullScript || project?.full_script || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isDividing, setIsDividing] = useState(false);
   

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 import { useCanvasAgent } from '@/hooks/use-canvas-agent';
@@ -27,7 +26,6 @@ export default function Canvas() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const { setActiveProject, setActiveScene } = useProjectContext();
   
-  // Get canvas projects and related data/methods
   const {
     projects,
     isLoading,
@@ -36,10 +34,8 @@ export default function Canvas() {
     deleteProject
   } = useCanvasProjects();
   
-  // Define updateScene here, before it's used in useCanvasAgent
   const updateScene = async (sceneId: string, type: string, value: string) => {
     console.log('Updating scene', sceneId, type, value);
-    // Mock implementation - update scene in local state
     setScenes(prevScenes => {
       return prevScenes.map(scene => {
         if (scene.id === sceneId) {
@@ -49,7 +45,6 @@ export default function Canvas() {
       });
     });
     
-    // If the selected scene is being updated, also update that state
     if (selectedScene && selectedScene.id === sceneId) {
       setSelectedScene(prevScene => ({
         ...prevScene!,
@@ -58,7 +53,6 @@ export default function Canvas() {
     }
   };
   
-  // Get canvas agent for AI functionality
   const {
     generateSceneScript,
     generateSceneDescription,
@@ -77,10 +71,8 @@ export default function Canvas() {
     updateScene
   });
   
-  // Simulate the missing methods that would be in useCanvasProjects
   const createScene = async (projectId: string, data: any) => {
     console.log('Creating scene for project', projectId, data);
-    // Mock implementation
     const newSceneId = `scene-${Date.now()}`;
     const newScene = { 
       id: newSceneId, 
@@ -94,11 +86,9 @@ export default function Canvas() {
       duration: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      status: 'draft',
       ...data 
     };
     
-    // Add to local state
     setScenes(prev => [...prev, newScene]);
     
     return newSceneId;
@@ -106,10 +96,8 @@ export default function Canvas() {
   
   const deleteScene = async (sceneId: string) => {
     console.log('Deleting scene', sceneId);
-    // Mock implementation - remove from local state
     setScenes(prev => prev.filter(scene => scene.id !== sceneId));
     
-    // If the deleted scene was selected, clear selection
     if (selectedSceneId === sceneId) {
       setSelectedSceneId(null);
       setSelectedScene(null);
@@ -119,7 +107,6 @@ export default function Canvas() {
   const fetchProject = async (id: string) => {
     setLoading(true);
     console.log('Fetching project', id);
-    // Mock implementation - create a dummy project
     const dummyProject = {
       id,
       title: 'Project ' + id,
@@ -137,7 +124,7 @@ export default function Canvas() {
   };
   
   const addScene = async () => {
-    if (!project) return;
+    if (!project) return '';
     
     const newSceneId = await createScene(project.id, { title: 'New Scene' });
     return newSceneId;
@@ -153,7 +140,6 @@ export default function Canvas() {
   
   const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
     console.log('Dividing script to scenes', sceneScripts);
-    // Mock implementation
     for (const sceneScript of sceneScripts) {
       if (sceneScript.id) {
         await updateScene(sceneScript.id, 'script', sceneScript.content || '');
@@ -163,7 +149,6 @@ export default function Canvas() {
     toast.success("Script divided into scenes successfully");
   };
   
-  // Add createNewProject function for CanvasWorkspace
   const createNewProject = async (title: string, description?: string) => {
     console.log('Creating new project', title, description);
     try {
@@ -180,7 +165,6 @@ export default function Canvas() {
     }
   };
   
-  // Add updateProjectTitle function for CanvasWorkspace
   const updateProjectTitle = async (title: string) => {
     console.log('Updating project title', title);
     if (project && project.id) {
@@ -195,7 +179,6 @@ export default function Canvas() {
     }
   };
   
-  // Initialize agent context with additional properties for the adapter
   const agentProps = {
     isLoading: isAgentLoading,
     messages,
@@ -219,26 +202,21 @@ export default function Canvas() {
     isGenerating: isAgentLoading
   };
   
-  // Effect to load project data on mount
   useEffect(() => {
     if (projectId) {
       fetchProject(projectId);
       setActiveProject(projectId);
     } else {
-      // If no projectId, use a default one for testing
       setProjectId('project-123');
     }
   }, [projectId]);
   
-  // Effect to update project.scenes when scenes state changes
   useEffect(() => {
     if (project) {
-      // Make sure to include the scenes array in the project object
       setProject(prev => prev ? {...prev, scenes} : null);
     }
   }, [scenes]);
   
-  // Effect to update selectedScene when selectedSceneId changes
   useEffect(() => {
     if (selectedSceneId) {
       const scene = scenes.find(s => s.id === selectedSceneId);
@@ -250,12 +228,10 @@ export default function Canvas() {
     }
   }, [selectedSceneId, scenes, setActiveScene]);
   
-  // Toggle panels
   const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
   const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
   const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
   
-  // Project creation if no project exists
   if (!project && !loading) {
     return <CanvasEmptyStateAdapter createProject={createNewProject} />;
   }

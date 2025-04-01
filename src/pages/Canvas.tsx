@@ -104,9 +104,14 @@ export default function Canvas() {
   
   const createNewProject = useCallback(async (title: string, description?: string): Promise<string> => {
     try {
-      const newProject = await createProject(title, description);
-      if (newProject && typeof newProject === 'object' && 'id' in newProject) {
-        return newProject.id;
+      const result = await createProject(title, description);
+      
+      // Use a type assertion with a simpler condition TypeScript can understand
+      if (result && typeof result === 'object') {
+        const projectWithId = result as { id: string };
+        if ('id' in projectWithId) {
+          return projectWithId.id;
+        }
       }
       return "";
     } catch (error) {
@@ -182,6 +187,28 @@ export default function Canvas() {
   const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
   
   if (!project && !routeProjectId && !loading) {
+    // Get authentication status from localStorage to check if user exists
+    const session = localStorage.getItem('supabase.auth.token');
+    const isLoggedIn = !!session;
+    
+    if (!isLoggedIn) {
+      // Redirect to login if not authenticated
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold mb-2">Please sign in to view your projects</h2>
+            <p className="text-gray-600 dark:text-gray-400">You need to be signed in to create and manage video projects.</p>
+          </div>
+          <button
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+            onClick={() => window.location.href = '/auth/login'}
+          >
+            Sign In
+          </button>
+        </div>
+      );
+    }
+    
     return <CanvasEmptyStateAdapter createProject={createNewProject} />;
   }
   

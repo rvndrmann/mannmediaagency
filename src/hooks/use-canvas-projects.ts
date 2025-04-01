@@ -35,9 +35,19 @@ export function useCanvasProjects() {
     try {
       setLoading(true);
       
+      // Get current user
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData?.user) {
+        console.warn("No authenticated user found");
+        setProjects([]);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('canvas_projects')
         .select('*')
+        .eq('user_id', userData.user.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;

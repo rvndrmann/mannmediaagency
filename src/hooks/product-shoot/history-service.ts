@@ -30,16 +30,18 @@ export class ProductImageHistoryService {
       const images: GeneratedImage[] = data.map(item => ({
         id: item.id,
         status: 'completed' as const,
-        prompt: item.prompt || item.scene_description || '',
+        prompt: item.scene_description || '',
         createdAt: item.created_at,
         resultUrl: item.result_url,
         inputUrl: item.source_image_url,
         settings: {
-          aspectRatio: item.aspect_ratio,
-          generationType: item.generation_type,
-          placementType: item.placement_type
+          aspectRatio: item.settings?.aspect_ratio || '1:1',
+          generationType: item.settings?.generation_type || 'description',
+          placementType: item.settings?.placement_type || 'automatic'
         },
-        visibility: item.visibility || 'public',
+        visibility: (item.visibility === 'public' || item.visibility === 'private') 
+          ? item.visibility 
+          : 'public',
         url: item.result_url,
         source_image_url: item.source_image_url
       }));

@@ -54,7 +54,7 @@ export function adaptToolDefinition(tool: ToolsToolDefinition): any {
       
       // Convert Error objects to strings for compatibility
       let errorValue = result.error;
-      if (errorValue instanceof Error) {
+      if (errorValue && typeof errorValue === 'object' && 'message' in errorValue) {
         errorValue = errorValue.message;
       }
       

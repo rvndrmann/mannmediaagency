@@ -1,7 +1,5 @@
 
 import { ToolDefinition, CommandExecutionState } from "./types";
-import { canvasTool } from "./canvas-tool";
-import { canvasContentTool } from "./canvas-content-tool";
 
 // Create dataTool
 export const dataTool: ToolDefinition = {
@@ -55,8 +53,6 @@ export const browserUseTool: ToolDefinition = {
 // Register all available tools
 export const availableTools: ToolDefinition[] = [
   dataTool,
-  canvasTool,
-  canvasContentTool,
   browserUseTool
 ];
 

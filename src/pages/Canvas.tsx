@@ -1,14 +1,15 @@
 
 import React, { useEffect, useState } from 'react';
-import { CanvasWorkspace } from '@/components/canvas/CanvasWorkspace';
-import { CanvasSidebar } from '@/components/canvas/CanvasSidebar';
-import { CanvasDetailPanel } from '@/components/canvas/CanvasDetailPanel';
-import { CanvasHeader } from '@/components/canvas/CanvasHeader';
-import { CanvasScriptPanel } from '@/components/canvas/CanvasScriptPanel';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 import { useCanvasAgent } from '@/hooks/use-canvas-agent';
-import { CanvasEmptyState } from '@/components/canvas/CanvasEmptyState';
-import { CanvasProject, CanvasScene } from '@/types/canvas';
+import {
+  CanvasEmptyStateAdapter,
+  CanvasHeaderAdapter,
+  CanvasSidebarAdapter,
+  CanvasWorkspaceAdapter,
+  CanvasDetailPanelAdapter,
+  CanvasScriptPanelAdapter
+} from '@/components/canvas/adapters/CanvasProjectAdapter';
 
 export default function Canvas() {
   const [showScriptPanel, setShowScriptPanel] = useState(false);
@@ -98,14 +99,14 @@ export default function Canvas() {
   
   // Project creation if no project exists
   if (!project && !loading) {
-    return <CanvasEmptyState onCreateProject={createProject} />;
+    return <CanvasEmptyStateAdapter createProject={createProject} />;
   }
   
   return (
     <div className="flex flex-col h-screen">
-      <CanvasHeader 
+      <CanvasHeaderAdapter 
         project={project}
-        onUpdateProject={updateProject}
+        updateProject={updateProject}
         showScriptPanel={showScriptPanel}
         showDetailPanel={showDetailPanel}
         onToggleScriptPanel={toggleScriptPanel}
@@ -113,7 +114,7 @@ export default function Canvas() {
       />
       
       <div className="flex flex-1 overflow-hidden">
-        <CanvasSidebar 
+        <CanvasSidebarAdapter 
           project={project}
           scenes={scenes}
           selectedScene={selectedScene}
@@ -125,7 +126,7 @@ export default function Canvas() {
         />
         
         <main className="flex-1 overflow-hidden flex flex-col bg-[#1a1a1a]">
-          <CanvasWorkspace 
+          <CanvasWorkspaceAdapter 
             project={project}
             selectedScene={selectedScene}
             selectedSceneId={selectedSceneId || ""}
@@ -137,7 +138,7 @@ export default function Canvas() {
         </main>
         
         {showDetailPanel && (
-          <CanvasDetailPanel 
+          <CanvasDetailPanelAdapter 
             scene={selectedScene}
             projectId={projectId || ''}
             updateScene={updateScene}
@@ -147,7 +148,7 @@ export default function Canvas() {
         )}
         
         {showScriptPanel && (
-          <CanvasScriptPanel 
+          <CanvasScriptPanelAdapter 
             scene={selectedScene}
             projectId={projectId || ''}
             onUpdateScene={updateScene}

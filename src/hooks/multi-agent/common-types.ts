@@ -40,6 +40,28 @@ export function mapCommandExecutionState(state: string | UnifiedCommandExecution
   }
 }
 
+// Helper function to convert unified state back to tools state
+export function toToolsExecutionState(state: UnifiedCommandExecutionState): ToolsCommandExecutionState {
+  switch(state) {
+    case UnifiedCommandExecutionState.COMPLETED:
+      return ToolsCommandExecutionState.COMPLETED;
+    case UnifiedCommandExecutionState.FAILED:
+      return ToolsCommandExecutionState.FAILED;
+    case UnifiedCommandExecutionState.PROCESSING:
+      return ToolsCommandExecutionState.PROCESSING;
+    case UnifiedCommandExecutionState.ERROR:
+      return ToolsCommandExecutionState.ERROR;
+    case UnifiedCommandExecutionState.PENDING:
+      return ToolsCommandExecutionState.PENDING;
+    case UnifiedCommandExecutionState.RUNNING:
+      return ToolsCommandExecutionState.RUNNING;
+    case UnifiedCommandExecutionState.CANCELLED:
+      return ToolsCommandExecutionState.CANCELLED;
+    default:
+      return ToolsCommandExecutionState.FAILED;
+  }
+}
+
 // Common tool context interface that works across different tool implementations
 export interface UnifiedToolContext {
   supabase: any;

@@ -1,25 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { useVideoProject } from '../../hooks/use-video-project';
+import { useAgentEnhancedVideoProject } from '../../hooks/use-agent-enhanced-video-project';
 import { MCPServerService } from '../../services/mcpService';
+import { AgentSDKService } from '../../services/agentSDKService';
 import { VideoProject, VideoScene } from '../../types/video-project';
+import { AgentResponse } from '../../types/agent-sdk';
 
 interface VideoProjectManagerProps {
   mcpService: MCPServerService;
+  agentSDK: AgentSDKService;
   projectId?: string;
 }
 
-export function VideoProjectManager({ mcpService, projectId }: VideoProjectManagerProps) {
+export function VideoProjectManager({ mcpService, agentSDK, projectId }: VideoProjectManagerProps) {
   const {
     project,
     loading,
     error,
+    agentAnalysis,
     createProject,
     getProject,
     updateProject,
     addScene,
     generateSceneAssets,
-    compileVideo
-  } = useVideoProject({ mcpService });
+    compileVideo,
+    analyzeProject,
+    optimizeScenes,
+    enhanceScene,
+    suggestImprovements
+  } = useAgentEnhancedVideoProject({ mcpService, agentSDK });
 
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
@@ -159,6 +167,28 @@ export function VideoProjectManager({ mcpService, projectId }: VideoProjectManag
             </form>
 
             <div className="space-y-4">
+              <div className="flex space-x-2 mb-4">
+                <button
+                  onClick={() => analyzeProject(project.id)}
+                  className="px-3 py-1 bg-indigo-500 text-white rounded text-sm hover:bg-indigo-600"
+                >
+                  Analyze Project
+                </button>
+                <button
+                  onClick={() => optimizeScenes(project.id)}
+                  className="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
+                >
+                  Optimize Scenes
+                </button>
+              </div>
+
+              {agentAnalysis && (
+                <div className="bg-gray-50 p-4 rounded">
+                  <h4 className="font-medium mb-2">AI Analysis</h4>
+                  <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(agentAnalysis.data, null, 2)}</pre>
+                </div>
+              )}
+
               {project.scenes.map((scene: VideoScene) => (
                 <div key={scene.id} className="border p-4 rounded">
                   <h4 className="font-medium">{scene.name}</h4>
@@ -178,12 +208,26 @@ export function VideoProjectManager({ mcpService, projectId }: VideoProjectManag
                       </span>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleGenerateAssets(scene.id)}
-                    className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-                  >
-                    Generate Assets
-                  </button>
+                  <div className="mt-2 space-x-2">
+                    <button
+                      onClick={() => handleGenerateAssets(scene.id)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                    >
+                      Generate Assets
+                    </button>
+                    <button
+                      onClick={() => enhanceScene(project.id, scene.id)}
+                      className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                    >
+                      Enhance Scene
+                    </button>
+                    <button
+                      onClick={() => suggestImprovements(project.id, scene.id)}
+                      className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+                    >
+                      Suggest Improvements
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -52,16 +52,29 @@ export function useCanvasVideoProject({
     setError(null);
     
     try {
+      // Check if MCP service is connected before proceeding
+      if (!mcpService.isConnected()) {
+        await mcpService.connect().catch(e => {
+          console.error("Failed to connect to MCP service:", e);
+          throw new Error("MCP service is disconnected. Please try again.");
+        });
+      }
+      
       const result = await mcpService.callTool('get_video_project', { projectId });
-      if (!result.success || !result.data.project) {
+      if (!result.success) {
         throw new Error(result.error || 'Failed to load project');
       }
       
-      setProject(result.data.project);
-      setLastRefresh(Date.now());
+      if (result.data && result.data.project) {
+        setProject(result.data.project);
+        setLastRefresh(Date.now());
+      } else {
+        console.warn('Project data is missing or incomplete:', result);
+      }
       
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Error loading project:', error);
       setError(error);
     } finally {
       setLoading(false);
@@ -72,92 +85,99 @@ export function useCanvasVideoProject({
   const generateCanvasData = useCallback(() => {
     if (!project) return;
     
-    const nodes: CanvasNode[] = [];
-    const edges: CanvasEdge[] = [];
-    
-    // Create project node
-    const projectNode: CanvasNode = {
-      id: `project-${project.id}`,
-      type: 'project',
-      label: project.name,
-      data: project,
-      x: 400,
-      y: 100,
-      width: 200,
-      height: 100
-    };
-    
-    nodes.push(projectNode);
-    
-    // Create scene nodes and connect them to the project
-    project.scenes.forEach((scene, index) => {
-      const sceneNode: CanvasNode = {
-        id: `scene-${scene.id}`,
-        type: 'scene',
-        label: scene.name,
-        data: scene,
-        x: 200 + (index * 250),
-        y: 300,
-        width: 180,
+    try {
+      const nodes: CanvasNode[] = [];
+      const edges: CanvasEdge[] = [];
+      
+      // Create project node
+      const projectNode: CanvasNode = {
+        id: `project-${project.id}`,
+        type: 'project',
+        label: project.name,
+        data: project,
+        x: 400,
+        y: 100,
+        width: 200,
         height: 100
       };
       
-      nodes.push(sceneNode);
+      nodes.push(projectNode);
       
-      // Connect scene to project
-      edges.push({
-        id: `edge-project-scene-${scene.id}`,
-        source: projectNode.id,
-        target: sceneNode.id,
-        label: `Scene ${index + 1}`
-      });
-      
-      // If the scene has assets, create nodes for them
-      if (scene.imageUrl) {
-        const imageNode: CanvasNode = {
-          id: `asset-image-${scene.id}`,
-          type: 'asset',
-          label: 'Scene Image',
-          data: { url: scene.imageUrl, type: 'image' },
-          x: sceneNode.x - 100,
-          y: 450,
-          width: 150,
-          height: 80
-        };
-        
-        nodes.push(imageNode);
-        
-        edges.push({
-          id: `edge-scene-image-${scene.id}`,
-          source: sceneNode.id,
-          target: imageNode.id
+      // Safely iterate over scenes if they exist
+      if (project.scenes && Array.isArray(project.scenes)) {
+        project.scenes.forEach((scene, index) => {
+          if (!scene) return; // Skip if scene is null or undefined
+          
+          const sceneNode: CanvasNode = {
+            id: `scene-${scene.id}`,
+            type: 'scene',
+            label: scene.name || `Scene ${index + 1}`,
+            data: scene,
+            x: 200 + (index * 250),
+            y: 300,
+            width: 180,
+            height: 100
+          };
+          
+          nodes.push(sceneNode);
+          
+          // Connect scene to project
+          edges.push({
+            id: `edge-project-scene-${scene.id}`,
+            source: projectNode.id,
+            target: sceneNode.id,
+            label: `Scene ${index + 1}`
+          });
+          
+          // If the scene has assets, create nodes for them
+          if (scene.imageUrl) {
+            const imageNode: CanvasNode = {
+              id: `asset-image-${scene.id}`,
+              type: 'asset',
+              label: 'Scene Image',
+              data: { url: scene.imageUrl, type: 'image' },
+              x: sceneNode.x - 100,
+              y: 450,
+              width: 150,
+              height: 80
+            };
+            
+            nodes.push(imageNode);
+            
+            edges.push({
+              id: `edge-scene-image-${scene.id}`,
+              source: sceneNode.id,
+              target: imageNode.id
+            });
+          }
+          
+          if (scene.videoUrl) {
+            const videoNode: CanvasNode = {
+              id: `asset-video-${scene.id}`,
+              type: 'asset',
+              label: 'Scene Video',
+              data: { url: scene.videoUrl, type: 'video' },
+              x: sceneNode.x + 100,
+              y: 450,
+              width: 150,
+              height: 80
+            };
+            
+            nodes.push(videoNode);
+            
+            edges.push({
+              id: `edge-scene-video-${scene.id}`,
+              source: sceneNode.id,
+              target: videoNode.id
+            });
+          }
         });
       }
       
-      if (scene.videoUrl) {
-        const videoNode: CanvasNode = {
-          id: `asset-video-${scene.id}`,
-          type: 'asset',
-          label: 'Scene Video',
-          data: { url: scene.videoUrl, type: 'video' },
-          x: sceneNode.x + 100,
-          y: 450,
-          width: 150,
-          height: 80
-        };
-        
-        nodes.push(videoNode);
-        
-        edges.push({
-          id: `edge-scene-video-${scene.id}`,
-          source: sceneNode.id,
-          target: videoNode.id
-        });
-      }
-    });
-    
-    setCanvasData({ nodes, edges });
-    
+      setCanvasData({ nodes, edges });
+    } catch (err) {
+      console.error('Error generating canvas data:', err);
+    }
   }, [project]);
 
   // Initialize canvas data when project changes
@@ -170,8 +190,16 @@ export function useCanvasVideoProject({
   // Load project when projectId changes
   useEffect(() => {
     if (projectId) {
-      loadProject();
+      loadProject().catch(err => {
+        console.error('Failed to load project on initial effect:', err);
+      });
     }
+    
+    return () => {
+      // Clean up on unmount
+      setCanvasData({ nodes: [], edges: [] });
+      setProject(null);
+    };
   }, [projectId, loadProject]);
   
   // Set up interval for refreshing project data

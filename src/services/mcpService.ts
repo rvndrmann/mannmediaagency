@@ -28,7 +28,8 @@ export class MCPServerService implements MCPConnection {
       this.connected = true;
       this.connectionError = null;
       this.lastActiveTimestamp = Date.now();
-      this.connectionId = crypto.randomUUID();
+      // Use a more browser-compatible way to generate UUID
+      this.connectionId = `mcp-${Math.random().toString(36).substring(2, 15)}-${Date.now().toString(36)}`;
       
       console.log(`Connected to MCP server with ID ${this.connectionId}`);
     } catch (error) {
@@ -341,7 +342,7 @@ export class MCPServerService implements MCPConnection {
           success: true,
           data: {
             project: {
-              id: crypto.randomUUID(),
+              id: `project-${Math.random().toString(36).substring(2, 15)}-${Date.now().toString(36)}`,
               name: parameters.name,
               description: parameters.description,
               status: 'draft',
@@ -373,7 +374,7 @@ export class MCPServerService implements MCPConnection {
           success: true,
           data: {
             scene: {
-              id: crypto.randomUUID(),
+              id: `scene-${Math.random().toString(36).substring(2, 15)}-${Date.now().toString(36)}`,
               projectId: parameters.projectId,
               name: parameters.name,
               description: parameters.description,

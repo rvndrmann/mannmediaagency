@@ -35,31 +35,6 @@ export function VideoProjectCanvas({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  if (!canvasVisible) {
-    return (
-      <div className="p-4">
-        <button
-          onClick={toggleCanvasVisibility}
-          className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
-        >
-          Show Project Canvas
-        </button>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return <div className="p-4">Loading canvas data...</div>;
-  }
-
-  if (error) {
-    return <div className="p-4 text-red-500">Error: {error.message}</div>;
-  }
-
-  if (!project) {
-    return <div className="p-4">No project data available for canvas</div>;
-  }
-
   const handleNodeClick = (nodeId: string) => {
     setSelectedNode(nodeId === selectedNode ? null : nodeId);
   };
@@ -131,22 +106,22 @@ export function VideoProjectCanvas({
       >
         <div className="text-sm font-medium mb-1">{node.label}</div>
         {node.type === 'project' && (
-          <div className="text-xs">Status: {node.data.status}</div>
+          <div className="text-xs">Status: {node.data?.status || 'unknown'}</div>
         )}
         {node.type === 'scene' && (
-          <div className="text-xs">Status: {node.data.status}</div>
+          <div className="text-xs">Status: {node.data?.status || 'unknown'}</div>
         )}
-        {node.type === 'asset' && node.data.type === 'image' && (
+        {node.type === 'asset' && node.data?.type === 'image' && (
           <div className="w-full h-10 bg-gray-200 flex items-center justify-center overflow-hidden rounded">
             <img 
-              src={node.data.url} 
+              src={node.data?.url || 'https://via.placeholder.com/150?text=Preview'} 
               alt="Scene thumbnail" 
               className="w-full h-full object-cover"
               onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Preview'} 
             />
           </div>
         )}
-        {node.type === 'asset' && node.data.type === 'video' && (
+        {node.type === 'asset' && node.data?.type === 'video' && (
           <div className="w-full h-10 bg-gray-800 flex items-center justify-center text-white text-xs rounded">
             <span>Video Asset</span>
           </div>
@@ -156,8 +131,8 @@ export function VideoProjectCanvas({
   };
 
   const renderEdge = (edge: any) => {
-    const sourceNode = canvasData.nodes.find(n => n.id === edge.source);
-    const targetNode = canvasData.nodes.find(n => n.id === edge.target);
+    const sourceNode = canvasData?.nodes?.find(n => n.id === edge.source);
+    const targetNode = canvasData?.nodes?.find(n => n.id === edge.target);
     
     if (!sourceNode || !targetNode) return null;
     
@@ -195,6 +170,31 @@ export function VideoProjectCanvas({
       </g>
     );
   };
+
+  if (!canvasVisible) {
+    return (
+      <div className="p-4">
+        <button
+          onClick={toggleCanvasVisibility}
+          className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+        >
+          Show Project Canvas
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div className="p-4">Loading canvas data...</div>;
+  }
+
+  if (error) {
+    return <div className="p-4 text-red-500">Error: {error.message}</div>;
+  }
+
+  if (!project) {
+    return <div className="p-4">No project data available for canvas</div>;
+  }
 
   return (
     <div className="p-4 border rounded-lg shadow-lg bg-white">
@@ -257,7 +257,7 @@ export function VideoProjectCanvas({
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
           onMouseLeave={handleCanvasMouseUp}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
         >
           {/* SVG layer for edges */}
           <svg
@@ -279,7 +279,7 @@ export function VideoProjectCanvas({
                 <polygon points="0 0, 10 3.5, 0 7" fill="#9CA3AF" />
               </marker>
             </defs>
-            {canvasData.edges.map(renderEdge)}
+            {canvasData?.edges?.map(renderEdge) || null}
           </svg>
 
           {/* Node layer */}
@@ -289,7 +289,7 @@ export function VideoProjectCanvas({
               transform: `translate(${canvasPosition.x}px, ${canvasPosition.y}px)`,
             }}
           >
-            {canvasData.nodes.map(renderNode)}
+            {canvasData?.nodes?.map(renderNode) || null}
           </div>
         </div>
       </div>

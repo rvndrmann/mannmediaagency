@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { checkTableExists } from "@/hooks/product-shoot/rpc-functions";
 import { MockWorkflowService } from "./mock-workflow-service";
@@ -177,14 +176,14 @@ export class WorkflowRPC {
       projectId: data.project_id,
       status: data.status,
       currentStage: data.current_stage,
-      stageResults: data.stage_results,
+      stageResults: data.stage_results ? { ...(data.stage_results as Record<string, unknown>) } : undefined,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       completedStages: Array.isArray(data.completed_stages) ? data.completed_stages : [],
       errorMessage: data.error_message,
       startedAt: data.started_at,
       completedAt: data.completed_at,
-      sceneStatuses: data.scene_statuses
+      sceneStatuses: data.scene_statuses ? { ...(data.scene_statuses as Record<string, unknown>) } : undefined
     };
   }
 }

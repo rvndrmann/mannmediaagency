@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from 'react';
 import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from '@/types/canvas';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,7 +42,24 @@ export function useCanvasProjects() {
       
       if (error) throw error;
       
-      setProjects(data || []);
+      // Properly normalize the data from snake_case to camelCase
+      const normalizedProjects = (data || []).map((p: any): CanvasProject => ({
+        id: p.id,
+        title: p.title,
+        description: p.description || '',
+        userId: p.user_id || p.userId || '',
+        user_id: p.user_id || p.userId || '',
+        fullScript: p.full_script || p.fullScript || '',
+        full_script: p.full_script || p.fullScript || '',
+        createdAt: p.created_at || p.createdAt || new Date().toISOString(),
+        created_at: p.created_at || p.createdAt || new Date().toISOString(),
+        updatedAt: p.updated_at || p.updatedAt || new Date().toISOString(),
+        updated_at: p.updated_at || p.updatedAt || new Date().toISOString(),
+        cover_image_url: p.cover_image_url || '',
+        scenes: p.scenes || []
+      }));
+      
+      setProjects(normalizedProjects);
     } catch (err) {
       console.error("Error fetching projects:", err);
       setError("Failed to load projects");

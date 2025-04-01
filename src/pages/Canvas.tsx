@@ -133,7 +133,7 @@ export default function Canvas() {
   
   useEffect(() => {
     if (routeProjectId) {
-      fetchProject(routeProjectId);
+      fetchProject();
     }
   }, [routeProjectId, fetchProject]);
   

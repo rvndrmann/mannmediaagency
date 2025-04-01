@@ -195,6 +195,7 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
       id: uuidv4(),
       name: taskName,
       status: "pending",
+      type: "media" // Adding the required type property
     };
   };
 

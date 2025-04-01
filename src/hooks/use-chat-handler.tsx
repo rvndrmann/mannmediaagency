@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -63,6 +62,7 @@ export function useChatHandler(setInput: (value: string) => void) {
     id: uuidv4(),
     name,
     status: "pending",
+    type: "chat"
   });
 
   // Update a task's status in the latest assistant message

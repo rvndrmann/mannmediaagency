@@ -80,6 +80,7 @@ export const useAIChat = () => {
     id: uuidv4(),
     name,
     status: "pending",
+    type: "ai-chat"
   });
 
   const updateTaskStatus = (messageIndex: number, taskId: string, status: Task["status"], details?: string) => {

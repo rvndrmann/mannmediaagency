@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { CanvasProject, CanvasScene } from '@/types/canvas';
 
@@ -47,7 +48,10 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
             scenes: [],
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            full_script: ''
+            full_script: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            fullScript: ''
           }
         ];
         setProjects(mockProjects);

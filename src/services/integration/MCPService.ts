@@ -1,41 +1,14 @@
 
-import { supabase } from '@/integrations/supabase/client';
-
 export class MCPService {
-  private static instance: MCPService;
-  private connections: Map<string, any> = new Map();
+  private connections: Map<string, string> = new Map();
   
-  private constructor() {}
-  
-  public static getInstance(): MCPService {
-    if (!MCPService.instance) {
-      MCPService.instance = new MCPService();
-    }
-    return MCPService.instance;
-  }
-  
-  async connectToServer(url: string, projectId: string): Promise<boolean> {
+  async connect(url: string, projectId: string): Promise<boolean> {
     try {
-      // Store connection details
-      this.connections.set(projectId, { url, connected: true });
+      // Simulate connection to MCP server
+      console.log(`Connecting to MCP server at ${url} for project ${projectId}`);
       
-      // Save to database
-      const user = (await supabase.auth.getUser()).data.user;
-      if (user?.id) {
-        const { error } = await supabase
-          .from('mcp_connections')
-          .insert({
-            connection_url: url,
-            project_id: projectId,
-            user_id: user.id,
-            is_active: true
-          });
-        
-        if (error) {
-          console.error('Error saving MCP connection:', error);
-          return false;
-        }
-      }
+      // Store the connection URL for this project
+      this.connections.set(projectId, url);
       
       return true;
     } catch (error) {
@@ -44,10 +17,11 @@ export class MCPService {
     }
   }
   
-  getConnectionUrl(projectId: string): string | null {
-    const connection = this.connections.get(projectId);
-    return connection?.url || null;
+  getUrl(projectId: string): string | null {
+    return this.connections.get(projectId) || null;
   }
   
-  // More methods can be added as needed
+  disconnect(projectId: string): boolean {
+    return this.connections.delete(projectId);
+  }
 }

@@ -40,7 +40,7 @@ export interface BaseAgent {
   getType(): AgentType;
 }
 
-// Tool execution result states - Consistent with tools/types.ts
+// Tool execution result states
 export enum CommandExecutionState {
   PENDING = "pending",
   RUNNING = "running",
@@ -48,11 +48,10 @@ export enum CommandExecutionState {
   FAILED = "failed",
   CANCELLED = "cancelled",
   ERROR = "error",
-  PROCESSING = "processing" // Add PROCESSING to align with other file
+  PROCESSING = "processing"
 }
 
 // Tool context interface - provided to all tools during execution
-// Update to include user and session which may be used by adapted tools
 export interface ToolContext {
   supabase: SupabaseClient<any, "public", any>;
   userId?: string;
@@ -67,8 +66,8 @@ export interface ToolContext {
   toolAvailable?: boolean; 
   history?: any[];
   tracingEnabled?: boolean;
-  user?: any; // Add for compatibility with tools/types.ts
-  session?: any; // Add for compatibility with tools/types.ts
+  user?: any;
+  session?: any;
 }
 
 // Tool definition interface
@@ -87,7 +86,7 @@ export interface ToolDefinition {
     icon?: string;
   };
   execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
-  version?: string; // Add for compatibility
+  version?: string;
 }
 
 // Tool execution result interface

@@ -1,4 +1,3 @@
-
 import { ToolDefinition as MultiAgentToolDefinition, CommandExecutionState, ToolContext } from './types';
 import { ToolDefinition as ToolsToolDefinition } from './tools/types';
 import { canvasTool } from './tools/canvas-tool';

@@ -1,158 +1,140 @@
-import { useState, useEffect } from "react";
-import { useProjectContext } from "@/hooks/multi-agent/project-context";
-import { IntegrationService } from "@/services/integration/IntegrationService";
-import { Button } from "@/components/ui/button";
-import { ReloadIcon } from "@radix-ui/react-icons";
-import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 
-interface WorkflowStatusProps {
+import React, { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { IntegrationService } from '@/services/integration/IntegrationService';
+import { toast } from 'sonner';
+import { PlayCircle, RefreshCw } from 'lucide-react';
+
+export interface WorkflowStatusProps {
   projectId: string;
+  onComplete?: () => void;
 }
 
-interface WorkflowState {
-  status: 'idle' | 'running' | 'completed' | 'failed';
-  currentStage: string | null;
-  progress: number;
-  error?: string | null;
-}
-
-export function WorkflowStatus({ projectId }: WorkflowStatusProps) {
-  const [workflowState, setWorkflowState] = useState<WorkflowState>({
-    status: 'idle',
-    currentStage: null,
-    progress: 0,
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const { projectDetails } = useProjectContext({ initialProjectId: projectId });
+export function WorkflowStatus({ projectId, onComplete }: WorkflowStatusProps) {
+  const [workflowState, setWorkflowState] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const integrationService = IntegrationService.getInstance();
 
   useEffect(() => {
-    fetchWorkflowStatus();
+    fetchWorkflowState();
   }, [projectId]);
 
-  // Fetch the workflow status from the database
-  const fetchWorkflowStatus = async () => {
-    setIsLoading(true);
+  const fetchWorkflowState = async () => {
+    if (!projectId) return;
+    
+    setLoading(true);
     try {
-      const status = await integrationService.getWorkflowState(projectId);
-      if (status) {
-        setWorkflowState({
-          status: status.status,
-          currentStage: status.current_stage,
-          progress: status.progress,
-          error: status.error
-        });
-      } else {
-        setWorkflowState({ status: 'idle', currentStage: null, progress: 0 });
-      }
+      const state = await integrationService.getWorkflowState(projectId);
+      setWorkflowState(state);
     } catch (error) {
-      console.error("Error fetching workflow status:", error);
-      toast.error("Failed to fetch workflow status");
-      setWorkflowState({ status: 'failed', currentStage: null, progress: 0, error: 'Failed to fetch status' });
+      console.error('Error fetching workflow state:', error);
+      toast.error('Failed to load workflow status');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Start a workflow for the project
-  const startWorkflow = async () => {
+  const handleStartWorkflow = async () => {
+    setLoading(true);
     try {
-      setIsLoading(true);
-      const result = await integrationService.startVideoWorkflow(projectId);
-      if (result) {
-        setWorkflowState({ status: 'running', currentStage: 'init', progress: 0 });
-        toast.success("Workflow started successfully");
+      const success = await integrationService.startVideoWorkflow(projectId);
+      if (success) {
+        toast.success('Workflow started successfully');
+        await fetchWorkflowState();
       } else {
-        toast.error("Failed to start workflow");
+        toast.error('Failed to start workflow');
       }
     } catch (error) {
-      console.error("Error starting workflow:", error);
-      toast.error("Failed to start workflow");
+      console.error('Error starting workflow:', error);
+      toast.error('Failed to start workflow');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Retry workflow from a specific stage
-  const retryFromStage = async (stage: string) => {
+  const handleRetryStage = async (stage: string) => {
+    setLoading(true);
     try {
-      setIsLoading(true);
-      const result = await integrationService.retryWorkflowFromStage(projectId, stage);
-      if (result) {
-        toast.success(`Retrying workflow from ${stage}`);
-        // Fetch the latest status
-        fetchWorkflowStatus();
+      const success = await integrationService.retryWorkflowFromStage(projectId, stage);
+      if (success) {
+        toast.success(`Workflow restarted from ${stage}`);
+        await fetchWorkflowState();
       } else {
-        toast.error("Failed to retry workflow");
+        toast.error('Failed to retry workflow stage');
       }
     } catch (error) {
-      console.error("Error retrying workflow:", error);
-      toast.error("Failed to retry workflow");
+      console.error('Error retrying workflow stage:', error);
+      toast.error('Failed to retry workflow stage');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Workflow Status</CardTitle>
-        <CardDescription>
-          {projectDetails?.title ? `Status for project: ${projectDetails.title}` : "No project selected"}
-        </CardDescription>
+        <CardTitle className="flex justify-between items-center">
+          <span>Workflow Status</span>
+          <Button variant="outline" size="sm" onClick={fetchWorkflowState} disabled={loading}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </CardTitle>
       </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-[200px]" />
-            <Skeleton className="h-4 w-[150px]" />
-            <Skeleton className="h-4 w-[100px]" />
+      <CardContent className="space-y-4">
+        {!workflowState ? (
+          <div className="text-center py-4">
+            <p className="text-muted-foreground mb-4">No workflow in progress</p>
+            <Button onClick={handleStartWorkflow} disabled={loading}>
+              <PlayCircle className="h-4 w-4 mr-2" />
+              Start Workflow
+            </Button>
           </div>
         ) : (
-          <div className="space-y-2">
-            <p>Status: {workflowState.status}</p>
-            {workflowState.currentStage && <p>Current Stage: {workflowState.currentStage}</p>}
-            {workflowState.error && <p className="text-red-500">Error: {workflowState.error}</p>}
-            <p>Progress: {workflowState.progress}%</p>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-medium mb-1">Status</h3>
+              <p className="text-sm">{workflowState.status || 'Unknown'}</p>
+            </div>
+            
+            <Separator />
+            
+            <div>
+              <h3 className="font-medium mb-1">Current Stage</h3>
+              <p className="text-sm">{workflowState.current_stage || 'Not started'}</p>
+            </div>
+            
+            {workflowState.error && (
+              <>
+                <Separator />
+                <div>
+                  <h3 className="font-medium mb-1 text-red-500">Error</h3>
+                  <p className="text-sm text-red-500">{workflowState.error}</p>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => handleRetryStage(workflowState.current_stage)}
+                    disabled={loading}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry Stage
+                  </Button>
+                </div>
+              </>
+            )}
+            
+            {workflowState.status === 'completed' && onComplete && (
+              <Button onClick={onComplete} className="w-full">
+                View Results
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button
-          onClick={fetchWorkflowStatus}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
-              Please wait
-            </>
-          ) : (
-            <>
-              <ReloadIcon className="mr-2 h-4 w-4" />
-              Refresh Status
-            </>
-          )}
-        </Button>
-        {workflowState.status === 'idle' ? (
-          <Button onClick={startWorkflow} disabled={isLoading}>
-            Start Workflow
-          </Button>
-        ) : workflowState.status === 'failed' ? (
-          <Button onClick={() => retryFromStage(workflowState.currentStage || 'init')} disabled={isLoading}>
-            Retry from {workflowState.currentStage || 'init'}
-          </Button>
-        ) : null}
-      </CardFooter>
     </Card>
   );
 }

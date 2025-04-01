@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { MCPService } from './MCPService';
 
@@ -6,7 +7,8 @@ export class IntegrationService {
   private mcpService: MCPService;
   
   private constructor() {
-    this.mcpService = MCPService.getInstance();
+    // Initialize with a new instance of MCPService
+    this.mcpService = new MCPService();
   }
   
   public static getInstance(): IntegrationService {
@@ -18,7 +20,7 @@ export class IntegrationService {
 
   async connectToMcpServer(url: string, projectId: string): Promise<boolean> {
     try {
-      return await this.mcpService.connectToServer(url, projectId);
+      return await this.mcpService.connect(url, projectId);
     } catch (error) {
       console.error('Error connecting to MCP server:', error);
       return false;
@@ -36,17 +38,13 @@ export class IntegrationService {
   }
 
   getMcpConnectionUrlForProject(projectId: string): string | null {
-    return this.mcpService.getConnectionUrl(projectId);
+    return this.mcpService.getUrl(projectId);
   }
 
   async getWorkflowState(projectId: string): Promise<any> {
     try {
       const { data, error } = await supabase
-        .from('workflow_state')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .rpc('get_workflow_state', { p_project_id: projectId });
         
       if (error) throw error;
       

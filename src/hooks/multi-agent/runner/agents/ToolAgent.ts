@@ -1,6 +1,6 @@
 
 import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
+import { AgentResult, AgentOptions, AgentType, RunnerContext, CommandExecutionState } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
 export class ToolAgent extends BaseAgentImpl {
@@ -19,7 +19,7 @@ export class ToolAgent extends BaseAgentImpl {
 
   async process(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      this.recordTraceEvent("tool_agent_run", `Processing input: ${input.substring(0, 50)}...`);
+      this.recordTraceEvent("tool_agent_run", { message: `Processing input: ${input.substring(0, 50)}...` });
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -33,9 +33,9 @@ export class ToolAgent extends BaseAgentImpl {
       // Handle attachments if they exist in metadata
       const attachments = this.context.metadata?.attachments || [];
       
-      this.recordTraceEvent("tool_agent_invoke", 
-        `Invoking Tool Agent with ${conversationHistory.length} historical messages`
-      );
+      this.recordTraceEvent("tool_agent_invoke", { 
+        message: `Invoking Tool Agent with ${conversationHistory.length} historical messages`
+      });
       
       // Call the Supabase function with the appropriate parameters
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
@@ -65,9 +65,9 @@ export class ToolAgent extends BaseAgentImpl {
         throw new Error(`Tool agent error: ${error.message}`);
       }
       
-      this.recordTraceEvent("tool_agent_response", 
-        `Received response: ${data?.completion?.substring(0, 50)}...`
-      );
+      this.recordTraceEvent("tool_agent_response", { 
+        message: `Received response: ${data?.completion?.substring(0, 50)}...`
+      });
       
       return {
         response: data?.completion || "I processed your request but couldn't generate a tool agent response.",
@@ -78,7 +78,7 @@ export class ToolAgent extends BaseAgentImpl {
         additionalContext: null
       };
     } catch (error) {
-      this.recordTraceEvent("tool_agent_error", `Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.recordTraceEvent("tool_agent_error", { message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` });
       console.error("ToolAgent run error:", error);
       throw error;
     }

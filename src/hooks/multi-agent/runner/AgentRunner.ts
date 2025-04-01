@@ -1,6 +1,5 @@
-
 import { v4 as uuidv4 } from "uuid";
-import { AgentType, RunnerContext, AgentResult, RunnerCallbacks, BaseAgent } from "./types";
+import { AgentType, RunnerContext, AgentResult, RunnerCallbacks } from "./types";
 import { supabase } from '@/integrations/supabase/client';
 
 interface AgentRunnerOptions {

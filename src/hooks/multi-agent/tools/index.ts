@@ -1,3 +1,4 @@
+
 import { ToolContext, ToolDefinition, ToolExecutionResult } from "../types";
 import { CommandExecutionState } from "../runner/types";
 import { canvasTool } from "./canvas-tool";
@@ -67,7 +68,7 @@ export const initializeToolSystem = async (): Promise<boolean> => {
               return {
                 success: false,
                 message: error instanceof Error ? error.message : `Unknown error executing SDK tool "${sdkCanvasDataTool.name}"`,
-                state: CommandExecutionState.FAILED
+                state: CommandExecutionState.ERROR
               };
             }
           }
@@ -131,7 +132,7 @@ export const executeTool = async (
     return {
       success: false,
       message: error instanceof Error ? error.message : `Unknown error executing tool "${toolName}"`,
-      state: CommandExecutionState.FAILED
+      state: CommandExecutionState.ERROR
     };
   }
 };

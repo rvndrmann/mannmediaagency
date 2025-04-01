@@ -1,174 +1,189 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { GeneratedImage, GenerationStatus } from '@/types/product-shoot';
+import { ProductShootSettings } from '@/types/product-shoot';
 
-interface UseGenerationQueueOptions {
-  onImageReady?: (imageData: GeneratedImage) => void;
-  onError?: (error: string) => void;
-  autoCheckInterval?: number;
+// Define the minimum GenerationResult interface needed
+interface GenerationResult {
+  id: string;
+  status: "completed" | "failed" | "processing" | "pending";
+  resultUrl?: string;
+  message?: string;
+  error?: string;
 }
 
-/**
- * Hook to manage generation queue for product shots
- */
-export function useGenerationQueue(options: UseGenerationQueueOptions = {}) {
-  const [pendingImageIds, setPendingImageIds] = useState<string[]>([]);
-  const [isPolling, setIsPolling] = useState<boolean>(false);
-  const [checkInterval, setCheckInterval] = useState<number>(options.autoCheckInterval || 3000);
-  const [processingId, setProcessingId] = useState<string | null>(null);
+export function useGenerationQueue() {
+  const [activeQueue, setActiveQueue] = useState<Record<string, boolean>>({});
+  const [results, setResults] = useState<Record<string, GenerationResult>>({});
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Function to check status of pending images
-  const checkPendingImages = useCallback(async () => {
-    if (pendingImageIds.length === 0 || processingId) return;
-
-    const nextId = pendingImageIds[0];
-    setProcessingId(nextId);
-
+  // Adds an image to the generation queue
+  const addToQueue = async (
+    sourceImageUrl: string,
+    prompt: string,
+    settings: Partial<ProductShootSettings>
+  ): Promise<string | null> => {
     try {
-      // Get the image info from database
+      setIsLoading(true);
+      
+      // Insert a new record in the product_shot_history table
       const { data, error } = await supabase
         .from('product_shot_history')
-        .select('*')
-        .eq('id', nextId)
+        .insert({
+          source_image_url: sourceImageUrl,
+          result_url: '', // Will be updated later
+          prompt: prompt,
+          settings: settings || {},
+          visibility: 'private',
+        })
+        .select()
         .single();
-
+        
       if (error) {
-        console.error("Error checking image status:", error);
-        // Remove from queue if there's an error
-        setPendingImageIds(prev => prev.filter(id => id !== nextId));
-        setProcessingId(null);
-        return;
+        console.error("Error adding to generation queue:", error);
+        return null;
       }
-
-      // Check if image is complete
-      if (data) {
-        // Convert database status to GenerationStatus
-        let status: GenerationStatus;
-        if (data.status === 'in_queue') {
-          status = 'processing'; // Map in_queue to processing
-        } else if (data.status === 'completed' || data.status === 'failed') {
-          status = data.status as 'completed' | 'failed';
-        } else {
-          status = 'pending';
+      
+      // Update the active queue
+      const imageId = data.id;
+      setActiveQueue(prev => ({
+        ...prev,
+        [imageId]: true
+      }));
+      
+      // Initialize the result with pending status
+      setResults(prev => ({
+        ...prev,
+        [imageId]: {
+          id: imageId,
+          status: "pending" // Compatible with GenerationStatus
         }
-
-        // If image is complete, notify and remove from queue
-        if (status === 'completed' || status === 'failed') {
-          // Convert to GeneratedImage format
-          const generatedImage: GeneratedImage = {
-            id: data.id,
-            prompt: data.scene_description || '',
-            status,
-            createdAt: data.created_at,
-            resultUrl: data.result_url,
-            inputUrl: data.source_image_url,
-            url: data.result_url,
-            source_image_url: data.source_image_url,
-            settings: typeof data.settings === 'string' 
-              ? JSON.parse(data.settings) 
-              : (data.settings as Record<string, any>)
-          };
-
-          if (status === 'completed' && options.onImageReady) {
-            options.onImageReady(generatedImage);
-          } else if (status === 'failed' && options.onError) {
-            options.onError(`Image generation failed: ${nextId}`);
+      }));
+      
+      // Call the edge function to generate the image
+      const { data: processData, error: processError } = await supabase.functions.invoke(
+        'generate-product-shot-v2',
+        {
+          body: {
+            id: imageId,
+            sourceImageUrl,
+            prompt,
+            settings
           }
-
-          // Remove from queue
-          setPendingImageIds(prev => prev.filter(id => id !== nextId));
         }
+      );
+      
+      if (processError) {
+        console.error("Error processing image:", processError);
+        // Update the result with error status
+        setResults(prev => ({
+          ...prev,
+          [imageId]: {
+            ...prev[imageId],
+            status: "failed",
+            error: processError.message
+          }
+        }));
+        return imageId;
       }
+      
+      // Update the result with processing status
+      setResults(prev => ({
+        ...prev,
+        [imageId]: {
+          ...prev[imageId],
+          status: "processing"
+        }
+      }));
+      
+      return imageId;
     } catch (error) {
-      console.error('Error checking pending images:', error);
+      console.error("Error in addToQueue:", error);
+      return null;
     } finally {
-      setProcessingId(null);
+      setIsLoading(false);
     }
-  }, [pendingImageIds, processingId, options]);
+  };
 
-  // Set up polling
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | undefined;
-
-    if (pendingImageIds.length > 0 && !processingId) {
-      setIsPolling(true);
-      timerId = setInterval(checkPendingImages, checkInterval);
-    } else if (pendingImageIds.length === 0) {
-      setIsPolling(false);
-      if (timerId) clearInterval(timerId);
-    }
-
-    return () => {
-      if (timerId) clearInterval(timerId);
-    };
-  }, [pendingImageIds, processingId, checkPendingImages, checkInterval]);
-
-  // Add an image to the queue
-  const addToQueue = useCallback((imageId: string) => {
-    setPendingImageIds(prev => [...prev, imageId]);
-  }, []);
-
-  // Clear all pending images
-  const clearQueue = useCallback(() => {
-    setPendingImageIds([]);
-  }, []);
-
-  // Check a specific image status
-  const checkImageStatus = useCallback(async (imageId: string): Promise<GeneratedImage | null> => {
+  // Check the status of an image in the queue
+  const checkStatus = async (imageId: string): Promise<GenerationResult> => {
     try {
+      // Get the current status from the database
       const { data, error } = await supabase
         .from('product_shot_history')
         .select('*')
         .eq('id', imageId)
         .single();
-
+        
       if (error) {
         console.error("Error checking image status:", error);
-        return null;
-      }
-
-      if (data) {
-        // Convert database status to GenerationStatus
-        let status: GenerationStatus;
-        if (data.status === 'in_queue') {
-          status = 'processing'; // Map in_queue to processing
-        } else if (data.status === 'completed' || data.status === 'failed') {
-          status = data.status as 'completed' | 'failed';
-        } else {
-          status = 'pending';
-        }
-
-        // Convert to GeneratedImage format
         return {
-          id: data.id,
-          prompt: data.scene_description || '',
-          status,
-          createdAt: data.created_at,
-          resultUrl: data.result_url,
-          inputUrl: data.source_image_url,
-          url: data.result_url,
-          source_image_url: data.source_image_url,
-          settings: typeof data.settings === 'string' 
-            ? JSON.parse(data.settings) 
-            : (data.settings as Record<string, any>)
+          id: imageId,
+          status: "failed",
+          error: error.message
         };
       }
-      return null;
+      
+      // Update the local state with the latest status
+      const status = data.visibility === 'public' ? "completed" : "processing";
+      
+      const result: GenerationResult = {
+        id: imageId,
+        status: status,
+        resultUrl: data.result_url || undefined
+      };
+      
+      setResults(prev => ({
+        ...prev,
+        [imageId]: result
+      }));
+      
+      // If the image is complete, remove it from the active queue
+      if (status === "completed") {
+        setActiveQueue(prev => {
+          const newQueue = { ...prev };
+          delete newQueue[imageId];
+          return newQueue;
+        });
+      }
+      
+      return result;
     } catch (error) {
-      console.error('Error checking image status:', error);
-      return null;
+      console.error("Error in checkStatus:", error);
+      return {
+        id: imageId,
+        status: "failed",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
-  }, []);
+  };
+
+  // Check all active images in the queue
+  const checkAllActive = async (): Promise<void> => {
+    const activeIds = Object.keys(activeQueue);
+    if (activeIds.length === 0) return;
+    
+    for (const id of activeIds) {
+      await checkStatus(id);
+    }
+  };
+
+  // Effect to poll for status updates
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      if (Object.keys(activeQueue).length > 0) {
+        checkAllActive();
+      }
+    }, 3000);
+    
+    return () => clearInterval(pollInterval);
+  }, [activeQueue]);
 
   return {
-    pendingImageIds,
-    isPolling,
     addToQueue,
-    clearQueue,
-    checkInterval,
-    setCheckInterval,
-    checkImageStatus,
-    checkPendingImages
+    checkStatus,
+    activeQueue,
+    results,
+    isLoading
   };
 }

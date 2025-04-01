@@ -18,14 +18,14 @@ export const executeCommand = async (
     const result = await executeTool(commandName, parameters, context);
     
     return {
-      state: result.state as CommandExecutionState,
+      state: result.state,
       message: result.message,
       data: result.data
     };
   } catch (error) {
     console.error(`Error executing command ${commandName}:`, error);
     return {
-      state: CommandExecutionState.FAILED,
+      state: CommandExecutionState.ERROR,
       message: error instanceof Error ? error.message : `Unknown error executing ${commandName}`
     };
   }

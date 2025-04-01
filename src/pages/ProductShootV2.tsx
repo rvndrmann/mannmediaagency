@@ -1,88 +1,118 @@
 
-import { ProductShootLayout } from "@/components/product-shoot-v2/ProductShootLayout";
-import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
-import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
-import { HistoryPanel } from "@/components/product-shoot-v2/HistoryPanel";
+import React, { useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import InputPanel from "@/components/product-shot/InputPanel";
+import GalleryPanel from "@/components/product-shot/GalleryPanel";
 import { useProductShoot } from "@/hooks/use-product-shoot";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
-import { ProductShotFormData } from "@/types/product-shoot";
+import { PageLayout } from "@/components/layout/PageLayout";
 
 export default function ProductShootV2() {
-  const { 
-    isGenerating, 
-    generatedImages, 
-    generateProductShot,
-    checkImageStatus,
+  const {
+    settings,
+    setSettings,
+    isGenerating,
+    generatedImages,
+    savedImages,
+    defaultImages,
+    uploadImage,
+    saveImage,
+    setAsDefault,
+    fetchSavedImages,
+    fetchDefaultImages
   } = useProductShoot();
 
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
+  // Fetch saved images and defaults on load
+  useEffect(() => {
+    fetchSavedImages();
+    fetchDefaultImages();
+  }, [fetchSavedImages, fetchDefaultImages]);
 
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Create an isSubmitting state that mirrors isGenerating for consistency with form requirements
-  const isSubmitting = isGenerating;
-
-  // Create handleGenerate wrapper to match expected form interface
-  const handleGenerate = async (formData: ProductShotFormData) => {
+  const handleGenerate = async () => {
     try {
-      if (formData.sourceFile) {
-        // Using file upload mode
-        await generateProductShot(formData.prompt || "", formData);
-      } else if (formData.sourceImageUrl) {
-        // Using URL mode
-        await generateProductShot(formData.prompt || "", formData);
+      if (settings.sourceImageUrl) {
+        await generateProductShot();
+      } else {
+        console.error("No source image URL");
       }
     } catch (error) {
       console.error("Error generating product shot:", error);
     }
   };
 
-  // Create handle retry function for checking image status
-  const handleRetryImageCheck = async (imageId: string) => {
-    await checkImageStatus(imageId);
-  };
-
   return (
-    <ProductShootLayout>
-      <h1 className="text-2xl font-bold mb-6 text-white">Product Shot V2</h1>
-      
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="w-full lg:w-[400px] shrink-0">
-          <ProductShotForm 
-            onSubmit={handleGenerate}
-            isGenerating={isGenerating}
-            isSubmitting={isSubmitting}
-            availableCredits={userCredits?.credits_remaining || 0}
-            messages={[]} // Add empty array as default messages
-          />
-        </div>
+    <PageLayout>
+      <div className="flex flex-col w-full">
+        <h1 className="text-2xl font-bold mb-4">Product Shot Studio V2</h1>
 
-        <div className="flex-1 space-y-6">
-          <GeneratedImagesPanel 
-            images={generatedImages as any}
-            isGenerating={isGenerating}
-            onRetry={handleRetryImageCheck}
-          />
-
-          <div className="bg-gray-900 rounded-lg border border-gray-800">
-            <div className="p-4 border-b border-gray-800">
-              <h2 className="text-lg font-semibold text-white">Generation History</h2>
-            </div>
-            <HistoryPanel />
-          </div>
-        </div>
+        <Tabs defaultValue="input" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="input">Input & Settings</TabsTrigger>
+            <TabsTrigger value="gallery">Gallery</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="input" className="mt-4">
+            <InputPanel 
+              prompt={settings.prompt}
+              onPromptChange={(prompt) => setSettings({...settings, prompt})}
+              sourceImageUrl={settings.sourceImageUrl}
+              onImageUpload={async (file) => {
+                const url = await uploadImage(file);
+                if (url) setSettings({...settings, sourceImageUrl: url});
+              }}
+              onImageSelect={(url) => setSettings({...settings, sourceImageUrl: url})}
+              defaultImages={defaultImages}
+              stylePreset={settings.stylePreset}
+              onStylePresetChange={(stylePreset) => setSettings({...settings, stylePreset})}
+              placement={settings.placement}
+              onPlacementChange={(placement) => setSettings({...settings, placement})}
+              background={settings.background}
+              onBackgroundChange={(background) => setSettings({...settings, background})}
+              isGenerating={isGenerating}
+              onGenerate={handleGenerate}
+            />
+          </TabsContent>
+          
+          <TabsContent value="gallery" className="mt-4">
+            <GalleryPanel 
+              generatedImages={generatedImages}
+              savedImages={savedImages}
+              defaultImages={defaultImages}
+              onSaveImage={saveImage}
+              onSetAsDefault={setAsDefault}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
-    </ProductShootLayout>
+    </PageLayout>
   );
+
+  // Helper function to handle the generation
+  async function generateProductShot() {
+    if (!settings.sourceImageUrl) {
+      console.error("No source image URL");
+      return;
+    }
+    
+    if (!settings.prompt) {
+      console.error("No prompt provided");
+      return;
+    }
+    
+    try {
+      // Access the generateProductShot method from useProductShoot hook
+      await useProductShoot().generateProductShot(settings.sourceImageUrl);
+    } catch (error) {
+      console.error("Error generating product shot:", error);
+    }
+  }
+
+  // Helper function to check image status
+  async function checkImageStatus(imageId: string) {
+    try {
+      // Access the checkImageStatus method from useProductShoot hook
+      await useProductShoot().checkImageStatus(imageId);
+    } catch (error) {
+      console.error("Error checking image status:", error);
+    }
+  }
 }

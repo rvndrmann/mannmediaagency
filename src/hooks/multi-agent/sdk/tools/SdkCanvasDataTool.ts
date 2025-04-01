@@ -132,7 +132,7 @@ export const sdkCanvasDataTool: ToolDefinition = {
       return {
         success: false,
         message: `Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        state: CommandExecutionState.FAILED
+        state: CommandExecutionState.ERROR
       };
     }
   }

@@ -21,7 +21,7 @@ export interface RunnerContext {
   metadata?: Record<string, any>;
   groupId?: string;
   runId?: string;
-  userId?: string; // Add userId to fix errors
+  userId?: string;
   addMessage?: (message: string, type: string) => void;
 }
 
@@ -37,7 +37,7 @@ export interface AgentOptions {
 
 export interface AgentResult {
   response: string;
-  output: string; // Add the required 'output' property
+  output: string; // Required output property
   nextAgent: AgentType | null;
   handoffReason?: string | null;
   structured_output?: any;
@@ -56,14 +56,14 @@ export enum CommandExecutionState {
   COMPLETED = "completed",
   FAILED = "failed",
   CANCELLED = "cancelled",
-  ERROR = "error" // Add ERROR state to fix missing ERROR property
+  ERROR = "error" // Add ERROR state
 }
 
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
   data?: any;
-  state: CommandExecutionState | string; // Make state more flexible
+  state: CommandExecutionState; // Make state more flexible
   error?: Error | string; // Allow string errors
 }
 
@@ -101,14 +101,14 @@ export interface SDKTool {
   function: (params: any) => Promise<any>;
 }
 
-// Add BaseAgent interface to fix imports
+// BaseAgent interface
 export interface BaseAgent {
   run(input: string, context: RunnerContext): Promise<AgentResult>;
   getType(): AgentType;
   process(input: string, context: RunnerContext): Promise<AgentResult>;
 }
 
-// Add RunnerCallbacks interface needed by SDKAgentRunner
+// RunnerCallbacks interface
 export interface RunnerCallbacks {
   onHandoff?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
   onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;

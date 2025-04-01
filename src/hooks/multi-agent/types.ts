@@ -7,6 +7,7 @@ export enum CommandExecutionState {
   RUNNING = "running",
   COMPLETED = "completed",
   FAILED = "failed",
+  CANCELLED = "cancelled",
   ERROR = "error" // Add ERROR state
 }
 
@@ -22,7 +23,7 @@ export interface ToolContext {
   usePerformanceModel?: boolean;
   enableDirectToolExecution?: boolean;
   addMessage?: (message: string, type: string) => void;
-  toolAvailable: boolean; // Required property to ensure the tool is available
+  toolAvailable?: boolean; 
   history?: any[];
   tracingEnabled?: boolean;
   // Add any other context-specific properties tools might need
@@ -50,8 +51,8 @@ export interface ToolDefinition {
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
-  state?: CommandExecutionState; // Add state property
-  error?: string;
+  state: CommandExecutionState; // Use string instead of enum for flexibility
+  error?: Error | string;
   data?: any;
   usage?: {
     creditsUsed?: number;

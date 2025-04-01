@@ -1,4 +1,3 @@
-
 import { Attachment } from "@/types/message";
 import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
@@ -345,6 +344,7 @@ CREATE AND PROVIDE THE ACTUAL COMPLETE SCRIPT in your response.
       
       return {
         response: data?.completion || "I processed your request but couldn't generate a script response.",
+        output: data?.completion || "I processed your request but couldn't generate a script response.",
         nextAgent: nextAgent,
         handoffReason: handoffReasonResponse,
         structured_output: data?.structured_output || {

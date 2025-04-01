@@ -1,106 +1,91 @@
+import { AgentType, AgentOptions, RunnerContext, AgentResult } from "../types";
+import { MainAgent } from "./agents/MainAgent";
+import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
+import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
+import { ToolAgent } from "./agents/ToolAgent";
+import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
+import { DataAgent } from "./agents/DataAgent";
 
-import { AgentType, RunnerContext, AgentResult, AgentOptions, BaseAgent } from "./types";
+export class AgentRegistry {
+  private static agents: Record<AgentType, any> = {
+    "main": MainAgent,
+    "script": ScriptWriterAgent,
+    "image": ImageGeneratorAgent,
+    "tool": ToolAgent,
+    "scene": SceneCreatorAgent,
+    "data": DataAgent
+  };
 
-// Define a simplified base agent interface that matches what AgentRegistry needs
-class AssistantAgent implements BaseAgent {
-  constructor(options: AgentOptions) {}
-  async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Assistant response", output: "Assistant response", nextAgent: null };
+  static registerAgent(agentType: AgentType, agentClass: any) {
+    AgentRegistry.agents[agentType] = agentClass;
   }
-  getType(): AgentType { return "main"; }
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Assistant response", output: "Assistant response", nextAgent: null };
-  }
-}
 
-class ScriptWriterAgent implements BaseAgent {
-  constructor(options: AgentOptions) {}
-  async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Script writer response", output: "Script writer response", nextAgent: null };
-  }
-  getType(): AgentType { return "script"; }
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Script writer response", output: "Script writer response", nextAgent: null };
-  }
-}
-
-class ImageGeneratorAgent implements BaseAgent {
-  constructor(options: AgentOptions) {}
-  async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Image generator response", output: "Image generator response", nextAgent: null };
-  }
-  getType(): AgentType { return "image"; }
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Image generator response", output: "Image generator response", nextAgent: null };
-  }
-}
-
-class SceneGeneratorAgent implements BaseAgent {
-  constructor(options: AgentOptions) {}
-  async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Scene generator response", output: "Scene generator response", nextAgent: null };
-  }
-  getType(): AgentType { return "scene-generator"; }
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Scene generator response", output: "Scene generator response", nextAgent: null };
-  }
-}
-
-class ToolAgent implements BaseAgent {
-  constructor(options: AgentOptions) {}
-  async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Tool agent response", output: "Tool agent response", nextAgent: null };
-  }
-  getType(): AgentType { return "tool"; }
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Tool agent response", output: "Tool agent response", nextAgent: null };
-  }
-}
-
-class DataAgent implements BaseAgent {
-  constructor(options: AgentOptions) {}
-  async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Data agent response", output: "Data agent response", nextAgent: null };
-  }
-  getType(): AgentType { return "data"; }
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Data agent response", output: "Data agent response", nextAgent: null };
-  }
-}
-
-class AgentRegistryImpl {
-  private static instance: AgentRegistryImpl;
-  private agentClasses: Map<string, new (options: AgentOptions) => BaseAgent> = new Map();
-  
-  private constructor() {
-    // Register default agent classes
-    this.registerAgentClass('main', AssistantAgent);
-    this.registerAgentClass('script', ScriptWriterAgent);
-    this.registerAgentClass('image', ImageGeneratorAgent);
-    this.registerAgentClass('scene', SceneGeneratorAgent);
-    this.registerAgentClass('tool', ToolAgent);
-    this.registerAgentClass('data', DataAgent);
-  }
-  
-  public static getInstance(): AgentRegistryImpl {
-    if (!AgentRegistryImpl.instance) {
-      AgentRegistryImpl.instance = new AgentRegistryImpl();
+  static createAgent(agentType: AgentType, options: AgentOptions): any {
+    const AgentClass = AgentRegistry.agents[agentType];
+    if (!AgentClass) {
+      console.error(`Agent type ${agentType} not found in registry`);
+      return {
+        response: "Agent not found",
+        output: "Agent not found",
+        nextAgent: null
+      };
     }
-    return AgentRegistryImpl.instance;
+    return new AgentClass(options);
   }
-  
-  public registerAgentClass(agentType: string, AgentClass: new (options: AgentOptions) => BaseAgent): void {
-    this.agentClasses.set(agentType, AgentClass);
+
+  static async runAgent(agentType: AgentType, input: string, context: RunnerContext): Promise<AgentResult> {
+    try {
+      const agent = AgentRegistry.createAgent(agentType, {
+        name: `${agentType} Agent`,
+        instructions: `You are a helpful AI ${agentType} agent.`,
+        context: context
+      });
+
+      if (!agent || typeof agent.run !== 'function') {
+        console.error(`Invalid agent or missing run method for type: ${agentType}`);
+        return {
+          response: "Agent not found for type: " + agentType,
+          output: "Agent not found for type: " + agentType,
+          nextAgent: null
+        };
+      }
+
+      return await agent.run(input, context);
+    } catch (error) {
+      console.error(`Error running agent of type ${agentType}:`, error);
+      return {
+        response: "Agent not found for type: " + agentType,
+        output: "Agent not found for type: " + agentType,
+        nextAgent: null
+      };
+    }
   }
-  
-  public getAgentClass(agentType: string): (new (options: AgentOptions) => BaseAgent) | undefined {
-    return this.agentClasses.get(agentType);
+
+  static getAgentClass(agentType: AgentType): any | null {
+    if (!AgentRegistry.agents[agentType]) {
+      console.warn(`No agent class registered for type: ${agentType}`);
+      return {
+        response: "Agent not found for type: " + agentType,
+        output: "Agent not found for type: " + agentType,
+        nextAgent: null
+      };
+    }
+    return AgentRegistry.agents[agentType];
   }
-  
-  public getAllAgentTypes(): string[] {
-    return Array.from(this.agentClasses.keys());
+
+  static getAgentTypes(): AgentType[] {
+    return Object.keys(AgentRegistry.agents) as AgentType[];
+  }
+
+  static hasAgentType(agentType: AgentType): boolean {
+    if (!AgentRegistry.agents[agentType]) {
+      console.warn(`No agent class registered for type: ${agentType}`);
+      return {
+        response: "Agent not found for type: " + agentType,
+        output: "Agent not found for type: " + agentType,
+        nextAgent: null
+      };
+    }
+    return !!AgentRegistry.agents[agentType];
   }
 }
-
-// Expose a singleton instance
-export const AgentRegistry = AgentRegistryImpl.getInstance();

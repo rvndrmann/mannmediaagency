@@ -19,7 +19,7 @@ export class MainAgent extends BaseAgentImpl {
 
   async process(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      this.recordTraceEvent("main_agent_run", `Processing input: ${input.substring(0, 50)}...`);
+      this.recordTraceEvent("main_agent_run", { message: `Processing input: ${input.substring(0, 50)}...` });
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -33,9 +33,7 @@ export class MainAgent extends BaseAgentImpl {
       // Get conversation history from context if available
       const conversationHistory = this.context.metadata?.conversationHistory || [];
       
-      this.recordTraceEvent("main_agent_invoke", 
-        `Invoking Main Agent with ${conversationHistory.length} historical messages`
-      );
+      this.recordTraceEvent("main_agent_invoke", { message: `Invoking Main Agent with ${conversationHistory.length} historical messages` });
       
       // Handle attachments if they exist in metadata
       const attachments = this.context.metadata?.attachments || [];
@@ -69,9 +67,7 @@ export class MainAgent extends BaseAgentImpl {
         throw new Error(`Main agent error: ${error.message}`);
       }
       
-      this.recordTraceEvent("main_agent_response", 
-        `Received response: ${data?.completion?.substring(0, 50)}...`
-      );
+      this.recordTraceEvent("main_agent_response", { message: `Received response: ${data?.completion?.substring(0, 50)}...` });
       
       // Extract handoff information if present
       let nextAgent: AgentType | null = null;
@@ -79,9 +75,7 @@ export class MainAgent extends BaseAgentImpl {
       let additionalContext = null;
       
       if (data?.handoffRequest) {
-        this.recordTraceEvent("main_agent_handoff", 
-          `Handoff requested to ${data.handoffRequest.targetAgent}`
-        );
+        this.recordTraceEvent("main_agent_handoff", { message: `Handoff requested to ${data.handoffRequest.targetAgent}` });
         
         nextAgent = data.handoffRequest.targetAgent as AgentType;
         handoffReason = data.handoffRequest.reason;
@@ -90,14 +84,14 @@ export class MainAgent extends BaseAgentImpl {
       
       return {
         response: data?.completion || "I processed your request but couldn't generate a response.",
+        output: data?.completion || "I processed your request but couldn't generate a response.",
         nextAgent,
         handoffReason,
         structured_output: data?.structured_output,
-        additionalContext,
-        output: data?.completion || "I processed your request but couldn't generate a response."
+        additionalContext
       };
     } catch (error) {
-      this.recordTraceEvent("main_agent_error", `Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.recordTraceEvent("main_agent_error", { message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` });
       console.error("MainAgent run error:", error);
       throw error;
     }

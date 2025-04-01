@@ -1,94 +1,122 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { GeneratedImage } from "@/types/product-shoot";
+import { supabase } from '@/integrations/supabase/client';
+import { GeneratedImage } from '@/types/product-shoot';
 
-/**
- * Service to handle product shot history
- */
-export class ProductShotHistoryService {
-  /**
-   * Fetch product shot history for a user
-   */
-  static async fetchHistory(limit: number = 20): Promise<GeneratedImage[]> {
+class ProductShotHistoryService {
+  // Fetch history from the database
+  async fetchHistory(): Promise<GeneratedImage[]> {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      if (!userData.user) {
-        throw new Error("User not authenticated");
-      }
-      
       const { data, error } = await supabase
         .from('product_shot_history')
         .select('*')
-        .eq('user_id', userData.user.id)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-      
+        .eq('visibility', 'public')
+        .order('created_at', { ascending: false });
+        
       if (error) {
-        console.error("Error fetching product shot history:", error);
         throw error;
       }
       
-      return data.map(item => ({
+      // Convert to GeneratedImage type
+      return (data || []).map(item => ({
         id: item.id,
-        prompt: item.scene_description || "",
-        status: "completed",
+        prompt: item.prompt,
+        status: 'completed', // All items from this query are completed
         createdAt: item.created_at,
         resultUrl: item.result_url,
         inputUrl: item.source_image_url,
         url: item.result_url,
         source_image_url: item.source_image_url,
-        // Type coercion to ensure compatibility with GeneratedImage type
-        settings: (typeof item.settings === 'string' ? JSON.parse(item.settings) : item.settings) as Record<string, any>
+        content_type: 'image/jpeg', // Default content type
+        settings: item.settings || {}
       }));
     } catch (error) {
-      console.error("Error in ProductShotHistoryService.fetchHistory:", error);
+      console.error('Error fetching product shot history:', error);
       return [];
     }
   }
-  
-  /**
-   * Save a generated image to history
-   */
-  static async saveToHistory(imageData: Partial<GeneratedImage>): Promise<{ success: boolean, id?: string }> {
+
+  // Save an image to history
+  async saveImage(imageId: string): Promise<boolean> {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      if (!userData.user) {
-        throw new Error("User not authenticated");
-      }
-      
-      const { data, error } = await supabase
+      // Update visibility to make it public
+      const { error } = await supabase
         .from('product_shot_history')
-        .insert([
-          {
-            user_id: userData.user.id,
-            scene_description: imageData.prompt,
-            result_url: imageData.resultUrl,
-            source_image_url: imageData.inputUrl || imageData.source_image_url,
-            settings: imageData.settings || {},
-            visibility: 'private',
-            content_type: imageData.content_type || 'image/jpeg'
-          }
-        ])
-        .select()
-        .single();
-      
+        .update({ visibility: 'public' })
+        .eq('id', imageId);
+        
       if (error) {
-        console.error("Error saving to product shot history:", error);
         throw error;
       }
       
-      return {
-        success: true,
-        id: data.id
-      };
+      return true;
     } catch (error) {
-      console.error("Error in ProductShotHistoryService.saveToHistory:", error);
-      return { success: false };
+      console.error('Error saving image to history:', error);
+      return false;
+    }
+  }
+
+  // Set an image as default
+  async setAsDefault(imageId: string): Promise<boolean> {
+    try {
+      // Get the image data
+      const { data, error } = await supabase
+        .from('product_shot_history')
+        .select('*')
+        .eq('id', imageId)
+        .single();
+        
+      if (error || !data) {
+        throw error || new Error('Image not found');
+      }
+      
+      // Insert into default_product_images
+      const { error: insertError } = await supabase
+        .from('default_product_images')
+        .insert({
+          url: data.result_url,
+          name: `Product ${new Date().toLocaleDateString()}`,
+          context: 'product'
+        });
+        
+      if (insertError) {
+        throw insertError;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error setting image as default:', error);
+      return false;
+    }
+  }
+
+  // Fetch default images
+  async fetchDefaultImages(): Promise<GeneratedImage[]> {
+    try {
+      const { data, error } = await supabase
+        .from('default_product_images')
+        .select('*')
+        .eq('context', 'product')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Convert to GeneratedImage type
+      return (data || []).map(item => ({
+        id: item.id,
+        prompt: 'Default Product Image',
+        status: 'completed',
+        createdAt: item.created_at,
+        url: item.url,
+        resultUrl: item.url,
+        settings: {}
+      }));
+    } catch (error) {
+      console.error('Error fetching default product images:', error);
+      return [];
     }
   }
 }
 
-// Export as a named export for compatibility
-export const historyService = ProductShotHistoryService;
+export const historyService = new ProductShotHistoryService();

@@ -19,7 +19,7 @@ export const executeCommand = async (
     
     // Return the result in the expected format
     return {
-      state: result.state as CommandExecutionState,
+      state: result.state,
       message: result.message,
       data: result.data
     };

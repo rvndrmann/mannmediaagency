@@ -1,4 +1,3 @@
-
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@/integrations/supabase/types";
 import { Attachment } from "@/types/message";
@@ -51,12 +50,13 @@ export interface AgentResult {
 }
 
 export enum CommandExecutionState {
-  PENDING = "pending",
-  RUNNING = "running",
   COMPLETED = "completed",
   FAILED = "failed",
-  CANCELLED = "cancelled",
-  ERROR = "error" // Add ERROR state
+  PROCESSING = "processing",
+  ERROR = "error",
+  PENDING = "pending",
+  RUNNING = "running",
+  CANCELLED = "cancelled"
 }
 
 export interface ToolExecutionResult {

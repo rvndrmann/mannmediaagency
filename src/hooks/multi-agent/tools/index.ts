@@ -1,37 +1,48 @@
 
-import { adaptToolDefinition } from "../tools";
-import { canvasTool } from "./canvas-tool";
-import { canvasContentTool } from "./canvas-content-tool";
-import { dataTool } from "./tool-registry";
-import { browserUseTool } from "./tool-registry";
-import { productShotV2Tool } from "./product-shot-v2-tool";
-import { imageToVideoTool } from "./image-to-video-tool";
+import { ToolContext, ToolExecutionResult, CommandExecutionState, ToolDefinition } from './types';
+import { availableTools, getAvailableTools } from './tool-registry';
 
-/**
- * Initialize and register all tools
- */
-export function initializeToolSystem() {
-  // Register all available tools
-  const availableTools = [
-    canvasTool,
-    canvasContentTool,
-    dataTool,
-    browserUseTool,
-    productShotV2Tool,
-    imageToVideoTool
-  ];
-  
-  console.info(`Tool system initialized with ${availableTools.length} tools`);
-  
-  return availableTools;
-}
+// Execute a tool by name with parameters
+export const executeTool = async (
+  toolName: string,
+  parameters: Record<string, any>,
+  context: ToolContext
+): Promise<ToolExecutionResult> => {
+  try {
+    // Get all available tools
+    const tools = getAvailableTools();
+    
+    // Find the requested tool
+    const tool = tools.find(t => t.name === toolName);
+    
+    if (!tool) {
+      return {
+        success: false,
+        message: `Tool with name "${toolName}" not found`,
+        error: `Tool "${toolName}" not found`,
+        state: CommandExecutionState.FAILED
+      };
+    }
+    
+    // Execute the tool
+    return await tool.execute(parameters, context);
+  } catch (error) {
+    console.error(`Error executing tool ${toolName}:`, error);
+    
+    return {
+      success: false,
+      message: `Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error: error instanceof Error ? error.message : String(error),
+      state: CommandExecutionState.FAILED
+    };
+  }
+};
 
-// Export all tools for direct access
-export {
-  canvasTool,
-  canvasContentTool,
-  dataTool,
-  browserUseTool,
-  productShotV2Tool,
-  imageToVideoTool
+// Initialize tools system (if needed)
+export const initializeTools = () => {
+  console.log('Tool system initialized with', availableTools.length, 'tools');
+  return {
+    availableTools,
+    executeTool
+  };
 };

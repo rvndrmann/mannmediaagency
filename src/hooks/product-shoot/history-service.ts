@@ -61,7 +61,7 @@ export class ProductImageHistoryService {
         resultUrl: data.result_url,
         inputUrl: data.source_image_url,
         settings: data.settings,
-        visibility: "private",
+        visibility: data.visibility as "public" | "private",
         url: data.result_url, // Alias
         source_image_url: data.source_image_url // Alias
       };

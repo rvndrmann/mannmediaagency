@@ -1,11 +1,10 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { useProductShootApi } from './product-shoot/use-product-shoot-api';
 import { useGenerationQueue } from './product-shoot/use-generation-queue';
-import { ProductShootHistoryService } from './product-shoot/history-service';
+import { productImageHistoryService, ProductImageHistoryService } from './product-shoot/history-service';
 import { GeneratedImage, ProductShootSettings } from '@/types/product-shoot';
 
 // Default settings
@@ -34,7 +33,7 @@ export function useProductShoot() {
   const { submitGenerationJob, checkJobStatus } = productShootApi;
   
   const generationQueue = useGenerationQueue();
-  const historyService = new ProductShootHistoryService();
+  const historyService = new ProductImageHistoryService();
   
   // Set the check status function for the queue
   useEffect(() => {

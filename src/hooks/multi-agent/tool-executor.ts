@@ -1,9 +1,9 @@
 
 import { Command } from "@/types/message";
 import { CommandExecutionState } from "./runner/types";
-import { ToolContext } from "./types";
+import { ToolContext } from "./tools/types";
 import { toast } from "sonner";
-import { executeTool } from "./tools"; 
+import { executeTool } from "./tools/index"; 
 
 export const executeCommand = async (
   commandData: Command,

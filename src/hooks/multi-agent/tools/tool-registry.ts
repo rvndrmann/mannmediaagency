@@ -52,7 +52,7 @@ export const browserUseTool: ToolDefinition = {
   }
 };
 
-// Register all available tools - using same type as the file they're defined in
+// Register all available tools
 export const availableTools: ToolDefinition[] = [
   dataTool,
   canvasTool,

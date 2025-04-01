@@ -14,7 +14,7 @@ interface ProjectSelectorProps {
   onProjectSelect: (projectId: string) => void;
   selectedProjectId?: string | null;
   autoSelectFirst?: boolean;
-  allowCreateNew?: boolean; // Add this property
+  allowCreateNew?: boolean;
 }
 
 export function ProjectSelector({ 
@@ -45,11 +45,23 @@ export function ProjectSelector({
   };
 
   if (isLoading) {
-    return <SelectTrigger className="w-full h-10"><SelectValue placeholder="Loading projects..." /></SelectTrigger>;
+    return (
+      <Select disabled>
+        <SelectTrigger className="w-full h-10">
+          <SelectValue placeholder="Loading projects..." />
+        </SelectTrigger>
+      </Select>
+    );
   }
 
   if (projects.length === 0) {
-    return <SelectTrigger className="w-full h-10"><SelectValue placeholder="No projects available" /></SelectTrigger>;
+    return (
+      <Select disabled>
+        <SelectTrigger className="w-full h-10">
+          <SelectValue placeholder="No projects available" />
+        </SelectTrigger>
+      </Select>
+    );
   }
 
   return (

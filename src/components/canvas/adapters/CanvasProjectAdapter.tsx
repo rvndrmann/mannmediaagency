@@ -83,7 +83,6 @@ export const CanvasHeaderAdapter: React.FC<CanvasHeaderAdapterProps> = ({
 }) => {
   return (
     <CanvasHeader 
-      title={project?.title || "Canvas"}
       onUpdateTitle={(title) => project?.id && updateProject(project.id, { title })}
       onToggleScriptPanel={onToggleScriptPanel}
       onToggleDetailPanel={onToggleDetailPanel}
@@ -167,7 +166,7 @@ export const CanvasDetailPanelAdapter: React.FC<CanvasDetailPanelAdapterProps> =
     <CanvasDetailPanel
       scene={scene}
       projectId={projectId}
-      onUpdateScene={updateScene}
+      updateScene={updateScene}
       collapsed={collapsed}
       setCollapsed={setCollapsed}
     />

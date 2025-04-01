@@ -1,161 +1,112 @@
 
+import React from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Bot, User } from "lucide-react";
 import { Message } from "@/types/message";
-import { Avatar } from "@/components/ui/avatar";
-import { Markdown } from "@/components/ui/markdown";
-import { MessageStatus } from "@/components/chat/MessageStatus";
-import { cn } from "@/lib/utils";
-import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
-import { getAgentIcon } from "@/lib/agent-icons";
-import { CanvasContentDisplay } from "./CanvasContentDisplay";
-import { Button } from "../ui/button";
-import { Edit, Pencil } from "lucide-react";
-import { useState } from "react";
+import { formatDistanceToNow } from 'date-fns';
 
-const agentFullNames = {
-  main: "Main Assistant",
-  script: "Script Writer",
-  image: "Image Generator",
-  tool: "Tool Assistant",
-  scene: "Scene Creator",
-  data: "Data Agent"
-};
-
-interface ChatMessageProps {
+export interface ChatMessageProps {
   message: Message;
-  showAgentName?: boolean;
-  showAvatar?: boolean; // Added this prop
-  agentName?: string; // Added this prop
-  onEditContent?: (type: string, content: string, sceneId: string) => void;
+  showAgentLabel?: boolean;
+  onEditContent?: (type: string, content: string, messageId: string) => void;
+  compact?: boolean; // Added compact prop
 }
 
 export function ChatMessage({ 
   message, 
-  showAgentName = true,
-  showAvatar = true, // Default to true
-  agentName,
-  onEditContent 
+  showAgentLabel = false, 
+  onEditContent,
+  compact = false // Default value for compact
 }: ChatMessageProps) {
-  const [showCanvasContent, setShowCanvasContent] = useState(true);
   
-  const hasCanvasContent = 
-    message.role === "assistant" && 
-    message.canvasContent;
+  const isUser = message.role === 'user';
+  const isSystem = message.role === 'system';
+  
+  // Format time display
+  const getTimeDisplay = () => {
+    try {
+      if (message.createdAt) {
+        return formatDistanceToNow(new Date(message.createdAt), { addSuffix: true });
+      }
+      return '';
+    } catch (err) {
+      return '';
+    }
+  };
+  
+  // Get agent name from type
+  const getAgentLabel = () => {
+    if (!message.agentType) return 'Assistant';
+    
+    switch (message.agentType) {
+      case 'main': return 'Assistant';
+      case 'script': return 'Script Writer';
+      case 'image': return 'Image Generator';
+      case 'tool': return 'Tool Specialist';
+      case 'scene': return 'Scene Creator';
+      default: return message.agentType.charAt(0).toUpperCase() + message.agentType.slice(1);
+    }
+  };
+  
+  const handleEditContent = (type: string) => {
+    if (onEditContent && message.content && message.id) {
+      onEditContent(type, message.content, message.id);
+    }
+  };
   
   return (
-    <div
-      className={cn(
-        "flex gap-3 group",
-        message.role === "user" ? "flex-row-reverse" : "flex-row"
-      )}
-    >
-      {showAvatar && (
-        <Avatar className={cn(
-          "rounded-md overflow-hidden mt-1 w-8 h-8 border",
-          message.role === "user" ? "bg-primary" : "bg-secondary",
-          message.agentType === "tool" && "bg-emerald-500",
-          message.agentType === "script" && "bg-blue-500",
-          message.agentType === "image" && "bg-purple-500",
-          message.agentType === "scene" && "bg-amber-500",
-          message.type === "system" && "bg-gray-500",
-          message.type === "error" && "bg-red-500"
-        )}>
-          {message.role === "user" ? (
-            <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-              U
-            </div>
-          ) : message.type === "system" ? (
-            <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-              S
-            </div>
-          ) : message.type === "error" ? (
-            <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-              !
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              {getAgentIcon(message.agentType || "main", "w-4 h-4 text-white")}
-            </div>
-          )}
-        </Avatar>
-      )}
-      
-      <div className={cn(
-        "flex flex-col max-w-[90%] sm:max-w-[75%]",
-        message.role === "user" ? "items-end" : "items-start"
-      )}>
-        {showAgentName && message.role === "assistant" && (agentName || message.agentType) && (
-          <span className={cn(
-            "text-xs font-medium mb-1",
-            message.agentType === "main" && "text-slate-400",
-            message.agentType === "tool" && "text-emerald-400",
-            message.agentType === "script" && "text-blue-400",
-            message.agentType === "image" && "text-purple-400",
-            message.agentType === "scene" && "text-amber-400",
-            message.agentType === "data" && "text-amber-400"
-          )}>
-            {agentName || (message.agentType && agentFullNames[message.agentType as keyof typeof agentFullNames]) || message.agentType}
-          </span>
+    <div className={`flex items-start gap-3 ${compact ? 'mb-2' : 'mb-4'}`}>
+      {/* Avatar */}
+      <Avatar className={`${compact ? 'h-8 w-8' : 'h-10 w-10'} mt-1`}>
+        {isUser ? (
+          <AvatarFallback className="bg-primary text-primary-foreground">
+            <User className="h-4 w-4" />
+          </AvatarFallback>
+        ) : (
+          <AvatarFallback className="bg-secondary text-secondary-foreground">
+            <Bot className="h-4 w-4" />
+          </AvatarFallback>
         )}
-        
-        <div className={cn(
-          "p-3 rounded-lg",
-          message.role === "user" 
-            ? "bg-primary text-primary-foreground" 
-            : message.type === "system" 
-              ? "bg-muted text-muted-foreground text-sm" 
-              : message.type === "error"
-                ? "bg-red-500/10 text-red-600 dark:text-red-400 text-sm border border-red-500/20"
-                : "bg-muted text-card-foreground"
-        )}>
-          {message.attachments && message.attachments.length > 0 && (
-            <div className="mb-3">
-              <AttachmentPreview 
-                attachments={message.attachments} 
-                isRemovable={false} 
-              />
-            </div>
-          )}
-          
-          <Markdown>{message.content}</Markdown>
-          
-          {message.status && (
-            <div className="mt-2">
-              <MessageStatus status={message.status} message={message.statusMessage} />
-            </div>
-          )}
+      </Avatar>
+      
+      {/* Message content */}
+      <div className="flex-1 space-y-1">
+        <div className="flex items-center gap-2">
+          <p className="font-medium text-sm">
+            {isUser ? 'You' : isSystem ? 'System' : (showAgentLabel ? getAgentLabel() : 'Assistant')}
+          </p>
+          <p className="text-xs text-muted-foreground">{getTimeDisplay()}</p>
         </div>
         
-        {/* Canvas Content Display */}
-        {hasCanvasContent && showCanvasContent && (
-          <div className="mt-2 max-w-full w-full">
-            <CanvasContentDisplay
-              title={message.canvasContent?.title || "Scene Content"}
-              sceneId={message.canvasContent?.sceneId || ""}
-              script={message.canvasContent?.script}
-              description={message.canvasContent?.description}
-              imagePrompt={message.canvasContent?.imagePrompt}
-              voiceOverText={message.canvasContent?.voiceOverText}
-              onEditClick={onEditContent}
-            />
-          </div>
-        )}
+        <div className="prose dark:prose-invert prose-sm max-w-none">
+          {message.content}
+        </div>
         
-        {hasCanvasContent && (
-          <div className="self-end mt-1">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setShowCanvasContent(!showCanvasContent)}
-              className="h-6 text-xs text-muted-foreground"
+        {/* If there are attachments, we would render them here */}
+        
+        {/* Edit buttons for canvas content */}
+        {onEditContent && !isUser && !isSystem && (
+          <div className="flex mt-2 gap-2">
+            <button 
+              onClick={() => handleEditContent('script')}
+              className="text-xs text-blue-500 hover:text-blue-700"
             >
-              {showCanvasContent ? "Hide Content" : "Show Canvas Content"}
-            </Button>
+              Use as Script
+            </button>
+            <button 
+              onClick={() => handleEditContent('description')}
+              className="text-xs text-green-500 hover:text-green-700"
+            >
+              Use as Description
+            </button>
+            <button 
+              onClick={() => handleEditContent('imagePrompt')}
+              className="text-xs text-purple-500 hover:text-purple-700"
+            >
+              Use as Image Prompt
+            </button>
           </div>
         )}
-        
-        <span className="text-[10px] text-muted-foreground mt-1 select-none">
-          {new Date(message.createdAt).toLocaleTimeString()}
-        </span>
       </div>
     </div>
   );

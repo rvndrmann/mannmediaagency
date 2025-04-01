@@ -34,9 +34,11 @@ export function MultiAgentChat({
 }: MultiAgentChatProps) {
   const { toast } = useToast();
   const { activeProject } = useProjectContext();
-  const { mcpConnected } = useMCPContext();
-  const [userInput, setUserInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { status } = useMCPContext(); // Updated from mcpConnected to status
+  const mcpConnected = status === 'connected'; // Derive mcpConnected from status
+  
+  const [userInput, setUserInput] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<string>("main");
   const messageEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -180,7 +182,6 @@ export function MultiAgentChat({
             <ChatMessage 
               key={message.id} 
               message={message} 
-              compact={compactMode}
               showAgentLabel={true}
             />
           ))}

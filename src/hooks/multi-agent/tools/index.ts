@@ -1,11 +1,14 @@
 
 import { CommandExecutionState, ToolContext, ToolExecutionResult } from "../types";
-import { availableTools, getToolByName } from "./tool-registry";
+import { availableTools as registeredTools, getToolByName } from "./tool-registry";
 import { canvasTool } from "./canvas-tool";
 import { canvasProjectTool } from "./default-tools/canvas-project-tool"; 
 
 // Export the tools for use in other modules
 export { canvasTool, canvasProjectTool };
+
+// Also export the tools registry
+export const availableTools = registeredTools;
 
 /**
  * Execute a tool by name with the given parameters and context
@@ -54,4 +57,9 @@ export const executeTool = async (
 // Initialize the tool system
 export const initializeTools = () => {
   console.log(`Initialized ${availableTools.length} tools`);
+};
+
+// Function to get all available tools
+export const getAvailableTools = () => {
+  return registeredTools;
 };

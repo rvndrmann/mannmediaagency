@@ -1,7 +1,7 @@
 
-import { CommandExecutionState } from "./runner/types";
+import { CommandExecutionState } from "./types";
 import { toast } from "sonner";
-import { availableTools, executeTool, getAvailableTools, initializeToolSystem } from "./tools/index";
+import { executeTool, availableTools, initializeTools, getAvailableTools } from "./tools/index";
 import { ToolContext } from "./types";
 
 export const executeCommand = async (
@@ -32,9 +32,9 @@ export const executeCommand = async (
 };
 
 // Initialize the tool system
-export const initializeTools = async () => {
+export const initializeToolSystem = async () => {
   try {
-    await initializeToolSystem();
+    initializeTools();
     console.log("Tool system initialized with", availableTools.length, "tools");
     return true;
   } catch (error) {

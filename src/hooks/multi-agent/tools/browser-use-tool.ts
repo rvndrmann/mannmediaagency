@@ -1,32 +1,12 @@
 
-import { CommandExecutionState, ToolContext, ToolExecutionResult } from '../types';
-
-export const browserUseTool = {
-  name: "browser_use",
-  description: "Run tasks in a browser automation environment",
-  parameters: {
-    type: "object",
-    properties: {
-      task: {
-        type: "string",
-        description: "The task to perform"
-      },
-      save_browser_data: {
-        type: "boolean",
-        description: "Whether to save browser data (cookies, local storage, etc.)"
-      }
-    },
-    required: ["task"]
-  },
-  execute: executeBrowserUseTool
-};
+import { CommandExecutionState, ToolContext, ToolExecutionResult, ToolDefinition } from '../types';
 
 interface BrowserUseParams {
   task: string;
   save_browser_data?: boolean;
 }
 
-export async function executeBrowserUseTool(
+async function executeBrowserUseTool(
   parameters: BrowserUseParams,
   context: ToolContext
 ): Promise<ToolExecutionResult> {
@@ -45,10 +25,7 @@ export async function executeBrowserUseTool(
       success: true,
       message: `Browser task executed successfully`,
       data: browserTaskResult,
-      state: CommandExecutionState.COMPLETED,
-      usage: {
-        creditsUsed: 1
-      }
+      state: CommandExecutionState.COMPLETED
     };
   } catch (error) {
     return {
@@ -59,3 +36,28 @@ export async function executeBrowserUseTool(
     };
   }
 }
+
+export const browserUseTool: ToolDefinition = {
+  name: "browser_use",
+  description: "Run tasks in a browser automation environment",
+  parameters: {
+    type: "object",
+    properties: {
+      task: {
+        type: "string",
+        description: "The task to perform"
+      },
+      save_browser_data: {
+        type: "boolean",
+        description: "Whether to save browser data (cookies, local storage, etc.)"
+      }
+    },
+    required: ["task"]
+  },
+  metadata: {
+    category: "automation",
+    displayName: "Browser Automation",
+    icon: "globe"
+  },
+  execute: executeBrowserUseTool
+};

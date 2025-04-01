@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { VideoProjectManager } from '../components/video/VideoProjectManager';
+import { VideoProjectHistory } from '../components/video/VideoProjectHistory';
 import { AutomatedSceneCreator } from '../components/video/AutomatedSceneCreator';
 import { VideoCompiler } from '../components/video/VideoCompiler';
 import { VideoProjectCanvas } from '../components/video/VideoProjectCanvas';
@@ -16,8 +17,10 @@ export function VideoProjectPage() {
   const { messages, input, setInput, isLoading, handleSubmit } = useAIChat();
   const [showCanvas, setShowCanvas] = useState<boolean>(false);
   const [sceneCreated, setSceneCreated] = useState<boolean>(false);
+  const [showHistory, setShowHistory] = useState<boolean>(!projectId);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [projectData, setProjectData] = useState<VideoProject | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const initialize = async () => {
@@ -74,6 +77,11 @@ export function VideoProjectPage() {
 
   // MCP tools are handled through the VideoProjectManager component
 
+  const handleSelectProject = (selectedProjectId: string) => {
+    navigate(`/video-projects/${selectedProjectId}`);
+    setShowHistory(false);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex justify-between items-center">
@@ -83,18 +91,38 @@ export function VideoProjectPage() {
             Create and manage video projects with AI-powered assistance
           </p>
         </div>
-        {projectId && (
+        <div className="flex space-x-2">
           <button
-            onClick={() => setShowCanvas(prev => !prev)}
-            className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 flex items-center gap-2"
+            onClick={() => setShowHistory(prev => !prev)}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-2"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
             </svg>
-            {showCanvas ? 'Hide Canvas View' : 'Show Canvas View'}
+            {showHistory ? 'Hide History' : 'Project History'}
           </button>
-        )}
+          {projectId && (
+            <button
+              onClick={() => setShowCanvas(prev => !prev)}
+              className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+              {showCanvas ? 'Hide Canvas View' : 'Show Canvas View'}
+            </button>
+          )}
+        </div>
       </div>
+
+      {showHistory && (
+        <div className="mb-8 bg-white rounded-lg shadow-lg overflow-hidden">
+          <VideoProjectHistory
+            mcpService={mcpService}
+            onSelectProject={handleSelectProject}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useCanvasVideoProject } from '../../hooks/use-canvas-video-project';
 import { MCPServerService } from '../../services/mcpService';
 import { AgentSDKService } from '../../services/agentSDKService';
+import { useAIChat } from '../../hooks/use-ai-chat';
 
 interface VideoProjectCanvasProps {
   mcpService: MCPServerService;
@@ -20,6 +21,7 @@ export function VideoProjectCanvas({
     loading,
     error,
     canvasVisible,
+    loadProject,
     optimizeCanvasLayout,
     resetCanvasLayout,
     toggleCanvasVisibility
@@ -34,6 +36,8 @@ export function VideoProjectCanvas({
   const [canvasPosition, setCanvasPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [showAIChat, setShowAIChat] = useState(false);
+  const { messages, input, setInput, isLoading, handleSubmit } = useAIChat();
 
   const handleNodeClick = (nodeId: string) => {
     setSelectedNode(nodeId === selectedNode ? null : nodeId);
@@ -171,6 +175,10 @@ export function VideoProjectCanvas({
     );
   };
 
+  const toggleAIChat = () => {
+    setShowAIChat(prev => !prev);
+  };
+
   if (!canvasVisible) {
     return (
       <div className="p-4">
@@ -199,8 +207,30 @@ export function VideoProjectCanvas({
   return (
     <div className="p-4 border rounded-lg shadow-lg bg-white">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Project Canvas</h3>
+        <div>
+          <h3 className="text-lg font-semibold">Project Canvas</h3>
+          <p className="text-xs text-gray-500">Last updated: {new Date().toLocaleTimeString()}</p>
+        </div>
         <div className="flex space-x-2">
+          <button
+            onClick={toggleAIChat}
+            className="p-1.5 bg-green-100 rounded hover:bg-green-200 text-green-800"
+            title="AI Assistant"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <button
+            onClick={() => loadProject()}
+            className="p-1.5 bg-blue-100 rounded hover:bg-blue-200 text-blue-800"
+            title="Refresh Canvas"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
           <button
             onClick={zoomIn}
             className="p-1.5 bg-gray-100 rounded hover:bg-gray-200"
@@ -249,49 +279,103 @@ export function VideoProjectCanvas({
         </div>
       </div>
 
-      <div className="border rounded bg-gray-50 overflow-hidden relative" style={{ height: '600px' }}>
-        {/* Canvas container */}
-        <div
-          className="absolute w-full h-full"
-          onMouseDown={handleCanvasMouseDown}
-          onMouseMove={handleCanvasMouseMove}
-          onMouseUp={handleCanvasMouseUp}
-          onMouseLeave={handleCanvasMouseUp}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
-        >
-          {/* SVG layer for edges */}
-          <svg
-            className="absolute w-full h-full"
-            style={{
-              transform: `translate(${canvasPosition.x}px, ${canvasPosition.y}px) scale(${canvasScale})`,
-              transformOrigin: 'top left'
-            }}
-          >
-            <defs>
-              <marker
-                id="arrowhead"
-                markerWidth="10"
-                markerHeight="7"
-                refX="9"
-                refY="3.5"
-                orient="auto"
-              >
-                <polygon points="0 0, 10 3.5, 0 7" fill="#9CA3AF" />
-              </marker>
-            </defs>
-            {canvasData?.edges?.map(renderEdge) || null}
-          </svg>
-
-          {/* Node layer */}
+      <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4">
+        <div className={`border rounded bg-gray-50 overflow-hidden relative ${showAIChat ? 'lg:w-3/4' : 'w-full'}`} style={{ height: '600px' }}>
+          {/* Canvas container */}
           <div
             className="absolute w-full h-full"
-            style={{
-              transform: `translate(${canvasPosition.x}px, ${canvasPosition.y}px)`,
-            }}
+            onMouseDown={handleCanvasMouseDown}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseUp={handleCanvasMouseUp}
+            onMouseLeave={handleCanvasMouseUp}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
           >
-            {canvasData?.nodes?.map(renderNode) || null}
+            {/* SVG layer for edges */}
+            <svg
+              className="absolute w-full h-full"
+              style={{
+                transform: `translate(${canvasPosition.x}px, ${canvasPosition.y}px) scale(${canvasScale})`,
+                transformOrigin: 'top left'
+              }}
+            >
+              <defs>
+                <marker
+                  id="arrowhead"
+                  markerWidth="10"
+                  markerHeight="7"
+                  refX="9"
+                  refY="3.5"
+                  orient="auto"
+                >
+                  <polygon points="0 0, 10 3.5, 0 7" fill="#9CA3AF" />
+                </marker>
+              </defs>
+              {canvasData?.edges?.map(renderEdge) || null}
+            </svg>
+
+            {/* Node layer */}
+            <div
+              className="absolute w-full h-full"
+              style={{
+                transform: `translate(${canvasPosition.x}px, ${canvasPosition.y}px)`,
+              }}
+            >
+              {canvasData?.nodes?.map(renderNode) || null}
+            </div>
           </div>
         </div>
+
+        {/* AI Chat Panel */}
+        {showAIChat && (
+          <div className="lg:w-1/4 border rounded shadow-sm bg-white">
+            <div className="p-3 border-b bg-gray-50">
+              <h3 className="font-medium">AI Assistant</h3>
+            </div>
+            <div className="h-[450px] overflow-y-auto p-3">
+              {messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`mb-3 ${
+                    msg.role === 'user' ? 'text-right' : 'text-left'
+                  }`}
+                >
+                  <div
+                    className={`inline-block p-2 rounded-lg max-w-[85%] ${
+                      msg.role === 'user'
+                        ? 'bg-blue-100 text-blue-900'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="text-center text-sm text-gray-500 p-2">
+                  AI is thinking...
+                </div>
+              )}
+            </div>
+            <div className="p-3 border-t">
+              <form onSubmit={handleSubmit} className="flex gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask about this canvas..."
+                  className="flex-1 p-2 text-sm border rounded"
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:bg-gray-300"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 text-sm">

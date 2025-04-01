@@ -107,6 +107,29 @@ export class MCPServerService implements MCPConnection {
         },
       },
       {
+        name: "list_video_projects",
+        description: "List all video projects",
+        parameters: {
+          type: "object",
+          properties: {
+            limit: {
+              type: "number",
+              description: "Maximum number of projects to return",
+            },
+            offset: {
+              type: "number",
+              description: "Number of projects to skip",
+            },
+            status: {
+              type: "string",
+              enum: ["draft", "in_progress", "completed", "failed", "all"],
+              description: "Filter projects by status",
+            },
+          },
+          required: [],
+        },
+      },
+      {
         name: "update_video_project",
         description: "Update video project details",
         parameters: {
@@ -352,17 +375,55 @@ export class MCPServerService implements MCPConnection {
             }
           }
         };
+      
+      case 'list_video_projects':
+        // Generate a list of projects for testing
+        const numProjects = 5;
+        const projects = Array.from({ length: numProjects }, (_, index) => ({
+          id: `project-${index + 1}-${Date.now().toString().slice(-5)}`,
+          name: `Project ${index + 1}`,
+          description: `Description for project ${index + 1}`,
+          status: ['draft', 'in_progress', 'completed'][Math.floor(Math.random() * 3)],
+          scenes: [],
+          sceneCount: Math.floor(Math.random() * 5) + 1,
+          createdAt: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(), // Each project a day apart
+          updatedAt: new Date(Date.now() - (index * 12 * 60 * 60 * 1000)).toISOString(),
+        }));
+
+        return {
+          success: true,
+          data: {
+            projects: projects,
+            total: projects.length,
+            timestamp: new Date().toISOString(),
+          }
+        };
         
       case 'get_video_project':
+        // Generate a dynamic number of scenes with timestamps that change each time
+        const numScenes = Math.floor(Math.random() * 3) + 3; // 3-5 scenes
+        const scenes = Array.from({ length: numScenes }, (_, index) => ({
+          id: `scene-${index + 1}-${Date.now().toString().slice(-5)}`,
+          projectId: parameters.projectId,
+          name: `Scene ${index + 1}`,
+          description: `Description for scene ${index + 1} - Updated at ${new Date().toLocaleTimeString()}`,
+          status: ['pending', 'in_progress', 'completed'][Math.floor(Math.random() * 3)],
+          order: index,
+          imageUrl: index % 2 === 0 ? `https://picsum.photos/seed/${Date.now() + index}/300/200` : undefined,
+          videoUrl: index % 3 === 0 ? `https://example.com/videos/${parameters.projectId}/scene-${index + 1}.mp4` : undefined,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+
         return {
           success: true,
           data: {
             project: {
               id: parameters.projectId,
-              name: 'Sample Project',
-              description: 'Sample project description',
+              name: `Demo Project - ${new Date().toLocaleTimeString()}`,
+              description: `Dynamic project description - Updated at ${new Date().toLocaleTimeString()}`,
               status: 'in_progress',
-              scenes: [],
+              scenes: scenes,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             }

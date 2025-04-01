@@ -137,7 +137,6 @@ export function useAgentEnhancedVideoProject({
       }
       
       return result.data.scene;
-      return result.data.scene;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);

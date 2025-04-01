@@ -42,7 +42,7 @@ export function useCanvasVideoProject({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const [canvasVisible, setCanvasVisible] = useState<boolean>(true); // Start with canvas visible
-  const [refreshInterval, setRefreshInterval] = useState<number>(5000); // Refresh every 5 seconds
+  const [refreshInterval, setRefreshInterval] = useState<number>(1000); // Refresh every 1 second
   const [lastRefresh, setLastRefresh] = useState<number>(0);
 
   const loadProject = useCallback(async () => {

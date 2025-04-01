@@ -22,7 +22,6 @@ interface UseCanvasAgentProps {
 export function useCanvasAgent(props: UseCanvasAgentProps) {
   const { projectId, sceneId, updateScene } = props;
   const [isLoading, setIsLoading] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<string | null>(null);
   
   // Use the Canvas Messages hook for message management
   const { 
@@ -31,28 +30,14 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     addUserMessage, 
     addSystemMessage, 
     clearMessages 
-  } = useCanvasMessages ? useCanvasMessages() : {
-    messages: [],
-    addAgentMessage: (type: string, content: string, sceneId?: string) => {},
-    addUserMessage: (content: string) => {},
-    addSystemMessage: (content: string) => {},
-    clearMessages: () => {}
-  };
+  } = useCanvasMessages();
   
   // Use the MCP integration hook
-  const agentMcp = useCanvasAgentMcp ? useCanvasAgentMcp({
+  const agentMcp = useCanvasAgentMcp({
     projectId,
     sceneId,
     updateScene
-  }) : {
-    isProcessing: false,
-    activeAgent: null,
-    generateSceneScript: async () => false,
-    generateSceneDescription: async () => false,
-    generateImagePrompt: async () => false,
-    generateSceneImage: async () => false,
-    generateSceneVideo: async () => false
-  };
+  });
   
   // Generate scene script with message handling
   const generateSceneScript = useCallback(async (sceneId: string, context?: string): Promise<boolean> => {
@@ -62,7 +47,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     }
     
     setIsLoading(true);
-    setActiveAgent("script-generator");
     
     try {
       if (context) {
@@ -91,7 +75,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
       return false;
     } finally {
       setIsLoading(false);
-      setActiveAgent(null);
     }
   }, [projectId, agentMcp, addAgentMessage, addUserMessage, addSystemMessage]);
   
@@ -103,7 +86,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     }
     
     setIsLoading(true);
-    setActiveAgent("description-generator");
     
     try {
       if (context) {
@@ -132,7 +114,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
       return false;
     } finally {
       setIsLoading(false);
-      setActiveAgent(null);
     }
   }, [projectId, agentMcp, addAgentMessage, addUserMessage, addSystemMessage]);
   
@@ -143,7 +124,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     }
     
     setIsLoading(true);
-    setActiveAgent("image-prompt-generator");
     
     try {
       if (context) {
@@ -172,7 +152,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
       return false;
     } finally {
       setIsLoading(false);
-      setActiveAgent(null);
     }
   }, [projectId, agentMcp, addAgentMessage, addUserMessage, addSystemMessage]);
   
@@ -183,7 +162,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     }
     
     setIsLoading(true);
-    setActiveAgent("image-generator");
     
     try {
       if (imagePrompt) {
@@ -212,7 +190,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
       return false;
     } finally {
       setIsLoading(false);
-      setActiveAgent(null);
     }
   }, [projectId, agentMcp, addAgentMessage, addUserMessage, addSystemMessage]);
   
@@ -223,7 +200,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     }
     
     setIsLoading(true);
-    setActiveAgent("video-generator");
     
     try {
       if (description) {
@@ -252,7 +228,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
       return false;
     } finally {
       setIsLoading(false);
-      setActiveAgent(null);
     }
   }, [projectId, agentMcp, addAgentMessage, addUserMessage, addSystemMessage]);
   
@@ -263,7 +238,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     }
     
     setIsLoading(true);
-    setActiveAgent("script-generator");
     
     try {
       addUserMessage(`Generate full script with context: ${context}`);
@@ -285,14 +259,12 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
       return false;
     } finally {
       setIsLoading(false);
-      setActiveAgent(null);
     }
   }, [projectId, sceneId, addAgentMessage, addUserMessage, addSystemMessage]);
   
   return {
     ...agentMcp,
     isLoading,
-    activeAgent,
     messages,
     generateSceneScript,
     generateSceneDescription,
@@ -301,7 +273,6 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     generateSceneVideo,
     generateFullScript,
     addUserMessage,
-    addAgentMessage,
     addSystemMessage,
     clearMessages
   };

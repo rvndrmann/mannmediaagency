@@ -24,7 +24,7 @@ export class CanvasService {
    */
   public async getProjects(): Promise<CanvasProject[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_projects')
         .select('*')
         .order('created_at', { ascending: false });
@@ -38,8 +38,7 @@ export class CanvasService {
         fullScript: project.full_script, // Map full_script to fullScript
         createdAt: project.created_at, // Map created_at to createdAt
         updatedAt: project.updated_at, // Map updated_at to updatedAt
-        user_id: project.user_id, // Keep user_id for compatibility
-        scenes: []
+        user_id: project.user_id // Keep user_id for compatibility
       }));
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -52,7 +51,7 @@ export class CanvasService {
    */
   public async getProject(projectId: string): Promise<CanvasProject | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_projects')
         .select('*')
         .eq('id', projectId)
@@ -68,7 +67,6 @@ export class CanvasService {
         title: data.title,
         description: data.description || '',
         userId: data.user_id,
-        user_id: data.user_id,
         fullScript: data.full_script || '',
         createdAt: data.created_at,
         updatedAt: data.updated_at,
@@ -85,7 +83,7 @@ export class CanvasService {
    */
   public async getScenes(projectId: string): Promise<CanvasScene[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_scenes')
         .select('*')
         .eq('project_id', projectId)
@@ -124,7 +122,7 @@ export class CanvasService {
   public async createScene(projectId: string, sceneData: Partial<SceneData> = {}): Promise<CanvasScene | null> {
     try {
       // Get the current highest sequence number for the project
-      const { data: scenes, error: sceneError } = await supabase
+      const { data: scenes, error: sceneError } = await this.supabase
         .from('canvas_scenes')
         .select('scene_order')
         .eq('project_id', projectId)
@@ -137,7 +135,7 @@ export class CanvasService {
       const sceneOrder = scenes && scenes.length > 0 ? (scenes[0].scene_order || 0) + 1 : 0;
       
       // Create the new scene
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_scenes')
         .insert([{ 
           project_id: projectId,
@@ -182,13 +180,13 @@ export class CanvasService {
    */
   public async createProject(title: string, description: string = ""): Promise<CanvasProject | null> {
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await this.supabase.auth.getUser();
       
       if (!userData?.user?.id) {
         throw new Error("User not authenticated");
       }
       
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_projects')
         .insert([
           { 
@@ -235,7 +233,7 @@ export class CanvasService {
       if (updates.voiceOverUrl !== undefined) dbUpdates.voice_over_url = updates.voiceOverUrl;
       if (updates.backgroundMusicUrl !== undefined) dbUpdates.background_music_url = updates.backgroundMusicUrl;
       
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from('canvas_scenes')
         .update(dbUpdates)
         .eq('id', sceneId);

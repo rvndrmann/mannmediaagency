@@ -1,141 +1,197 @@
 
-import { ToolDefinition, CommandExecutionState } from "./types";
+import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 
 export const productShotV2Tool: ToolDefinition = {
-  name: "product-shot-v2",
-  description: "Generate high-quality product shots with AI",
+  name: "product_shot_v2",
+  description: "Generate an enhanced product photo with advanced customization options",
   parameters: {
     type: "object",
     properties: {
-      sourceImageUrl: {
-        type: "string",
-        description: "URL of the source product image"
-      },
-      referenceImageUrl: {
-        type: "string",
-        description: "Optional URL of a reference image for the scene"
-      },
       prompt: {
         type: "string",
-        description: "Detailed prompt describing the desired output"
+        description: "Detailed description of the product photo to generate"
       },
-      aspectRatio: {
+      image_url: {
         type: "string",
-        enum: ["1:1", "16:9", "9:16"],
-        description: "Aspect ratio for the generated image"
+        description: "URL of the product image to use as a reference"
       },
-      placementType: {
+      style: {
         type: "string",
-        enum: ["original", "automatic", "manual_placement", "manual_padding"],
-        description: "How to place the product in the scene"
+        description: "Visual style for the output (e.g., 'modern', 'vintage', 'minimalist')"
       },
-      placementInstructions: {
+      aspect_ratio: {
         type: "string",
-        description: "Manual placement instructions if placementType is manual_placement or manual_padding"
+        description: "Aspect ratio of the output image (e.g., '1:1', '16:9', '4:5')",
+        enum: ["1:1", "16:9", "4:5", "3:2"]
       },
-      generationType: {
+      background: {
         type: "string",
-        enum: ["description", "reference"],
-        description: "Whether to use text description or reference image for scene generation"
-      },
-      optimizePrompt: {
-        type: "boolean",
-        description: "Whether to optimize the prompt with AI"
-      },
-      fastMode: {
-        type: "boolean",
-        description: "Generate faster but lower quality images"
-      },
-      originalQuality: {
-        type: "boolean",
-        description: "Maintain original image quality"
+        description: "Background description (e.g., 'gradient blue to white', 'studio lighting', 'beach scene')"
       }
     },
-    required: ["sourceImageUrl", "prompt", "aspectRatio", "placementType", "generationType"]
+    required: ["prompt", "image_url"]
   },
-  
+  requiredCredits: 2,
   metadata: {
-    category: "image-generation",
-    displayName: "Product Shot V2",
-    icon: "image"
+    category: "image",
+    displayName: "Pro Product Shot",
+    icon: "ImagePlus"
   },
-  
-  requiredCredits: 1,
-  
-  async execute(parameters, context) {
+  execute: async (params: {
+    prompt: string;
+    image_url: string;
+    style?: string;
+    aspect_ratio?: string;
+    background?: string;
+  }, context: ToolContext): Promise<ToolExecutionResult> => {
     try {
-      const { 
-        sourceImageUrl, 
-        referenceImageUrl, 
-        prompt, 
-        aspectRatio, 
-        placementType, 
-        placementInstructions,
-        generationType,
-        optimizePrompt,
-        fastMode,
-        originalQuality
-      } = parameters;
-      
-      // Validate parameters
-      if (!sourceImageUrl) {
+      // Verify the tool is available and user has credits
+      if (!context.toolAvailable) {
         return {
           success: false,
-          message: "Source image URL is required",
-          error: "Missing source image URL",
-          state: CommandExecutionState.FAILED
+          message: "Pro product shot generation is not available in your current plan",
+          error: "Tool unavailable"
         };
       }
       
-      if (!prompt) {
+      if (context.userCredits !== undefined && context.userCredits < 2) {
         return {
           success: false,
-          message: "Prompt is required",
-          error: "Missing prompt",
-          state: CommandExecutionState.FAILED
+          message: `Insufficient credits for Pro product shot. Required: 2, Available: ${context.userCredits}`,
+          error: "Insufficient credits"
         };
       }
       
-      // Create the API request
-      const requestData = {
-        source_image_url: sourceImageUrl,
-        reference_image_url: referenceImageUrl,
-        prompt,
-        aspect_ratio: aspectRatio || "1:1",
-        placement_type: placementType || "automatic",
-        placement_instructions: placementInstructions,
-        generation_type: generationType || "description",
-        optimize_prompt: optimizePrompt !== undefined ? optimizePrompt : true,
-        fast_mode: fastMode || false,
-        original_quality: originalQuality !== undefined ? originalQuality : true,
-        user_id: context.userId,
-        status: "pending"
-      };
+      // Generate a unique id for this job
+      const jobId = uuidv4();
+      console.log(`Starting enhanced product shot generation with ID: ${jobId}`);
       
-      // Instead of directly querying the database, use an RPC function or Edge Function
-      const result = {
-        id: crypto.randomUUID(),
-        status: "pending"
-      };
+      // Add message to the conversation log
+      if (context.addMessage) {
+        context.addMessage(`Starting enhanced product shot generation: ${params.prompt}`, "tool_start");
+      }
       
+      // Call the edge function to generate the enhanced product shot
+      const { data, error } = await supabase.functions.invoke("product-shot-v2-generator", {
+        body: {
+          prompt: params.prompt,
+          image_url: params.image_url,
+          style: params.style || "modern",
+          aspect_ratio: params.aspect_ratio || "1:1",
+          background: params.background || "gradient white to light gray",
+          job_id: jobId,
+          user_id: context.userId
+        }
+      });
+      
+      if (error) {
+        console.error("Error generating enhanced product shot:", error);
+        return {
+          success: false,
+          message: `Error generating enhanced product shot: ${error.message}`,
+          error: error.message
+        };
+      }
+      
+      // Check if we received a valid result
+      if (!data || !data.request_id) {
+        console.error("Invalid response from enhanced product shot generator:", data);
+        return {
+          success: false,
+          message: "Failed to start enhanced product shot generation",
+          error: "Invalid response from service"
+        };
+      }
+      
+      // Now we poll for the result
+      let result = null;
+      let attempts = 0;
+      const maxAttempts = 40; // ~6.5 minutes (10 seconds * 40)
+      
+      while (!result && attempts < maxAttempts) {
+        attempts++;
+        
+        // Wait 10 seconds between checks
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        // Check if the job is complete
+        const { data: statusData, error: statusError } = await supabase.functions.invoke("product-shot-status", {
+          body: {
+            request_id: data.request_id,
+            job_id: jobId,
+            version: "v2"
+          }
+        });
+        
+        if (statusError) {
+          console.error("Error checking enhanced product shot status:", statusError);
+          continue;
+        }
+        
+        // If the job is complete, get the result
+        if (statusData && statusData.status === "completed" && statusData.result_url) {
+          result = statusData;
+        }
+      }
+      
+      // If we reached max attempts, consider it timed out
+      if (!result) {
+        return {
+          success: false,
+          message: "Enhanced product shot generation timed out",
+          error: "Generation timeout"
+        };
+      }
+      
+      // Add message to the conversation log
+      if (context.addMessage) {
+        context.addMessage(`Completed enhanced product shot generation in ${attempts * 10} seconds`, "tool_complete");
+      }
+      
+      // Save to the user's history if requested
+      if (context.userId) {
+        try {
+          await supabase.from("product_shot_history").insert({
+            user_id: context.userId,
+            source_image_url: params.image_url,
+            result_url: result.result_url,
+            scene_description: params.prompt,
+            settings: {
+              style: params.style || "modern",
+              aspect_ratio: params.aspect_ratio || "1:1",
+              background: params.background || "gradient white to light gray"
+            },
+            visibility: "private"
+          });
+        } catch (saveError) {
+          console.error("Error saving enhanced product shot to history:", saveError);
+          // Continue anyway, this is not critical
+        }
+      }
+      
+      // Return the successful result
       return {
         success: true,
-        message: "Product shot request created successfully",
+        message: "Enhanced product shot generated successfully",
         data: {
-          requestId: result.id,
-          status: "pending"
+          result_url: result.result_url,
+          prompt: params.prompt,
+          style: params.style || "modern",
+          aspect_ratio: params.aspect_ratio || "1:1"
         },
-        state: CommandExecutionState.COMPLETED
+        usage: {
+          creditsUsed: 2
+        }
       };
-    } catch (error) {
-      console.error("Product shot error:", error);
+    } catch (error: any) {
+      console.error("Error in enhanced product shot tool:", error);
+      
       return {
         success: false,
-        message: `Product shot generation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        error: error instanceof Error ? error.message : "Unknown error",
-        state: CommandExecutionState.FAILED
+        message: `Enhanced product shot generation error: ${error.message}`,
+        error: error.message
       };
     }
   }

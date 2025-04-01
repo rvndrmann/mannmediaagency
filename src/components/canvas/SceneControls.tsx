@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 interface SceneControlsProps {
   sceneId: string;
-  imagePrompt?: string;
+  imagePrompt: string;
   hasImage: boolean;
   isProcessing: boolean;
   activeAgent: string | null;
@@ -22,7 +22,7 @@ interface SceneControlsProps {
 
 export function SceneControls({ 
   sceneId, 
-  imagePrompt = "", // Add a default empty string here
+  imagePrompt, 
   hasImage, 
   isProcessing, 
   activeAgent,
@@ -82,7 +82,7 @@ export function SceneControls({
           toolName="generate_scene_image"
           icon={<Image className="h-4 w-4" />}
           isProcessing={isProcessing && activeAgent === 'image'}
-          disabled={!imagePrompt || !imagePrompt.trim()} // Add null check here
+          disabled={!imagePrompt.trim()}
           onClick={onGenerateImage}
           variant="outline"
         />

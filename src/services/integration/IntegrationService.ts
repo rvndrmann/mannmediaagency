@@ -1,90 +1,184 @@
 
-import { supabase } from '@/integrations/supabase/client';
-import { MCPService } from './MCPService';
+import { CanvasService } from "../canvas/CanvasService";
+import { MCPService } from "../mcp/MCPService";
+import { VideoWorkflowService } from "../workflow/VideoWorkflowService";
+import { WorkflowStage, WorkflowState } from "@/types/canvas";
 
+/**
+ * Integration service that coordinates between different service layers
+ */
 export class IntegrationService {
   private static instance: IntegrationService;
-  private mcpService: MCPService;
+  private canvasService: CanvasService;
+  private videoWorkflowService: VideoWorkflowService;
   
   private constructor() {
-    // Initialize with a new instance of MCPService
-    this.mcpService = new MCPService();
+    this.canvasService = CanvasService.getInstance();
+    this.videoWorkflowService = VideoWorkflowService.getInstance();
   }
   
-  public static getInstance(): IntegrationService {
+  static getInstance(): IntegrationService {
     if (!IntegrationService.instance) {
       IntegrationService.instance = new IntegrationService();
     }
     return IntegrationService.instance;
   }
-
-  async connectToMcpServer(url: string, projectId: string): Promise<boolean> {
+  
+  /**
+   * Initialize MCP for a Canvas project
+   */
+  async initMcpForProject(projectId: string): Promise<boolean> {
     try {
-      return await this.mcpService.connect(url, projectId);
+      // Get project details
+      const project = await this.canvasService.getProject(projectId);
+      if (!project) {
+        console.error("Project not found");
+        return false;
+      }
+      
+      // Check if there's an existing connection
+      const connection = MCPService.getConnectionForProject(projectId);
+      if (connection && connection.connected) {
+        return true;
+      }
+      
+      // Create a new connection
+      const newConnection = await MCPService.createDefaultConnection(projectId);
+      return !!newConnection && !!newConnection.connected;
     } catch (error) {
-      console.error('Error connecting to MCP server:', error);
+      console.error("Error initializing MCP for project:", error);
       return false;
     }
   }
   
-  async initMcpForProject(projectId: string): Promise<boolean> {
+  /**
+   * Process a scene through the entire pipeline (description → prompt → image → video)
+   */
+  async processScenePipeline(
+    sceneId: string, 
+    options: { 
+      userId: string;
+      generateDescription?: boolean;
+      generateImagePrompt?: boolean;
+      generateImage?: boolean;
+      generateVideo?: boolean;
+      aspectRatio?: string;
+      imageVersion?: string;
+    }
+  ): Promise<boolean> {
     try {
-      const mcpUrl = process.env.REACT_APP_MCP_URL || 'https://api.mcp-server.com';
-      return await this.connectToMcpServer(mcpUrl, projectId);
+      // Get scene details
+      const scenes = await this.canvasService.getScenes(options.userId);
+      const scene = scenes.find(s => s.id === sceneId);
+      
+      if (!scene) {
+        console.error("Scene not found");
+        return false;
+      }
+      
+      try {
+        // Initialize MCP
+        await this.initMcpForProject(scene.projectId);
+        
+        // Generate description if requested
+        if (options.generateDescription) {
+          console.log("Generating description");
+          const success = await this.canvasService.updateSceneDescription(sceneId);
+          if (!success) {
+            throw new Error("Failed to generate description");
+          }
+        }
+        
+        // Generate image prompt if requested
+        if (options.generateImagePrompt) {
+          console.log("Generating image prompt");
+          const success = await this.canvasService.updateImagePrompt(sceneId);
+          if (!success) {
+            throw new Error("Failed to generate image prompt");
+          }
+        }
+        
+        // Generate image if requested
+        if (options.generateImage) {
+          console.log("Generating image");
+          const success = await this.canvasService.generateImage({
+            sceneId,
+            version: options.imageVersion
+          });
+          if (!success) {
+            throw new Error("Failed to generate image");
+          }
+        }
+        
+        // Generate video if requested
+        if (options.generateVideo) {
+          console.log("Generating video");
+          const success = await this.canvasService.generateVideo({
+            sceneId,
+            aspectRatio: options.aspectRatio
+          });
+          if (!success) {
+            throw new Error("Failed to generate video");
+          }
+        }
+        
+        return true;
+      } catch (error) {
+        console.error("Error in process:", error);
+        throw error;
+      }
     } catch (error) {
-      console.error('Error initializing MCP for project:', error);
+      console.error("Error in processScenePipeline:", error);
       return false;
     }
   }
-
-  getMcpConnectionUrlForProject(projectId: string): string | null {
-    return this.mcpService.getUrl(projectId);
+  
+  /**
+   * Start the automated multi-agent video workflow
+   */
+  async startVideoWorkflow(projectId: string, userId: string): Promise<WorkflowState | null> {
+    return this.videoWorkflowService.startWorkflow(projectId, userId);
   }
-
-  async getWorkflowState(projectId: string): Promise<any> {
+  
+  /**
+   * Get the current workflow state for a project
+   */
+  async getWorkflowState(projectId: string): Promise<WorkflowState | null> {
     try {
-      const { data, error } = await supabase
-        .rpc('get_workflow_state', { p_project_id: projectId });
+      const { data, error } = await this.canvasService.supabase
+        .from('canvas_workflows')
+        .select('*')
+        .eq('project_id', projectId)
+        .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error getting workflow state:", error);
+        return null;
+      }
       
-      return data && data.length > 0 ? data[0] : null;
+      return data;
     } catch (error) {
-      console.error('Error getting workflow state:', error);
+      console.error("Error getting workflow state:", error);
       return null;
     }
   }
   
-  async startVideoWorkflow(projectId: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase
-        .rpc('start_video_workflow', { 
-          p_project_id: projectId 
-        });
-        
-      if (error) throw error;
-      
-      return !!data;
-    } catch (error) {
-      console.error('Error starting video workflow:', error);
-      return false;
-    }
+  /**
+   * Retry a workflow from a specific stage
+   */
+  async retryWorkflowFromStage(projectId: string, stage: WorkflowStage, userId: string): Promise<boolean> {
+    return this.videoWorkflowService.retryWorkflowFromStage(projectId, stage, userId);
   }
   
-  async retryWorkflowFromStage(projectId: string, stage: string): Promise<boolean> {
+  /**
+   * Clean up resources when user leaves a project
+   */
+  async cleanupProjectResources(projectId: string): Promise<void> {
     try {
-      const { data, error } = await supabase
-        .rpc('retry_workflow_from_stage', { 
-          p_project_id: projectId,
-          p_stage: stage 
-        });
-        
-      if (error) throw error;
-      
-      return !!data;
+      // Close MCP connection for this project
+      MCPService.closeConnection(projectId);
     } catch (error) {
-      console.error('Error retrying workflow:', error);
-      return false;
+      console.error("Error cleaning up project resources:", error);
     }
   }
 }

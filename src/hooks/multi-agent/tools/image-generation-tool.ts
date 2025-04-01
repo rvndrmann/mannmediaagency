@@ -1,8 +1,7 @@
-
 // src/hooks/multi-agent/tools/image-generation-tool.ts
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { ToolContext, ToolExecutionResult, CommandExecutionState } from "../types";
+import { ToolContext, ToolExecutionResult } from "../types";
 import { Command } from "@/types/message";
 
 interface ImageGenerationParams {
@@ -84,8 +83,7 @@ export const imageGenerationTool = {
       if (!params.prompt) {
         return {
           success: false,
-          message: "Image description is required",
-          state: CommandExecutionState.FAILED
+          message: "Image description is required"
         };
       }
 
@@ -107,8 +105,7 @@ export const imageGenerationTool = {
       if (!result.success) {
         return {
           success: false,
-          message: result.error || "Failed to generate image",
-          state: CommandExecutionState.FAILED
+          message: result.error || "Failed to generate image"
         };
       }
 
@@ -118,15 +115,13 @@ export const imageGenerationTool = {
         data: {
           imageUrl: result.imageUrl,
           prompt: params.prompt
-        },
-        state: CommandExecutionState.COMPLETED
+        }
       };
     } catch (error) {
       console.error("Error in image generation tool:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Unknown error occurred",
-        state: CommandExecutionState.FAILED
+        message: error instanceof Error ? error.message : "Unknown error occurred"
       };
     }
   }

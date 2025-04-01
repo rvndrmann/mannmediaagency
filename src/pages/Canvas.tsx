@@ -1,322 +1,278 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useCanvasProjects } from '@/hooks/use-canvas-projects';
-import { useCanvasAgent } from '@/hooks/use-canvas-agent';
-import {
-  CanvasEmptyStateAdapter,
-  CanvasHeaderAdapter,
-  CanvasSidebarAdapter,
-  CanvasWorkspaceAdapter,
-  CanvasDetailPanelAdapter,
-  CanvasScriptPanelAdapter
-} from '@/components/canvas/adapters/CanvasProjectAdapter';
-import { CanvasScene, CanvasProject } from '@/types/canvas';
-import { toast } from 'sonner';
-import { useProjectContext } from '@/hooks/multi-agent/project-context';
-import { CanvasChat } from '@/components/canvas/CanvasChat';
-import { ProjectHistory } from '@/components/canvas/ProjectHistory';
+
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
+import { CanvasHeader } from "@/components/canvas/CanvasHeader";
+import { CanvasEmptyState } from "@/components/canvas/CanvasEmptyState";
+import { CanvasChat } from "@/components/canvas/CanvasChat";
+import { ProjectHistory } from "@/components/canvas/ProjectHistory";
+import { useCanvas } from "@/hooks/use-canvas";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { useProjectContext } from "@/hooks/multi-agent/project-context";
+import { useChatSession } from "@/contexts/ChatSessionContext";
+import { MCPProvider } from "@/contexts/MCPContext";
+import { CanvasErrorBoundary } from "@/components/canvas/CanvasErrorBoundary";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export default function Canvas() {
-  const [showScriptPanel, setShowScriptPanel] = useState(false);
-  const [showDetailPanel, setShowDetailPanel] = useState(true);
-  const [showChatPanel, setShowChatPanel] = useState(false);
-  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
-  const [project, setProject] = useState<CanvasProject | null>(null);
-  const [scenes, setScenes] = useState<CanvasScene[]>([]);
-  const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const { setActiveProject, setActiveScene } = useProjectContext();
-
-  const {
-    projects,
-    isLoading,
-    createProject,
-    updateProject,
-    deleteProject
-  } = useCanvasProjects();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
+  const navigate = useNavigate();
   
-  const updateScene = useCallback(async (sceneId: string, type: string, value: string) => {
-    console.log('Updating scene', sceneId, type, value);
-    setScenes(prevScenes => {
-      return prevScenes.map(scene => {
-        if (scene.id === sceneId) {
-          return { ...scene, [type]: value };
-        }
-        return scene;
-      });
-    });
-    
-    if (selectedScene && selectedScene.id === sceneId) {
-      setSelectedScene(prevScene => ({
-        ...prevScene!,
-        [type]: value
-      }));
-    }
-  }, [selectedScene]);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [shouldCreateProject, setShouldCreateProject] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   
-  const {
-    generateSceneScript,
-    generateSceneDescription,
-    generateImagePrompt,
-    generateSceneImage,
-    generateSceneVideo,
-    isLoading: isAgentLoading,
-    messages,
-    addUserMessage,
-    addAgentMessage,
-    addSystemMessage,
-    activeAgent
-  } = useCanvasAgent({
-    projectId,
-    sceneId: selectedSceneId,
-    updateScene
-  });
+  const { 
+    fetchAvailableProjects, 
+    availableProjects, 
+    hasLoadedProjects,
+    setActiveProject 
+  } = useProjectContext();
   
-  const createScene = useCallback(async (projectId: string, data: any) => {
-    console.log('Creating scene for project', projectId, data);
-    const newSceneId = `scene-${Date.now()}`;
-    const newScene = { 
-      id: newSceneId, 
-      title: data.title || 'New Scene', 
-      projectId: projectId,
-      project_id: projectId,
-      description: '',
-      script: '',
-      image_prompt: '',
-      image_url: '',
-      voice_over_text: '',
-      duration: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      ...data 
-    };
-    
-    setScenes(prev => [...prev, newScene]);
-    
-    return newSceneId;
-  }, []);
+  const { getOrCreateChatSession } = useChatSession();
   
-  const deleteScene = useCallback(async (sceneId: string) => {
-    console.log('Deleting scene', sceneId);
-    setScenes(prev => prev.filter(scene => scene.id !== sceneId));
-    
-    if (selectedSceneId === sceneId) {
-      setSelectedSceneId(null);
-      setSelectedScene(null);
-    }
-  }, [selectedSceneId]);
-  
-  const fetchProject = useCallback(async (id: string) => {
-    setLoading(true);
-    console.log('Fetching project', id);
-    const dummyProject = {
-      id,
-      title: 'Project ' + id,
-      description: '',
-      user_id: 'user-1',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      full_script: '',
-      scenes: []
-    };
-    
-    setProject(dummyProject);
-    setScenes([]);
-    setLoading(false);
-  }, []);
-  
-  const addScene = useCallback(async () => {
-    if (!project) return '';
-    
-    const newSceneId = await createScene(project.id, { title: 'New Scene' });
-    return newSceneId;
-  }, [project, createScene]);
-  
-  const saveFullScript = useCallback(async (script: string) => {
-    console.log('Saving full script', script);
-    if (project) {
-      setProject(prev => prev ? {...prev, full_script: script} : null);
-      toast.success("Script saved successfully");
-    }
-  }, [project]);
-  
-  const divideScriptToScenes = useCallback(async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
-    console.log('Dividing script to scenes', sceneScripts);
-    for (const sceneScript of sceneScripts) {
-      if (sceneScript.id) {
-        await updateScene(sceneScript.id, 'script', sceneScript.content || '');
-        await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText || '');
-      }
-    }
-    toast.success("Script divided into scenes successfully");
-  }, [updateScene]);
-  
-  const createNewProject = useCallback(async (title: string, description?: string) => {
-    console.log('Creating new project', title, description);
-    try {
-      const newProjectData = await createProject(title, description);
-      if (newProjectData && newProjectData.id) {
-        setProjectId(newProjectData.id);
-        return newProjectData.id;
-      }
-      return "";
-    } catch (error) {
-      console.error("Error creating project:", error);
-      toast.error("Failed to create project");
-      return "";
-    }
-  }, [createProject]);
-  
-  const updateProjectTitle = useCallback(async (title: string) => {
-    console.log('Updating project title', title);
-    if (project && project.id) {
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
       try {
-        await updateProject(project.id, { title });
-        setProject(prev => prev ? {...prev, title} : null);
-        toast.success("Project title updated successfully");
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          throw error;
+        }
+        
+        setIsAuthenticated(!!data.session);
+        
+        if (!data.session) {
+          setAuthError("Please log in to access the Canvas");
+          toast.error("Please log in to access the Canvas");
+        }
+      } catch (err) {
+        console.error("Auth check error:", err);
+        setAuthError("Authentication error. Please try refreshing the page.");
+        setIsAuthenticated(false);
+      }
+    };
+    
+    checkAuth();
+  }, [navigate]);
+  
+  // Fetch projects when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        fetchAvailableProjects();
       } catch (error) {
-        console.error("Error updating project title:", error);
-        toast.error("Failed to update project title");
+        console.error("Error fetching projects:", error);
+        toast.error("Failed to load your projects");
       }
     }
-  }, [project, updateProject]);
+  }, [isAuthenticated, fetchAvailableProjects]);
   
-  const agentProps = {
-    isLoading: isAgentLoading,
-    messages,
-    generateSceneScript,
-    generateSceneDescription,
-    generateImagePrompt,
-    generateSceneImage,
-    generateSceneVideo,
-    addUserMessage,
-    addAgentMessage,
-    addSystemMessage,
-    activeAgent,
-    isMcpEnabled: true,
-    isMcpConnected: true,
-    toggleMcp: () => {},
-    isGeneratingDescription: false,
-    isGeneratingImagePrompt: false,
-    isGeneratingImage: false,
-    isGeneratingVideo: false,
-    isGeneratingScript: false,
-    isGenerating: isAgentLoading
-  };
-  
+  // Set active project when projectId changes
   useEffect(() => {
     if (projectId) {
-      fetchProject(projectId);
       setActiveProject(projectId);
-    } else {
-      setProjectId('project-123');
+      
+      // Create or get chat session for this project
+      try {
+        getOrCreateChatSession(projectId);
+      } catch (error) {
+        console.error("Error setting up chat session:", error);
+      }
     }
-  }, [projectId, fetchProject, setActiveProject]);
+  }, [projectId, setActiveProject, getOrCreateChatSession]);
   
+  // Handle project selection logic
   useEffect(() => {
-    if (project) {
-      setProject(prev => prev ? {...prev, scenes} : null);
+    if (
+      !projectId && 
+      isAuthenticated && 
+      hasLoadedProjects && 
+      availableProjects.length > 0
+    ) {
+      // Navigate to first project if no project is selected
+      navigate(`/canvas?projectId=${availableProjects[0].id}`);
+    } else if (
+      !projectId && 
+      isAuthenticated && 
+      hasLoadedProjects && 
+      availableProjects.length === 0
+    ) {
+      setShouldCreateProject(true);
     }
-  }, [scenes]);
-  
-  useEffect(() => {
-    if (selectedSceneId) {
-      const scene = scenes.find(s => s.id === selectedSceneId);
-      setSelectedScene(scene || null);
-      setActiveScene(selectedSceneId);
-    } else {
-      setSelectedScene(null);
-      setActiveScene(null);
+  }, [projectId, isAuthenticated, hasLoadedProjects, availableProjects, navigate]);
+
+  const {
+    project,
+    loading: canvasLoading,
+    error: canvasError,
+    selectedScene,
+    selectedSceneId,
+    setSelectedSceneId,
+    createProject,
+    addScene,
+    deleteScene,
+    updateScene,
+    divideScriptToScenes,
+    saveFullScript,
+    updateProjectTitle
+  } = useCanvas(projectId || undefined);
+
+  const handleCreateNewProject = useCallback(async (title: string, description?: string) => {
+    try {
+      const newProjectId = await createProject(title, description);
+      if (newProjectId) {
+        navigate(`/canvas?projectId=${newProjectId}`);
+        return newProjectId;
+      }
+      return "";
+    } catch (err) {
+      console.error("Failed to create new project:", err);
+      toast.error("Failed to create new project");
+      return "";
     }
-  }, [selectedSceneId, scenes, setActiveScene]);
+  }, [createProject, navigate]);
+
+  const toggleChat = useCallback(() => {
+    setShowChat(!showChat);
+  }, [showChat]);
   
-  const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
-  const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
-  const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
-  const toggleHistoryPanel = () => setShowHistoryPanel(!showHistoryPanel);
+  const toggleHistory = useCallback(() => {
+    setShowHistory(!showHistory);
+  }, [showHistory]);
   
-  if (!project && !loading) {
-    return <CanvasEmptyStateAdapter createProject={createNewProject} />;
+  const handleNavigateToChat = useCallback(() => {
+    navigate(`/multi-agent-chat?projectId=${projectId}`);
+  }, [navigate, projectId]);
+
+  // Show loading state
+  if (canvasLoading || isAuthenticated === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="ml-2 text-xl">Loading canvas...</p>
+      </div>
+    );
+  }
+
+  // Show authentication error
+  if (authError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <Alert variant="destructive" className="max-w-md mb-4">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertTitle>Authentication Error</AlertTitle>
+          <AlertDescription>{authError}</AlertDescription>
+        </Alert>
+        <Button 
+          onClick={() => navigate("/auth/login")}
+          className="mr-2"
+        >
+          Log In
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={() => navigate("/")}
+        >
+          Return to Home
+        </Button>
+      </div>
+    );
+  }
+
+  // Show canvas error
+  if (canvasError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <Alert variant="destructive" className="max-w-md mb-4">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertTitle>Canvas Error</AlertTitle>
+          <AlertDescription>{canvasError}</AlertDescription>
+        </Alert>
+        <Button 
+          onClick={() => navigate("/")}
+        >
+          Return to Home
+        </Button>
+      </div>
+    );
+  }
+
+  // Show empty state or project history
+  if (shouldCreateProject && !project && isAuthenticated) {
+    return <CanvasEmptyState onCreateProject={handleCreateNewProject} />;
   }
   
-  return (
-    <div className="flex flex-col h-screen">
-      <CanvasHeaderAdapter 
-        project={project}
-        updateProject={updateProject}
-        onToggleScriptPanel={toggleScriptPanel}
-        onToggleDetailPanel={toggleDetailPanel}
-        onToggleChatPanel={toggleChatPanel}
-        onToggleHistoryPanel={toggleHistoryPanel}
-        showChatButton={true}
+  if (!projectId && !shouldCreateProject && isAuthenticated) {
+    return (
+      <ProjectHistory 
+        projectId="" 
+        onBack={() => setShouldCreateProject(true)}
+        onSelectProject={(id) => navigate(`/canvas?projectId=${id}`)}
       />
-      
-      <div className="flex flex-1 overflow-hidden">
-        <CanvasSidebarAdapter 
-          project={project}
-          selectedSceneId={selectedSceneId}
-          setSelectedSceneId={setSelectedSceneId}
-          createScene={createScene}
-          deleteScene={deleteScene}
-          loading={loading}
-        />
-        
-        <main className="flex-1 overflow-hidden flex flex-col bg-[#1a1a1a]">
-          <CanvasWorkspaceAdapter 
+    );
+  }
+
+  if (showHistory && project) {
+    return (
+      <ProjectHistory 
+        projectId={project.id} 
+        onBack={toggleHistory}
+        onSelectProject={(id) => navigate(`/canvas?projectId=${id}`)}
+      />
+    );
+  }
+
+  // Main canvas view
+  return (
+    <TooltipProvider>
+      <MCPProvider projectId={projectId || undefined}>
+        <div className="flex flex-col h-screen overflow-hidden">
+          <CanvasHeader 
             project={project}
-            selectedScene={selectedScene}
-            selectedSceneId={selectedSceneId}
-            setSelectedSceneId={setSelectedSceneId}
-            updateScene={updateScene}
-            addScene={addScene}
-            deleteScene={deleteScene}
-            divideScriptToScenes={divideScriptToScenes}
-            saveFullScript={saveFullScript}
-            createNewProject={createNewProject}
-            updateProjectTitle={updateProjectTitle}
-            agent={agentProps}
+            onChatToggle={toggleChat}
+            showChatButton={true}
+            onFullChatOpen={handleNavigateToChat}
+            onShowHistory={toggleHistory}
+            onUpdateTitle={updateProjectTitle}
           />
-        </main>
-        
-        {showDetailPanel && (
-          <CanvasDetailPanelAdapter 
-            scene={selectedScene}
-            projectId={project?.id || ''}
-            updateScene={updateScene}
-            collapsed={false}
-            setCollapsed={() => setShowDetailPanel(false)}
-          />
-        )}
-        
-        {showScriptPanel && (
-          <CanvasScriptPanelAdapter 
-            project={project}
-            projectId={project?.id || ''}
-            onUpdateScene={updateScene}
-            onClose={() => setShowScriptPanel(false)}
-            onSaveFullScript={saveFullScript}
-            onDivideScriptToScenes={divideScriptToScenes}
-          />
-        )}
-        
-        {showChatPanel && (
-          <div className="w-80 bg-[#111827] text-white">
-            <CanvasChat
-              projectId={project?.id}
-              sceneId={selectedSceneId}
-              onClose={() => setShowChatPanel(false)}
-              updateScene={updateScene}
-            />
+          
+          <div className="flex flex-1 overflow-hidden">
+            {showChat && project && (
+              <div className="w-[450px] flex-shrink-0 border-r">
+                <CanvasErrorBoundary>
+                  <CanvasChat onClose={toggleChat} projectId={project.id} />
+                </CanvasErrorBoundary>
+              </div>
+            )}
+            
+            <CanvasErrorBoundary>
+              <CanvasWorkspace 
+                project={project}
+                selectedScene={selectedScene}
+                selectedSceneId={selectedSceneId}
+                setSelectedSceneId={setSelectedSceneId}
+                addScene={addScene}
+                deleteScene={deleteScene}
+                updateScene={updateScene}
+                divideScriptToScenes={divideScriptToScenes}
+                saveFullScript={saveFullScript}
+                createNewProject={handleCreateNewProject}
+                updateProjectTitle={updateProjectTitle}
+              />
+            </CanvasErrorBoundary>
           </div>
-        )}
-        
-        {showHistoryPanel && (
-          <div className="w-80 bg-[#111827] text-white">
-            <ProjectHistory />
-          </div>
-        )}
-      </div>
-    </div>
+        </div>
+      </MCPProvider>
+    </TooltipProvider>
   );
 }

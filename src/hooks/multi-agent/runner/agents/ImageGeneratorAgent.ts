@@ -1,26 +1,15 @@
-
 import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
+import { AgentResult, AgentOptions } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
 export class ImageGeneratorAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
-    super({
-      name: options.name || "Image Generator Agent",
-      instructions: options.instructions || "You are an AI agent specialized in generating image prompts.",
-      context: options.context,
-      traceId: options.traceId,
-      ...options
-    });
+    super(options);
   }
 
-  getType(): AgentType {
-    return "image";
-  }
-
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+  async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
-      console.log("Running ImageGeneratorAgent with input:", input.substring(0, 50));
+      console.log("Running ImageGeneratorAgent with input:", input.substring(0, 50), "attachments:", attachments.length);
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -29,10 +18,7 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       }
       
       // Get dynamic instructions if needed
-      const instructions = this.getInstructions();
-      
-      // Handle attachments if they exist in metadata
-      const attachments = this.context.metadata?.attachments || [];
+      const instructions = await this.getInstructions(this.context);
       
       // Get conversation history from context if available
       const conversationHistory = this.context.metadata?.conversationHistory || [];
@@ -116,10 +102,10 @@ The image prompts should follow these guidelines:
           userId: user.id,
           usePerformanceModel: this.context.usePerformanceModel,
           enableDirectToolExecution: this.context.enableDirectToolExecution,
-          tracingEnabled: !this.context.tracingEnabled,
+          tracingDisabled: this.context.tracingDisabled,
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
-            attachmentTypes: attachments.map((att: Attachment) => att.type.startsWith('image') ? 'image' : 'file'),
+            attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
             isHandoffContinuation: isHandoffContinuation,
             previousAgentType: previousAgentType,
             handoffReason: handoffReason,
@@ -174,13 +160,13 @@ The image prompts should follow these guidelines:
       }
       
       // Handle handoff if present
-      let nextAgent: AgentType | null = null;
+      let nextAgent = null;
       let handoffReasonResponse = null;
       let additionalContextForNext = null;
       
       if (data?.handoffRequest) {
         console.log("Handoff requested to:", data.handoffRequest.targetAgent);
-        nextAgent = data.handoffRequest.targetAgent as AgentType;
+        nextAgent = data.handoffRequest.targetAgent;
         handoffReasonResponse = data.handoffRequest.reason;
         additionalContextForNext = data.handoffRequest.additionalContext || continuityData?.additionalContext;
         
@@ -190,6 +176,7 @@ The image prompts should follow these guidelines:
           if (projectDetails) {
             additionalContextForNext.projectTitle = projectDetails.title;
           }
+          additionalContextForNext.imageParameters = imageParameters;
           if (structuredImagePrompts) {
             additionalContextForNext.structuredImagePrompts = structuredImagePrompts;
           }
@@ -221,8 +208,8 @@ The image prompts should follow these guidelines:
       }
       
       return {
-        response: data?.completion || "I processed your request but couldn't generate an image response.",
         output: data?.completion || "I processed your request but couldn't generate an image response.",
+        response: data?.completion || "I processed your request but couldn't generate an image response.",
         nextAgent: nextAgent,
         handoffReason: handoffReasonResponse,
         structured_output: structuredImagePrompts || data?.structured_output || null,
@@ -236,5 +223,9 @@ The image prompts should follow these guidelines:
       console.error("ImageGeneratorAgent run error:", error);
       throw error;
     }
+  }
+  
+  getType(): AgentType {
+    return "image";
   }
 }

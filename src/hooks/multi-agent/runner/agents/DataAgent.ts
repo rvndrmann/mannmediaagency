@@ -35,14 +35,12 @@ export class DataAgent extends BaseAgentImpl {
 
       return {
         response,
-        output: response, // Add output field
         nextAgent: null
       };
     } catch (error) {
       console.error("Unexpected error in Data Agent:", error);
       return {
         response: "An unexpected error occurred. Please try again later.",
-        output: "An unexpected error occurred. Please try again later.", // Add output field
         nextAgent: null
       };
     }

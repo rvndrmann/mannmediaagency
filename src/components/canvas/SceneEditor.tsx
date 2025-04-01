@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { toast } from "sonner";
@@ -16,11 +15,11 @@ interface SceneEditorProps {
 }
 
 export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
-  const [title, setTitle] = useState(scene?.title || "");
-  const [script, setScript] = useState(scene?.script || "");
-  const [voiceOverText, setVoiceOverText] = useState(scene?.voiceOverText || "");
-  const [description, setDescription] = useState(scene?.description || "");
-  const [imagePrompt, setImagePrompt] = useState(scene?.imagePrompt || "");
+  const [title, setTitle] = useState(scene.title);
+  const [script, setScript] = useState(scene.script);
+  const [voiceOverText, setVoiceOverText] = useState(scene.voiceOverText);
+  const [description, setDescription] = useState(scene.description);
+  const [imagePrompt, setImagePrompt] = useState(scene.imagePrompt);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,8 +36,8 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     generateSceneImage,
     generateSceneVideo
   } = useCanvasAgent({
-    projectId: scene?.projectId || "",
-    sceneId: scene?.id || "",
+    projectId: scene.projectId,
+    sceneId: scene.id,
     updateScene: onUpdate
   });
   
@@ -50,13 +49,11 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
       try {
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        if (scene) {
-          setTitle(scene.title || "");
-          setScript(scene.script || "");
-          setVoiceOverText(scene.voiceOverText || "");
-          setDescription(scene.description || "");
-          setImagePrompt(scene.imagePrompt || "");
-        }
+        setTitle(scene.title);
+        setScript(scene.script);
+        setVoiceOverText(scene.voiceOverText);
+        setDescription(scene.description);
+        setImagePrompt(scene.imagePrompt);
       } catch (error) {
         console.error("Error loading scene data:", error);
         setLoadError("Failed to load scene data. Please try refreshing the page.");
@@ -73,8 +70,6 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   }, [isProcessing]);
   
   const handleSave = async (field: 'script' | 'voiceOverText' | 'description' | 'imagePrompt') => {
-    if (!scene) return;
-    
     setIsSaving(true);
     
     try {
@@ -105,8 +100,6 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   };
   
   const generateWithAI = useCallback(async (type: 'script' | 'description' | 'imagePrompt') => {
-    if (!scene) return;
-    
     if (isProcessing) {
       toast.error("Please wait for the current operation to complete");
       return;
@@ -117,7 +110,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
       
       if (type === 'script') {
         context = `You need to create a script for a video scene.
-Scene Title: ${scene.title || ""}
+Scene Title: ${scene.title}
 ${scene.description ? "Scene Description: " + scene.description : ""}
 ${scene.voiceOverText ? "Voice Over Text: " + scene.voiceOverText : ""}
 
@@ -125,12 +118,12 @@ Write a creative and engaging script that includes dialogue, action descriptions
 Be specific about what characters say and do, and how the scene should be shot.`;
 
         await generateSceneScript(scene.id, context);
-        setScript(scene.script || "");
+        setScript(scene.script);
         toast.success("Scene script generated and saved");
       
       } else if (type === 'description') {
         context = `You need to create a detailed scene description for a video. 
-Scene Title: ${scene.title || ""}
+Scene Title: ${scene.title}
 Scene Script: ${script}
 Voice Over Text: ${voiceOverText}
 ${scene.imageUrl ? "The scene already has an image that you should use as reference: " + scene.imageUrl : ""}
@@ -139,12 +132,12 @@ Describe how the camera should move, how subjects are positioned, lighting, mood
 Be specific about camera angles, movements, and visual composition.`;
 
         await generateSceneDescription(scene.id, context);
-        setDescription(scene.description || "");
+        setDescription(scene.description);
         toast.success("Scene description generated and saved");
         
       } else if (type === 'imagePrompt') {
         context = `You need to create a detailed image prompt for this scene that will be used for AI image generation.
-Scene Title: ${scene.title || ""}
+Scene Title: ${scene.title}
 Scene Script: ${script}
 Voice Over Text: ${voiceOverText}
 ${scene.description ? "Scene Description: " + scene.description : ""}
@@ -153,7 +146,7 @@ Create a detailed image prompt that includes visual elements, style, lighting, m
 Format the prompt to get the best results from an AI image generator.`;
 
         await generateImagePrompt(scene.id, context);
-        setImagePrompt(scene.imagePrompt || "");
+        setImagePrompt(scene.imagePrompt);
         toast.success("Image prompt generated and saved");
       }
     } catch (error) {
@@ -171,9 +164,7 @@ Format the prompt to get the best results from an AI image generator.`;
   ]);
   
   const handleGenerateImage = async () => {
-    if (!scene) return;
-    
-    if (!imagePrompt || !imagePrompt.trim()) {
+    if (!imagePrompt.trim()) {
       toast.error("Please generate or enter an image prompt first");
       return;
     }
@@ -188,8 +179,6 @@ Format the prompt to get the best results from an AI image generator.`;
   };
   
   const handleGenerateVideo = async () => {
-    if (!scene) return;
-    
     if (!scene.imageUrl) {
       toast.error("Please generate a scene image first");
       return;
@@ -221,14 +210,6 @@ Format the prompt to get the best results from an AI image generator.`;
           <AlertDescription>{loadError}</AlertDescription>
         </Alert>
         <Button onClick={() => window.location.reload()}>Refresh Page</Button>
-      </div>
-    );
-  }
-  
-  if (!scene) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">No scene selected</p>
       </div>
     );
   }
@@ -317,7 +298,7 @@ Format the prompt to get the best results from an AI image generator.`;
         
         <SceneControls
           sceneId={scene.id}
-          imagePrompt={imagePrompt} // Make sure this is passed properly
+          imagePrompt={imagePrompt}
           hasImage={!!scene.imageUrl}
           isProcessing={isProcessing}
           activeAgent={activeAgent}

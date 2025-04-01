@@ -1,26 +1,20 @@
 
 import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
+import { AgentResult, AgentOptions } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
 export class SceneGeneratorAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
-    super({
-      name: options.name || "Scene Generator Agent",
-      instructions: options.instructions || "You are an AI agent specialized in generating scene content.",
-      context: options.context,
-      traceId: options.traceId,
-      ...options
-    });
+    super(options);
   }
 
-  getType(): AgentType {
+  getType() {
     return "scene-generator";
   }
 
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+  async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
-      console.log("Running SceneGeneratorAgent with input:", input);
+      console.log("Running SceneGeneratorAgent with input:", input, "attachments:", attachments);
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -29,10 +23,7 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
       }
       
       // Get dynamic instructions if needed
-      const instructions = this.getInstructions();
-      
-      // Handle attachments if they exist in metadata
-      const attachments = this.context.metadata?.attachments || [];
+      const instructions = await this.getInstructions(this.context);
       
       // Record trace event for scene generator agent start
       this.recordTraceEvent("scene_generator_agent_start", {
@@ -51,7 +42,7 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
           enableDirectToolExecution: this.context.enableDirectToolExecution,
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
-            attachmentTypes: attachments.map((att: Attachment) => att.type.startsWith('image') ? 'image' : 'file'),
+            attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
             instructions: instructions
           },
           runId: this.context.runId,
@@ -78,9 +69,7 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
       
       return {
         response: data?.completion || "I processed your request but couldn't generate a response.",
-        output: data?.completion || "I processed your request but couldn't generate a response.",
         nextAgent: null,
-        handoffReason: null,
         commandSuggestion: commandSuggestion,
         structured_output: data?.structured_output || null
       };

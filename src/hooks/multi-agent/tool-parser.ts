@@ -1,133 +1,78 @@
+
 import { Command } from "@/types/message";
 
-// Parse a tool call from a text response
-export const parseToolCall = (text: string): Command | null => {
-  // Regular expression to match tool call patterns
-  const toolCallRegex = /\[Tool: (\w+)\]\s*Parameters:([\s\S]*?)(?=\[\/Tool\]|\[Tool:|\z)/g;
-  const matches = [...text.matchAll(toolCallRegex)];
+// Parse a JSON tool call from a string
+export function parseJsonToolCall(text: string): Command | null {
+  // Look for JSON pattern with command, name, and parameters
+  const jsonRegex = /```(?:json)?\s*({[\s\S]*?})```/;
+  const match = text.match(jsonRegex);
   
-  if (matches.length === 0) return null;
-  
-  const firstMatch = matches[0];
-  const toolName = firstMatch[1].trim();
-  const parametersText = firstMatch[2].trim();
-  
-  try {
-    // Try to parse the parameters as JSON
-    const parameters = parseJsonParameters(parametersText);
-    
-    return {
-      name: toolName,
-      parameters
-    };
-  } catch (error) {
-    console.error("Error parsing tool call parameters:", error);
-    return {
-      name: toolName,
-      parameters: {}
-    };
+  if (match && match[1]) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      
+      // Check if it's a command with a name and optional parameters
+      if (parsed && parsed.command && typeof parsed.command === 'string') {
+        return {
+          name: parsed.command,
+          parameters: parsed.parameters || {}
+        };
+      } else if (parsed && parsed.name && typeof parsed.name === 'string') {
+        return {
+          name: parsed.name,
+          parameters: parsed.parameters || parsed.args || {}
+        };
+      }
+    } catch (e) {
+      console.error("Failed to parse JSON tool call:", e);
+    }
   }
-};
+  
+  return null;
+}
 
-// Parse a JSON tool call from a response
-export const parseJsonToolCall = (text: string): Command | null => {
-  try {
-    // Look for JSON objects that might contain tool calls
-    const jsonRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```|(\{[\s\S]*?\})/g;
-    const matches = [...text.matchAll(jsonRegex)];
+// Parse a tool call from a text format like "UseCalculator(num1=5, num2=10, operation='add')"
+export function parseToolCall(text: string): Command | null {
+  // Look for function call pattern: FunctionName(param1=value1, param2=value2)
+  const functionRegex = /([a-zA-Z0-9_]+)\s*\(\s*([\s\S]*?)\s*\)/;
+  const match = text.match(functionRegex);
+  
+  if (match && match[1] && match[2]) {
+    const functionName = match[1];
+    const paramsString = match[2];
     
-    if (matches.length === 0) return null;
+    // Parse parameters
+    const params: Record<string, any> = {};
     
-    // Try each potential JSON match
-    for (const match of matches) {
-      const jsonStr = (match[1] || match[2]).trim();
+    // Look for param=value patterns
+    const paramRegex = /([a-zA-Z0-9_]+)\s*=\s*(?:(['"])([^\2]*?)\2|([^,]+))/g;
+    let paramMatch;
+    
+    while ((paramMatch = paramRegex.exec(paramsString)) !== null) {
+      const paramName = paramMatch[1];
+      const paramValue = paramMatch[3] !== undefined ? paramMatch[3] : paramMatch[4];
+      
+      // Try to parse non-string values
       try {
-        const jsonObj = JSON.parse(jsonStr);
-        
-        // Check various tool call formats
-        
-        // Format 1: { tool: "toolName", parameters: {...} }
-        if (jsonObj.tool && jsonObj.parameters) {
-          return {
-            name: jsonObj.tool,
-            parameters: jsonObj.parameters
-          };
-        }
-        
-        // Format 2: { name: "toolName", arguments/parameters: {...} }
-        if (jsonObj.name && (jsonObj.arguments || jsonObj.parameters)) {
-          return {
-            name: jsonObj.name,
-            parameters: jsonObj.arguments || jsonObj.parameters
-          };
-        }
-        
-        // Format 3: { function: "toolName", args/parameters: {...} }
-        if (jsonObj.function && (jsonObj.args || jsonObj.parameters)) {
-          return {
-            name: jsonObj.function,
-            parameters: jsonObj.args || jsonObj.parameters
-          };
-        }
-        
-        // Format 4: Directly parse JSON if it has a 'name' property that seems like a tool
-        if (jsonObj.name && typeof jsonObj.name === 'string' && 
-            !/^\s*[A-Za-z]/.test(jsonObj.name) && Object.keys(jsonObj).length > 1) {
-          const { name, ...parameters } = jsonObj;
-          return { name, parameters };
+        if (paramValue === 'true') {
+          params[paramName] = true;
+        } else if (paramValue === 'false') {
+          params[paramName] = false;
+        } else if (!isNaN(Number(paramValue))) {
+          params[paramName] = Number(paramValue);
+        } else {
+          params[paramName] = paramValue;
         }
       } catch (e) {
-        // Continue to next potential match
-        console.warn("Failed to parse potential JSON tool call:", e);
+        params[paramName] = paramValue;
       }
     }
     
-    return null;
-  } catch (error) {
-    console.error("Error parsing JSON tool call:", error);
-    return null;
+    return {
+      name: functionName,
+      parameters: params
+    };
   }
-};
-
-// Helper function to parse parameters
-const parseJsonParameters = (text: string): Record<string, any> => {
-  try {
-    // Try to see if it's a valid JSON object already
-    const parsed = JSON.parse(text);
-    return parsed;
-  } catch (e) {
-    // Not valid JSON, try to parse key-value pairs
-    const parameters: Record<string, any> = {};
-    const lines = text.split('\n');
-    
-    for (const line of lines) {
-      const keyValueMatch = line.match(/(\w+):\s*(.*)/);
-      if (keyValueMatch) {
-        const [_, key, value] = keyValueMatch;
-        
-        // Try to intelligently parse the values
-        const trimmedValue = value.trim();
-        if (/^-?\d+$/.test(trimmedValue)) {
-          // Parse as integer
-          parameters[key.trim()] = parseInt(trimmedValue, 10);
-        } else if (/^-?\d+\.\d+$/.test(trimmedValue)) {
-          // Parse as float
-          parameters[key.trim()] = parseFloat(trimmedValue);
-        } else if (/^(true|false)$/i.test(trimmedValue)) {
-          // Parse as boolean
-          parameters[key.trim()] = trimmedValue.toLowerCase() === 'true';
-        } else {
-          // Keep as string
-          parameters[key.trim()] = trimmedValue;
-        }
-      }
-    }
-    
-    return parameters;
-  }
-};
-
-// Unified parser that tries all methods
-export const parseToolCallFromText = (text: string): Command | null => {
-  return parseJsonToolCall(text) || parseToolCall(text);
-};
+  
+  return null;
+}

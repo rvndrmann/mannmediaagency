@@ -32,12 +32,7 @@ createRoot(rootElement).render(
   <React.StrictMode>
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <ChatSessionProvider>
-          <ProjectProvider>
-            <App />
-          </ProjectProvider>
-          <Toaster />
-        </ChatSessionProvider>
+        <App />
       </QueryClientProvider>
     </BrowserRouter>
   </React.StrictMode>

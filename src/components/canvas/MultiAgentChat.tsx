@@ -1,6 +1,4 @@
-
 import React, { useEffect, useState, useRef, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,6 +8,7 @@ import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
 import { AgentType } from "@/hooks/multi-agent/runner/types";
+import { Link } from "react-router-dom";
 
 // Define props for the component
 interface MultiAgentChatProps {

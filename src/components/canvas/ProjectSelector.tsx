@@ -1,14 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronLeft, Plus, VideoIcon } from 'lucide-react';
-import { useCanvas } from '@/hooks/use-canvas';
+import { PlusCircle, ArrowLeft } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { CanvasProject } from '@/types/canvas';
+import { CanvasProject } from '@/types/canvas.d';
 
 interface ProjectSelectorProps {
   onBack: () => void;
@@ -17,124 +16,113 @@ interface ProjectSelectorProps {
 }
 
 export function ProjectSelector({ onBack, onSelectProject, onCreateProject }: ProjectSelectorProps) {
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newProjectTitle, setNewProjectTitle] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const { projects, loading } = useCanvas(null);
+  const [projects, setProjects] = useState<CanvasProject[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [newProjectTitle, setNewProjectTitle] = useState<string>('');
+  const [creating, setCreating] = useState<boolean>(false);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+  
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('You need to be logged in to view projects');
+        navigate('/login');
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      setProjects(data || []);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast.error('Failed to load projects');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleCreateProject = async () => {
     if (!newProjectTitle.trim()) {
-      toast.error('Please enter a title for your project');
+      toast.error('Please enter a project title');
       return;
     }
     
-    setIsCreating(true);
     try {
+      setCreating(true);
       const projectId = await onCreateProject(newProjectTitle);
+      setNewProjectTitle('');
+      
       if (projectId) {
-        setShowCreateModal(false);
-        setNewProjectTitle('');
+        await fetchProjects();
       }
     } catch (error) {
       console.error('Error creating project:', error);
       toast.error('Failed to create project');
     } finally {
-      setIsCreating(false);
+      setCreating(false);
     }
   };
   
-  const sortedProjects = React.useMemo(() => {
-    if (!projects || projects.length === 0) return [];
-    
-    return [...projects].sort((a, b) => {
-      const dateA = new Date(a.created_at || a.createdAt || Date.now());
-      const dateB = new Date(b.created_at || b.createdAt || Date.now());
-      return dateB.getTime() - dateA.getTime();
-    });
-  }, [projects]);
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button variant="outline" size="icon" onClick={onBack}>
-          <ChevronLeft className="h-4 w-4" />
+    <div className="flex flex-col space-y-4">
+      <div className="flex justify-between items-center mb-4">
+        <Button variant="outline" onClick={onBack} className="gap-2">
+          <ArrowLeft size={16} />
+          Back
         </Button>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Project
-        </Button>
+        <h2 className="text-2xl font-bold">Canvas Projects</h2>
       </div>
       
-      <ScrollArea className="h-[500px] pr-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {loading ? (
-            <div className="col-span-full flex justify-center p-12">
-              <p className="text-muted-foreground">Loading projects...</p>
-            </div>
-          ) : sortedProjects.length === 0 ? (
-            <div className="col-span-full text-center p-12">
-              <VideoIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No projects yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first project to get started</p>
-              <Button onClick={() => setShowCreateModal(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Project
-              </Button>
-            </div>
-          ) : (
-            sortedProjects.map((project) => (
-              <Card 
-                key={project.id} 
-                className="cursor-pointer transition-all hover:bg-accent/50"
-                onClick={() => onSelectProject(project.id)}
-              >
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-base truncate">{project.title || 'Untitled Project'}</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <p className="text-xs text-muted-foreground">
-                    Created: {new Date(project.created_at || project.createdAt || Date.now()).toLocaleDateString()}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Scenes: {project.scenes?.length || 0}
-                  </p>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      </ScrollArea>
-      
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
-            <DialogDescription>
-              Give your new video project a title. You can change it later.
-            </DialogDescription>
-          </DialogHeader>
-          
+      <Card className="p-4">
+        <h3 className="text-lg font-medium mb-2">Create New Project</h3>
+        <div className="flex gap-2">
           <Input
-            placeholder="Enter project title"
+            placeholder="Project title"
             value={newProjectTitle}
             onChange={(e) => setNewProjectTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleCreateProject();
-              }
-            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
           />
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateProject} disabled={isCreating || !newProjectTitle.trim()}>
-              {isCreating ? 'Creating...' : 'Create Project'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <Button onClick={handleCreateProject} disabled={creating || !newProjectTitle.trim()} className="gap-2">
+            <PlusCircle size={16} />
+            Create
+          </Button>
+        </div>
+      </Card>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+        {loading ? (
+          <p className="col-span-full text-center py-8">Loading projects...</p>
+        ) : projects.length === 0 ? (
+          <p className="col-span-full text-center py-8">No projects yet. Create your first project to get started.</p>
+        ) : (
+          projects.map((project) => (
+            <Card
+              key={project.id}
+              className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => onSelectProject(project.id)}
+            >
+              <h3 className="text-lg font-medium mb-2">{project.title}</h3>
+              <p className="text-sm text-muted-foreground truncate">{project.description || 'No description'}</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Created: {new Date(project.created_at || '').toLocaleDateString()}
+              </p>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   );
 }

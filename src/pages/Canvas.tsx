@@ -34,7 +34,8 @@ export default function Canvas() {
     divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,
-    loading
+    loading,
+    fetchProjects
   } = useCanvas(selectedProjectId);
   
   // useEffect to load project details if projectId is in the URL
@@ -201,7 +202,7 @@ export default function Canvas() {
                           onChange={(e) => saveFullScript(e.target.value)}
                         />
                         <div className="flex justify-end gap-2">
-                          <Button onClick={() => divideScriptToScenes()} disabled={!project.fullScript}>
+                          <Button onClick={() => divideScriptToScenes(project.fullScript || '')} disabled={!project.fullScript}>
                             Divide Into Scenes
                           </Button>
                         </div>

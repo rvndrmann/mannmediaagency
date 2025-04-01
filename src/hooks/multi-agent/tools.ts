@@ -1,3 +1,4 @@
+
 import { ToolDefinition as MultiAgentToolDefinition, CommandExecutionState, ToolContext } from './types';
 import { ToolDefinition as ToolsToolDefinition } from './tools/types';
 import { canvasTool } from './tools/canvas-tool';
@@ -24,7 +25,7 @@ export function adaptToolDefinition(tool: ToolsToolDefinition): MultiAgentToolDe
       // Call the original execute function
       const result = await tool.execute(params, adaptedContext);
       
-      // Ensure the state is converted to the correct enum value
+      // Map the state to the correct enum value
       let state = result.state;
       if (typeof state === 'string') {
         switch(state) {
@@ -82,4 +83,14 @@ export const adaptedTools = [
 // Function to get all available tools
 export const getAvailableTools = (): MultiAgentToolDefinition[] => {
   return [...adaptedTools];
+};
+
+// Add executeTool function for compatibility
+export const executeTool = async (toolName: string, parameters: any, context: ToolContext) => {
+  const tool = adaptedTools.find(t => t.name === toolName);
+  if (!tool) {
+    throw new Error(`Tool "${toolName}" not found`);
+  }
+  
+  return await tool.execute(parameters, context);
 };

@@ -1,3 +1,4 @@
+
 import { CommandExecutionState, ToolContext, ToolExecutionResult } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
@@ -127,7 +128,7 @@ export async function executeProductShotV2Tool(
         return {
           success: false,
           message: error.message || "Failed to generate product shot",
-          error: error,
+          error: error.message,
           state: CommandExecutionState.FAILED
         };
       }
@@ -142,9 +143,19 @@ export async function executeProductShotV2Tool(
         };
       }
       
-      // Track usage in database if userId is available
+      // Track usage using RPC call
       if (context.userId) {
-        await trackToolUsage(context.userId, "product_shot_v2", 2);
+        try {
+          const { error: trackError } = await supabase.rpc('track_tool_usage', {
+            p_user_id: context.userId,
+            p_tool_name: "product_shot_v2",
+            p_credits_used: 2
+          });
+          
+          if (trackError) console.error("Error tracking tool usage:", trackError);
+        } catch (trackError) {
+          console.error("Error tracking tool usage:", trackError);
+        }
       }
       
       // Return success result
@@ -157,17 +168,17 @@ export async function executeProductShotV2Tool(
           style: style,
           aspect_ratio: aspectRatio
         },
+        state: CommandExecutionState.COMPLETED,
         usage: {
           creditsUsed: 2
-        },
-        state: CommandExecutionState.COMPLETED
+        }
       };
     } catch (error) {
       console.error("Error in product shot generation:", error);
       return {
         success: false,
         message: error instanceof Error ? error.message : "Unknown error in product shot generation",
-        error: error,
+        error: error instanceof Error ? error.message : "Unknown error",
         state: CommandExecutionState.FAILED
       };
     }
@@ -176,28 +187,8 @@ export async function executeProductShotV2Tool(
     return {
       success: false,
       message: error instanceof Error ? error.message : "Unknown error executing product shot v2 tool",
-      error: error,
+      error: error instanceof Error ? error.message : "Unknown error",
       state: CommandExecutionState.FAILED
     };
-  }
-}
-
-// Helper function to track tool usage
-async function trackToolUsage(userId: string, toolName: string, creditsUsed: number): Promise<void> {
-  try {
-    // Instead of directly inserting into tool_usage table, use RPC call
-    // since the table might not exist in the schema
-    const { error } = await supabase.rpc('track_tool_usage', {
-      p_user_id: userId,
-      p_tool_name: toolName,
-      p_credits_used: creditsUsed
-    });
-    
-    if (error) {
-      console.error("Error tracking tool usage:", error);
-    }
-  } catch (error) {
-    console.error("Error tracking tool usage:", error);
-    // Don't fail the main operation if tracking fails
   }
 }

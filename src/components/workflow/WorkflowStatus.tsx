@@ -1,11 +1,16 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { IntegrationService } from '@/services/integration/IntegrationService';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { PlayCircle, RefreshCw } from 'lucide-react';
+import { ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
+import { IntegrationService } from '@/services/integration/IntegrationService';
+
+interface WorkflowStage {
+  name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress?: number;
+}
 
 export interface WorkflowStatusProps {
   projectId: string;
@@ -13,128 +18,183 @@ export interface WorkflowStatusProps {
 }
 
 export function WorkflowStatus({ projectId, onComplete }: WorkflowStatusProps) {
-  const [workflowState, setWorkflowState] = useState<any>(null);
+  const [stages, setStages] = useState<WorkflowStage[]>([]);
+  const [currentStage, setCurrentStage] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>('idle');
+  const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const integrationService = IntegrationService.getInstance();
-
+  
   useEffect(() => {
-    fetchWorkflowState();
+    if (projectId) {
+      fetchWorkflowState();
+    }
   }, [projectId]);
-
+  
   const fetchWorkflowState = async () => {
-    if (!projectId) return;
-    
-    setLoading(true);
     try {
+      setLoading(true);
+      setError(null);
+      
+      if (!integrationService.getWorkflowState) {
+        console.error("getWorkflowState method not available on IntegrationService");
+        setError("Workflow service not available");
+        return;
+      }
+      
       const state = await integrationService.getWorkflowState(projectId);
-      setWorkflowState(state);
+      
+      if (state) {
+        setStages(state.stages || []);
+        setCurrentStage(state.current_stage || null);
+        setStatus(state.status || 'idle');
+        setProgress(state.progress || 0);
+        
+        if (state.status === 'completed' && onComplete) {
+          onComplete();
+        }
+      } else {
+        setStages([]);
+        setCurrentStage(null);
+        setStatus('idle');
+        setProgress(0);
+      }
     } catch (error) {
-      console.error('Error fetching workflow state:', error);
-      toast.error('Failed to load workflow status');
+      console.error("Error fetching workflow state:", error);
+      setError("Failed to fetch workflow status");
     } finally {
       setLoading(false);
     }
   };
-
-  const handleStartWorkflow = async () => {
-    setLoading(true);
+  
+  const startWorkflow = async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
+      if (!integrationService.startVideoWorkflow) {
+        console.error("startVideoWorkflow method not available on IntegrationService");
+        setError("Workflow service not available");
+        return;
+      }
+      
       const success = await integrationService.startVideoWorkflow(projectId);
+      
       if (success) {
-        toast.success('Workflow started successfully');
+        toast.success("Video generation started!");
         await fetchWorkflowState();
       } else {
-        toast.error('Failed to start workflow');
+        toast.error("Failed to start video generation");
+        setError("Failed to start workflow");
       }
     } catch (error) {
-      console.error('Error starting workflow:', error);
-      toast.error('Failed to start workflow');
+      console.error("Error starting workflow:", error);
+      setError("Failed to start workflow");
+      toast.error("Failed to start video generation");
     } finally {
       setLoading(false);
     }
   };
-
-  const handleRetryStage = async (stage: string) => {
-    setLoading(true);
+  
+  const retryStage = async (stageName: string) => {
     try {
-      const success = await integrationService.retryWorkflowFromStage(projectId, stage);
+      setLoading(true);
+      setError(null);
+      
+      if (!integrationService.retryWorkflowFromStage) {
+        console.error("retryWorkflowFromStage method not available on IntegrationService");
+        setError("Workflow retry service not available");
+        return;
+      }
+      
+      const success = await integrationService.retryWorkflowFromStage(projectId, stageName);
+      
       if (success) {
-        toast.success(`Workflow restarted from ${stage}`);
+        toast.success(`Retrying from stage: ${stageName}`);
         await fetchWorkflowState();
       } else {
-        toast.error('Failed to retry workflow stage');
+        toast.error("Failed to retry workflow stage");
+        setError("Failed to retry workflow stage");
       }
     } catch (error) {
-      console.error('Error retrying workflow stage:', error);
-      toast.error('Failed to retry workflow stage');
+      console.error("Error retrying workflow stage:", error);
+      setError("Failed to retry workflow stage");
+      toast.error("Failed to retry workflow stage");
     } finally {
       setLoading(false);
     }
   };
-
+  
+  if (error) {
+    return (
+      <div className="p-4 border border-red-200 bg-red-50 rounded-md text-red-800 flex items-center">
+        <AlertCircle className="mr-2 h-5 w-5" />
+        <span>{error}</span>
+        <Button variant="ghost" size="sm" onClick={fetchWorkflowState} className="ml-auto">
+          <RefreshCw size={16} />
+        </Button>
+      </div>
+    );
+  }
+  
+  if (status === 'idle' || !status) {
+    return (
+      <div className="flex flex-col space-y-4">
+        <p className="text-muted-foreground">No active workflow for this project.</p>
+        <Button onClick={startWorkflow} disabled={loading}>
+          {loading ? (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              Starting...
+            </>
+          ) : (
+            <>
+              <ArrowRight className="mr-2 h-4 w-4" />
+              Start Video Generation
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  }
+  
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          <span>Workflow Status</span>
-          <Button variant="outline" size="sm" onClick={fetchWorkflowState} disabled={loading}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {!workflowState ? (
-          <div className="text-center py-4">
-            <p className="text-muted-foreground mb-4">No workflow in progress</p>
-            <Button onClick={handleStartWorkflow} disabled={loading}>
-              <PlayCircle className="h-4 w-4 mr-2" />
-              Start Workflow
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-medium mb-1">Status</h3>
-              <p className="text-sm">{workflowState.status || 'Unknown'}</p>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">
+          Status: <span className="capitalize">{status}</span>
+        </h3>
+        <Button variant="ghost" size="sm" onClick={fetchWorkflowState} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+      
+      <Progress value={progress} className="h-2" />
+      
+      <div className="space-y-2">
+        {stages.map((stage, index) => (
+          <div key={index} className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-full mr-2 ${
+                stage.status === 'completed' ? 'bg-green-500' : 
+                stage.status === 'running' ? 'bg-blue-500' :
+                stage.status === 'failed' ? 'bg-red-500' : 'bg-gray-300'
+              }`} />
+              <span className={`${currentStage === stage.name ? 'font-medium' : ''}`}>
+                {stage.name}
+              </span>
             </div>
             
-            <Separator />
-            
-            <div>
-              <h3 className="font-medium mb-1">Current Stage</h3>
-              <p className="text-sm">{workflowState.current_stage || 'Not started'}</p>
-            </div>
-            
-            {workflowState.error && (
-              <>
-                <Separator />
-                <div>
-                  <h3 className="font-medium mb-1 text-red-500">Error</h3>
-                  <p className="text-sm text-red-500">{workflowState.error}</p>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-2"
-                    onClick={() => handleRetryStage(workflowState.current_stage)}
-                    disabled={loading}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Retry Stage
-                  </Button>
-                </div>
-              </>
-            )}
-            
-            {workflowState.status === 'completed' && onComplete && (
-              <Button onClick={onComplete} className="w-full">
-                View Results
+            {stage.status === 'failed' && (
+              <Button variant="outline" size="sm" onClick={() => retryStage(stage.name)} disabled={loading}>
+                Retry
               </Button>
             )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        ))}
+      </div>
+    </div>
   );
 }

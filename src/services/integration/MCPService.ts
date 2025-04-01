@@ -24,4 +24,18 @@ export class MCPService {
   disconnect(projectId: string): boolean {
     return this.connections.delete(projectId);
   }
+  
+  // Adding missing methods
+  connectToServer(url: string, projectId: string): Promise<boolean> {
+    return this.connect(url, projectId);
+  }
+  
+  getConnectionUrl(projectId: string): string | null {
+    return this.getUrl(projectId);
+  }
+  
+  // Static getInstance method
+  static getInstance(): MCPService {
+    return new MCPService();
+  }
 }

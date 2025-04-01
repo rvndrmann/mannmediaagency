@@ -71,21 +71,23 @@ export const imageToVideoTool: ToolDefinition = {
       
       try {
         // For demo, check if a video with this image already exists
-        const { data: existingVideos } = await supabase
-          .from('video_generations')
-          .select('*')
-          .eq('source_image_url', imageUrl)
-          .limit(1);
+        // Use RPC call instead of direct table access
+        const { data: existingVideos, error: lookupError } = await supabase
+          .rpc('get_video_generation_by_source', {
+            p_source_image_url: imageUrl
+          });
+        
+        if (lookupError) throw lookupError;
         
         if (existingVideos && existingVideos.length > 0) {
           const video = existingVideos[0];
           
-          if (video.status === 'completed' && video.output_url) {
+          if (video.status === 'completed' && video.result_url) {
             return {
               success: true,
               message: "Video was already generated for this image",
               data: {
-                videoUrl: video.output_url,
+                videoUrl: video.result_url,
                 duration: video.duration,
                 style: video.style
               },
@@ -113,16 +115,12 @@ export const imageToVideoTool: ToolDefinition = {
         
         // Create a new video generation job
         const { data: newJob, error } = await supabase
-          .from('video_generations')
-          .insert({
-            source_image_url: imageUrl,
-            user_id: user.id,
-            status: 'pending',
-            duration,
-            style
-          })
-          .select()
-          .single();
+          .rpc('create_video_generation_job', {
+            p_source_image_url: imageUrl,
+            p_user_id: user.id,
+            p_duration: duration.toString(),
+            p_style: style
+          });
         
         if (error) {
           throw error;

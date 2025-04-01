@@ -40,7 +40,7 @@ export interface BaseAgent {
   getType(): AgentType;
 }
 
-// Tool execution result states
+// Make sure both CommandExecutionState enums are compatible
 export enum CommandExecutionState {
   PENDING = "pending",
   RUNNING = "running",
@@ -85,8 +85,8 @@ export interface ToolDefinition {
     displayName?: string;
     icon?: string;
   };
-  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
   version?: string;
+  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
 }
 
 // Tool execution result interface

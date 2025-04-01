@@ -1,5 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
-import { IntegrationService } from '../integration/IntegrationService';
+import { supabase } from "@/integrations/supabase/client";
 
 export class VideoWorkflowService {
   private static instance: VideoWorkflowService;
@@ -14,10 +13,8 @@ export class VideoWorkflowService {
     return VideoWorkflowService.instance;
   }
   
-  // Initialize project and MCP connection
   async initializeProject(projectId: string): Promise<boolean> {
     try {
-      // Make sure MCP is set up for this project
       const integrationService = IntegrationService.getInstance();
       const mcpInitialized = await integrationService.initMcpForProject(projectId);
       
@@ -26,7 +23,6 @@ export class VideoWorkflowService {
         return false;
       }
       
-      // Check if the project exists
       const project = await this.getProjectById(projectId);
       if (!project) {
         console.error("Project not found");
@@ -40,7 +36,6 @@ export class VideoWorkflowService {
     }
   }
   
-  // Get project by ID
   async getProjectById(projectId: string): Promise<any> {
     try {
       const { data, error } = await this.supabase
@@ -61,21 +56,17 @@ export class VideoWorkflowService {
     }
   }
   
-  // Create a new workflow for this project
   async createWorkflow(projectId: string): Promise<boolean> {
     try {
-      // Check if a workflow already exists for this project
       const existingWorkflow = await this.getWorkflowState(projectId);
       if (existingWorkflow) {
         console.warn("Workflow already exists for this project");
         return true;
       }
       
-      // Initialize MCP for this project if not already done
       const integrationService = IntegrationService.getInstance();
       await integrationService.initMcpForProject(projectId);
       
-      // Start the video workflow
       const workflowStarted = await integrationService.startVideoWorkflow(projectId);
       if (!workflowStarted) {
         console.error("Failed to start video workflow");
@@ -89,7 +80,6 @@ export class VideoWorkflowService {
     }
   }
   
-  // Get workflow state for a project
   async getWorkflowState(projectId: string): Promise<any> {
     try {
       const integrationService = IntegrationService.getInstance();
@@ -100,13 +90,10 @@ export class VideoWorkflowService {
     }
   }
   
-  // Process a scene and update its status
   async processScene(sceneId: string): Promise<boolean> {
     try {
-      // Simulate processing
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Update scene status
       const { error } = await this.supabase
         .from('canvas_scenes')
         .update({ status: 'processing' })
@@ -124,13 +111,10 @@ export class VideoWorkflowService {
     }
   }
   
-  // Finalize the video and update the project
   async finalizeVideo(projectId: string, videoUrl: string): Promise<boolean> {
     try {
-      // Simulate finalization
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Update project with final video URL
       const updated = await this.updateProjectWithFinalVideo(projectId, videoUrl);
       if (!updated) {
         console.error("Failed to update project with final video");
@@ -144,7 +128,24 @@ export class VideoWorkflowService {
     }
   }
   
-  // Update project with finalized video
+  async updateSceneData(sceneId: string, data: Partial<any>): Promise<boolean> {
+    try {
+      const { status, ...safeData } = data;
+      
+      const { error } = await supabase
+        .from('canvas_scenes')
+        .update(safeData)
+        .eq('id', sceneId);
+      
+      if (error) throw error;
+      
+      return true;
+    } catch (error) {
+      console.error("Error updating scene data:", error);
+      return false;
+    }
+  }
+  
   private async updateProjectWithFinalVideo(projectId: string, videoUrl: string): Promise<boolean> {
     try {
       const { error } = await this.supabase

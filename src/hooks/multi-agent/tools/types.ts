@@ -3,7 +3,10 @@ export enum CommandExecutionState {
   COMPLETED = "completed",
   FAILED = "failed",
   PROCESSING = "processing",
-  ERROR = "error"
+  ERROR = "error",
+  PENDING = "pending",
+  RUNNING = "running",
+  CANCELLED = "cancelled"
 }
 
 export interface ToolExecutionResult {
@@ -12,12 +15,17 @@ export interface ToolExecutionResult {
   data?: any;
   error?: string;
   state: CommandExecutionState;
+  usage?: {
+    creditsUsed?: number;
+  };
 }
 
 export interface ToolContext {
   supabase: any;
   user: any;
   session: any;
+  userId?: string;
+  projectId?: string;
   [key: string]: any;
 }
 
@@ -36,4 +44,5 @@ export interface ToolDefinition {
     icon?: string;
   };
   requiredCredits?: number;
+  version?: string;
 }

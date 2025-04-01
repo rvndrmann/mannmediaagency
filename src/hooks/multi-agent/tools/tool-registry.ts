@@ -1,6 +1,5 @@
 
-import { ToolDefinition } from "./types";
-import { CommandExecutionState } from "./types";
+import { ToolDefinition, CommandExecutionState } from "./types";
 import { canvasTool } from "./canvas-tool";
 import { canvasContentTool } from "./canvas-content-tool";
 
@@ -53,7 +52,7 @@ export const browserUseTool: ToolDefinition = {
   }
 };
 
-// Register all available tools
+// Register all available tools - using same type as the file they're defined in
 export const availableTools: ToolDefinition[] = [
   dataTool,
   canvasTool,

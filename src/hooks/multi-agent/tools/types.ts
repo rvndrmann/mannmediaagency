@@ -1,9 +1,9 @@
 
 export enum CommandExecutionState {
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-  PROCESSING = "PROCESSING",
-  ERROR = "ERROR"
+  COMPLETED = "completed",
+  FAILED = "failed",
+  PROCESSING = "processing",
+  ERROR = "error"
 }
 
 export interface ToolExecutionResult {
@@ -18,7 +18,18 @@ export interface ToolContext {
   supabase: any;
   user: any;
   session: any;
-  [key: string]: any;
+  userId?: string;
+  sessionId?: string;
+  projectId?: string;
+  groupId?: string;
+  userCredits?: number;
+  metadata?: Record<string, any>;
+  usePerformanceModel?: boolean;
+  enableDirectToolExecution?: boolean;
+  addMessage?: (message: string, type: string) => void;
+  toolAvailable?: boolean; 
+  history?: any[];
+  tracingEnabled?: boolean;
 }
 
 export interface ToolDefinition {

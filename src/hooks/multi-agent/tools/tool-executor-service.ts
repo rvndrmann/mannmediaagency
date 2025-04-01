@@ -2,7 +2,7 @@
 import { CommandExecutionState, ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 import { availableTools } from "./tool-registry";
 
-export const executeTool = async (toolName: string, parameters: any, context: ToolContext): Promise<any> => {
+export const executeTool = async (toolName: string, parameters: any, context: ToolContext): Promise<ToolExecutionResult> => {
   // Get all available tools
   const tools = availableTools;
   
@@ -12,7 +12,8 @@ export const executeTool = async (toolName: string, parameters: any, context: To
     console.warn(`Tool ${toolName} not found`);
     return {
       state: CommandExecutionState.FAILED,
-      message: `Tool ${toolName} not found`
+      message: `Tool ${toolName} not found`,
+      success: false
     };
   }
 
@@ -20,7 +21,8 @@ export const executeTool = async (toolName: string, parameters: any, context: To
   if (tool.requiredCredits && context.userCredits !== undefined && context.userCredits < tool.requiredCredits) {
     return {
       state: CommandExecutionState.FAILED,
-      message: `Insufficient credits to use tool ${toolName}. Required: ${tool.requiredCredits}, Available: ${context.userCredits}`
+      message: `Insufficient credits to use tool ${toolName}. Required: ${tool.requiredCredits}, Available: ${context.userCredits}`,
+      success: false
     };
   }
 
@@ -33,13 +35,15 @@ export const executeTool = async (toolName: string, parameters: any, context: To
       return {
         state: CommandExecutionState.COMPLETED,
         message: result.message || `Tool ${toolName} executed successfully`,
-        data: result.data
+        data: result.data,
+        success: true
       };
     } else {
       return {
         state: CommandExecutionState.FAILED,
         message: result.message || `Tool ${toolName} execution failed`,
-        data: result.data
+        data: result.data,
+        success: false
       };
     }
   } catch (error: any) {
@@ -47,7 +51,8 @@ export const executeTool = async (toolName: string, parameters: any, context: To
     return {
       state: CommandExecutionState.FAILED,
       message: error.message || `Error executing tool ${toolName}`,
-      error: error
+      error: error.message,
+      success: false
     };
   }
 };

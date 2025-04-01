@@ -1,10 +1,14 @@
-import { ToolDefinition } from "../../types";
+
 import { canvasTool } from "./canvas-tool";
+import { canvasProjectTool } from "./canvas-project-tool";
 
-// Import other default tools here as they are created
-// import { otherTool } from "./other-tool";
-
-export const defaultTools: ToolDefinition[] = [
+export { 
   canvasTool,
-  // Add other tools here
+  canvasProjectTool
+};
+
+// These tools will be automatically registered with the system
+export default [
+  canvasTool,
+  canvasProjectTool
 ];

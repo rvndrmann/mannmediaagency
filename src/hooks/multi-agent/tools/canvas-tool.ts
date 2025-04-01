@@ -1,6 +1,5 @@
 
-import { ToolDefinition } from "../types";
-import { CommandExecutionState } from "../types";
+import { ToolDefinition, CommandExecutionState } from "../types";
 
 export const canvasTool: ToolDefinition = {
   name: "canvas_tool",

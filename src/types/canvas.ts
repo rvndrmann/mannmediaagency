@@ -40,7 +40,7 @@ export interface CanvasProject {
 
 export interface CanvasScene {
   id: string;
-  projectId: string;
+  projectId?: string;
   project_id?: string; // For API compatibility
   title?: string;
   description?: string;
@@ -60,8 +60,11 @@ export interface CanvasScene {
   voice_over_text?: string;
   voiceOverText?: string; // Alias for voice_over_text for compatibility
   productImageUrl?: string;
+  product_image_url?: string; // For API compatibility
   voiceOverUrl?: string;
+  voice_over_url?: string; // For API compatibility 
   backgroundMusicUrl?: string;
+  background_music_url?: string; // For API compatibility
   duration?: number;
   order?: number; // Alias for sceneOrder/scene_order
 }

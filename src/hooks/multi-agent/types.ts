@@ -8,20 +8,26 @@ export interface AgentOptions {
   name: string;
   instructions?: string;
   context?: RunnerContext;
+  traceId?: string;
 }
 
 export interface RunnerContext {
   userId?: string;
   sessionId?: string;
   projectId?: string;
+  groupId?: string;
+  runId?: string;
   tracingEnabled?: boolean;
   addMessage?: (message: string, type: string) => void;
   metadata?: Record<string, any>;
+  supabase?: SupabaseClient<any, "public", any>;
+  usePerformanceModel?: boolean;
+  enableDirectToolExecution?: boolean;
 }
 
 export interface AgentResult {
   response: string;
-  output: string; // Required field added
+  output: string;
   nextAgent: AgentType | null;
   handoffReason?: string;
   additionalContext?: Record<string, any>;
@@ -41,7 +47,7 @@ export enum CommandExecutionState {
   COMPLETED = "completed",
   FAILED = "failed",
   CANCELLED = "cancelled",
-  ERROR = "error" // Add ERROR state
+  ERROR = "error"
 }
 
 // Tool context interface - provided to all tools during execution
@@ -59,6 +65,8 @@ export interface ToolContext {
   toolAvailable?: boolean; 
   history?: any[];
   tracingEnabled?: boolean;
+  user?: any;
+  session?: any;
 }
 
 // Tool definition interface
@@ -83,8 +91,8 @@ export interface ToolDefinition {
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
-  state: CommandExecutionState; // Required field
-  error?: Error | string;
+  state: CommandExecutionState;
+  error?: string | Error;
   data?: any;
   usage?: {
     creditsUsed?: number;

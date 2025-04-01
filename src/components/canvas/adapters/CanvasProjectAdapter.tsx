@@ -77,7 +77,7 @@ export function CanvasEmptyStateAdapter({ createProject }: CanvasEmptyStateAdapt
     return await createProject(title, description);
   };
   
-  return <CanvasEmptyState createProject={handleCreateProject} />;
+  return <CanvasEmptyState onCreateProject={handleCreateProject} />;
 }
 
 export function CanvasHeaderAdapter({ 
@@ -88,10 +88,18 @@ export function CanvasHeaderAdapter({
   onToggleChatPanel,
   showChatButton = false
 }: CanvasHeaderAdapterProps) {
+  const title = project?.title || 'Untitled Project';
+  
+  const handleUpdateTitle = async (newTitle: string) => {
+    if (project) {
+      return await updateProject(project.id, { title: newTitle });
+    }
+  };
+  
   return (
     <CanvasHeader 
-      project={project} 
-      updateProject={updateProject}
+      title={title}
+      onUpdateTitle={handleUpdateTitle}
       onToggleScriptPanel={onToggleScriptPanel}
       onToggleDetailPanel={onToggleDetailPanel}
       onToggleChatPanel={onToggleChatPanel}
@@ -108,14 +116,26 @@ export function CanvasSidebarAdapter({
   deleteScene,
   loading
 }: CanvasSidebarAdapterProps) {
+  const addScene = async () => {
+    if (project) {
+      const newScene = await createScene(project.id, { 
+        title: 'New Scene',
+        scene_order: (project.scenes?.length || 0) + 1
+      });
+      return newScene?.id;
+    }
+    return undefined;
+  };
+  
   return (
     <CanvasSidebar
       project={project}
       selectedSceneId={selectedSceneId}
       setSelectedSceneId={setSelectedSceneId}
-      createScene={createScene}
+      addScene={addScene}
       deleteScene={deleteScene}
       loading={loading}
+      collapsed={false}
     />
   );
 }
@@ -184,8 +204,8 @@ export function CanvasScriptPanelAdapter({
       projectId={projectId}
       onUpdateScene={onUpdateScene}
       onClose={onClose}
-      onSaveFullScript={onSaveFullScript}
-      onDivideScriptToScenes={onDivideScriptToScenes}
+      saveFullScript={onSaveFullScript}
+      divideScriptToScenes={onDivideScriptToScenes}
     />
   );
 }

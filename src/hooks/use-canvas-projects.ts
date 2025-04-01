@@ -309,5 +309,6 @@ export const useCanvasProjects = () => {
     createScene,
     updateScene,
     deleteScene,
+    isLoading: loading, // Added for compatibility with ProjectSelector
   };
 };

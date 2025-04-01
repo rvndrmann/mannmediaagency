@@ -12,16 +12,20 @@ import {
 } from '@/components/canvas/adapters/CanvasProjectAdapter';
 import { CanvasScene } from '@/types/canvas';
 import { toast } from 'sonner';
+import { useProjectContext } from '@/hooks/multi-agent/project-context';
+import { CanvasChat } from '@/components/canvas/CanvasChat';
 
 export default function Canvas() {
   const [showScriptPanel, setShowScriptPanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(true);
+  const [showChatPanel, setShowChatPanel] = useState(false);
   const [project, setProject] = useState(null);
   const [scenes, setScenes] = useState([]);
   const [selectedScene, setSelectedScene] = useState(null);
   const [selectedSceneId, setSelectedSceneId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [projectId, setProjectId] = useState(null);
+  const { setActiveProject, setActiveScene } = useProjectContext();
   
   // Get canvas projects and related data/methods
   const {
@@ -206,6 +210,7 @@ export default function Canvas() {
   useEffect(() => {
     if (projectId) {
       fetchProject(projectId);
+      setActiveProject(projectId);
     } else {
       // If no projectId, use a default one for testing
       setProjectId('project-123');
@@ -224,14 +229,17 @@ export default function Canvas() {
     if (selectedSceneId) {
       const scene = scenes.find(s => s.id === selectedSceneId);
       setSelectedScene(scene || null);
+      setActiveScene(selectedSceneId);
     } else {
       setSelectedScene(null);
+      setActiveScene(null);
     }
-  }, [selectedSceneId, scenes]);
+  }, [selectedSceneId, scenes, setActiveScene]);
   
   // Toggle panels
   const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
   const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
+  const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
   
   // Project creation if no project exists
   if (!project && !loading) {
@@ -245,6 +253,8 @@ export default function Canvas() {
         updateProject={updateProject}
         onToggleScriptPanel={toggleScriptPanel}
         onToggleDetailPanel={toggleDetailPanel}
+        onToggleChatPanel={toggleChatPanel}
+        showChatButton={true}
       />
       
       <div className="flex flex-1 overflow-hidden">
@@ -293,6 +303,17 @@ export default function Canvas() {
             saveFullScript={saveFullScript}
             divideScriptToScenes={divideScriptToScenes}
           />
+        )}
+        
+        {showChatPanel && (
+          <div className="w-80 bg-[#111827] text-white">
+            <CanvasChat
+              projectId={project?.id}
+              sceneId={selectedSceneId}
+              onClose={() => setShowChatPanel(false)}
+              updateScene={updateScene}
+            />
+          </div>
         )}
       </div>
     </div>

@@ -1,349 +1,249 @@
 
-import React, { useState, useEffect, useRef } from "react";
-import { useMultiAgentChat, AgentType } from "@/hooks/use-multi-agent-chat";
-import { ChatMessage } from "../chat/ChatMessage";
-import { UserMessageForm } from "../chat/UserMessageForm";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { ChatMessage } from "@/components/chat/ChatMessage"; 
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  MessageSquare,
-  Cog,
-  Bot,
-  RefreshCw,
-  Sparkles,
-  Zap,
-  Database,
-  FileText,
-  RocketIcon,
-  Settings,
-  Eraser,
-  Loader2,
-  ChevronLeft,
-} from "lucide-react";
-import { AgentSwitcher } from "./AgentSwitcher";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Message } from "@/types/message";
-import { Attachment } from "@/types/message";
-import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { useChatSession } from "@/contexts/ChatSessionContext";
-import { useAuth } from "@/hooks/use-auth";
-import { ChatSessionSelector } from "./ChatSessionSelector";
+import { Message } from "@/types/message";
+import { v4 as uuidv4 } from "uuid";
+import { Loader2, Send } from "lucide-react";
+import { useMCPContext } from "@/contexts/MCPContext";
+import { useToast } from "@/components/ui/use-toast";
+import { useAgentHistory } from "@/hooks/multi-agent/agent-history";
+import { useProjectContext } from "@/hooks/multi-agent/project-context";
 
 interface MultiAgentChatProps {
   isEmbedded?: boolean;
   onBack?: () => void;
   projectId?: string;
-  sessionId?: string;
+  sceneId?: string;
+  sessionId?: string; 
   compactMode?: boolean;
+  onAgentCommand?: (command: any) => Promise<void>;
 }
 
-export function MultiAgentChat({
+export function MultiAgentChat({ 
   isEmbedded = false,
   onBack,
   projectId,
+  sceneId,
   sessionId,
   compactMode = false,
+  onAgentCommand
 }: MultiAgentChatProps) {
-  const { user } = useAuth();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<string>("chat");
-  const [showConfig, setShowConfig] = useState<boolean>(false);
-  const { sessions, activeChatId, setActiveChatId, updateChatSession } = useChatSession();
-
-  // Access the project context if a projectId is provided
-  const projectContext = useProjectContext({
-    initialProjectId: projectId,
-  });
-
-  // Get the chat hook
-  const {
-    messages,
-    setMessages,
-    input,
-    setInput,
-    isLoading,
-    activeAgent,
-    handoffInProgress,
-    agentInstructions,
-    userCredits,
-    pendingAttachments,
-    setPendingAttachments,
-    usePerformanceModel,
-    enableDirectToolExecution,
-    tracingEnabled,
-    handleSubmit,
-    switchAgent,
-    clearChat,
-    togglePerformanceMode,
-    toggleDirectToolExecution,
-    toggleTracing,
-    addAttachments,
-    removeAttachment,
-    updateAgentInstructions,
-    getAgentInstructions,
-    setProjectContext,
-  } = useMultiAgentChat({
-    initialMessages: [],
-    projectId,
-    sessionId,
-  });
-
-  // Sync messages with chat session if sessionId provided
+  const { toast } = useToast();
+  const { activeProject } = useProjectContext();
+  const { mcpConnected } = useMCPContext();
+  const [userInput, setUserInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeAgent, setActiveAgent] = useState<string>("main");
+  const messageEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { updateAgentHistory } = useAgentHistory();
+  
+  // Get the active chat session based on the sessionId prop or the active session
+  const { 
+    sessions,
+    activeChatId, 
+    setActiveChatId, 
+    updateChatSession,
+    createChatSession
+  } = useChatSession();
+  
+  // Use the sessionId prop if provided, otherwise use the activeChatId
+  const currentSessionId = sessionId || activeChatId;
+  const currentSession = currentSessionId ? sessions[currentSessionId] : null;
+  const messages = currentSession?.messages || [];
+  
+  // Scroll to bottom when messages change
   useEffect(() => {
-    if (sessionId && sessions[sessionId]) {
-      setMessages(sessions[sessionId].messages);
-    }
-  }, [sessionId, sessions, setMessages]);
-
-  // Update session when messages change
-  useEffect(() => {
-    if (sessionId) {
-      updateChatSession(sessionId, messages);
-    }
-  }, [messages, sessionId, updateChatSession]);
-
-  // Set project context when projectId changes
-  useEffect(() => {
-    if (projectId && projectContext.projectContent) {
-      setProjectContext(projectId, projectContext.projectContent);
-    }
-  }, [projectId, projectContext.projectContent, setProjectContext]);
-
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    if (messageEndRef.current) {
+      messageEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
-
-  // File upload handler
-  const handleFileUpload = (files: File[]) => {
-    // Convert File objects to Attachment objects
-    const newAttachments: Attachment[] = Array.from(files).map((file) => ({
-      id: Math.random().toString(36).substring(2, 11),
-      type: file.type,
-      url: URL.createObjectURL(file),
-      name: file.name,
-      size: file.size,
-    }));
-
-    addAttachments(newAttachments);
-  };
-
-  // Get the bot name based on active agent type
-  const getBotName = (agentType: AgentType): string => {
-    switch (agentType) {
-      case "main":
-        return "Assistant";
-      case "script":
-        return "Script Writer";
-      case "image":
-        return "Image Generator";
-      case "tool":
-        return "Tool Specialist";
-      case "scene":
-        return "Scene Creator";
-      case "data":
-        return "Data Analyst";
-      default:
-        return "Assistant";
+  
+  // Focus input on mount
+  useEffect(() => {
+    if (inputRef.current && !isEmbedded) {
+      inputRef.current.focus();
     }
-  };
-
+  }, [isEmbedded]);
+  
+  // Set active chat session when sessionId changes
+  useEffect(() => {
+    if (sessionId && sessionId !== activeChatId) {
+      setActiveChatId(sessionId);
+    }
+  }, [sessionId, activeChatId, setActiveChatId]);
+  
+  async function handleSendMessage() {
+    if (!userInput.trim() || isLoading) return;
+    
+    const userMessage: Message = {
+      id: uuidv4(),
+      role: "user",
+      content: userInput,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Update the chat session with the user message
+    let updatedMessages = [...messages, userMessage];
+    if (currentSessionId) {
+      updateChatSession(currentSessionId, updatedMessages);
+    } else {
+      // Create a new session if none exists
+      const newSessionId = createChatSession(projectId || null, [userMessage]);
+      setActiveChatId(newSessionId);
+    }
+    
+    setUserInput("");
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch("/api/multi-agent-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          input: userInput,
+          agentType: activeAgent,
+          conversationHistory: messages,
+          usePerformanceModel: false,
+          projectId: projectId || activeProject,
+          sceneId: sceneId,
+          runId: currentSessionId || uuidv4(),
+          groupId: currentSessionId || uuidv4(),
+          contextData: projectId ? { projectId, sceneId } : null
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Handle handoffs between agents
+      if (data.handoffRequest) {
+        setActiveAgent(data.handoffRequest.targetAgent);
+        updateAgentHistory(activeAgent, data.handoffRequest.targetAgent, data.handoffRequest.reason);
+      }
+      
+      // Handle agent commands
+      if (data.command && onAgentCommand) {
+        await onAgentCommand(data.command);
+      }
+      
+      // Create the assistant message
+      const assistantMessage: Message = {
+        id: uuidv4(),
+        role: "assistant",
+        content: data.content,
+        agentType: data.agentType || activeAgent,
+        createdAt: new Date().toISOString(),
+        command: data.command
+      };
+      
+      // Update the chat session with the assistant message
+      updatedMessages = [...updatedMessages, assistantMessage];
+      if (currentSessionId) {
+        updateChatSession(currentSessionId, updatedMessages);
+      }
+      
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+  
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  }
+  
   return (
-    <div className="relative flex flex-col h-full overflow-hidden dark:bg-background max-h-screen">
-      {!isEmbedded && (
-        <div className="flex items-center justify-between px-4 py-2 border-b">
-          {onBack ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBack}
-              className="h-8 w-8"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          ) : (
-            <div className="flex items-center">
-              <MessageSquare className="mr-2 h-5 w-5" />
-              <h2 className="text-lg font-semibold">Chat</h2>
+    <div className={`flex flex-col h-full ${isEmbedded ? "" : "max-w-4xl mx-auto"}`}>
+      {/* Message area */}
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-4">
+          {messages.map((message) => (
+            <ChatMessage 
+              key={message.id} 
+              message={message} 
+              compact={compactMode}
+              showAgentLabel={true}
+            />
+          ))}
+          
+          {messages.length === 0 && (
+            <div className="flex items-center justify-center h-32 text-gray-400">
+              No messages yet. Start a conversation with the assistant.
             </div>
           )}
           
-          <div className="flex items-center space-x-2">
-            {projectId && (
-              <div className="text-xs text-muted-foreground">
-                Project: {projectContext.projectDetails?.title || projectId.substring(0, 8)}
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowConfig(!showConfig)}
-              className="h-8 w-8"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
+          {isLoading && (
+            <div className="flex items-center mt-2">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <span className="text-sm text-gray-500">Agent is thinking...</span>
+            </div>
+          )}
+          
+          <div ref={messageEndRef} />
         </div>
-      )}
-
-      <div className="flex flex-1 overflow-hidden">
-        {showConfig && !compactMode && (
-          <div className="w-64 border-r p-4 overflow-y-auto flex flex-col h-full">
-            <Tabs defaultValue="sessions">
-              <TabsList className="grid grid-cols-2 mb-4">
-                <TabsTrigger value="sessions">Sessions</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="sessions" className="space-y-4">
-                <ChatSessionSelector 
-                  onSelectSession={setActiveChatId}
-                  currentSessionId={activeChatId}
-                />
-              </TabsContent>
-              
-              <TabsContent value="settings" className="space-y-4">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium mb-2">Model Settings</h3>
-                    <Button
-                      variant={usePerformanceModel ? "default" : "outline"}
-                      size="sm"
-                      onClick={togglePerformanceMode}
-                      className="w-full justify-start"
-                    >
-                      <Zap className="mr-2 h-4 w-4" />
-                      {usePerformanceModel ? "Performance Mode" : "Quality Mode"}
-                    </Button>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium mb-2">Tools</h3>
-                    <Button
-                      variant={enableDirectToolExecution ? "default" : "outline"}
-                      size="sm"
-                      onClick={toggleDirectToolExecution}
-                      className="w-full justify-start"
-                    >
-                      <RocketIcon className="mr-2 h-4 w-4" />
-                      {enableDirectToolExecution
-                        ? "Direct Tool Execution"
-                        : "Tool Confirmation"}
-                    </Button>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium mb-2">Advanced</h3>
-                    <Button
-                      variant={tracingEnabled ? "default" : "outline"}
-                      size="sm"
-                      onClick={toggleTracing}
-                      className="w-full justify-start"
-                    >
-                      <Database className="mr-2 h-4 w-4" />
-                      {tracingEnabled ? "Tracing Enabled" : "Tracing Disabled"}
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearChat}
-                      className="w-full justify-start mt-2"
-                    >
-                      <Eraser className="mr-2 h-4 w-4" />
-                      Clear Conversation
-                    </Button>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium mb-2">Agent Selection</h3>
-                    <AgentSwitcher
-                      currentAgent={activeAgent}
-                      onSwitchAgent={switchAgent}
-                    />
-                  </div>
-                  
-                  {userCredits && (
-                    <div className="mt-4 text-sm text-muted-foreground">
-                      Available Credits: {userCredits.credits_remaining}
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+      </ScrollArea>
+      
+      {/* Input area */}
+      <div className="p-4 border-t">
+        <div className="flex gap-2">
+          <Input
+            ref={inputRef}
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={`Message ${getAgentName(activeAgent)}...`}
+            disabled={isLoading}
+            className="flex-1"
+          />
+          <Button 
+            onClick={handleSendMessage} 
+            disabled={isLoading || !userInput.trim()}
+            size="icon"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        
+        {!mcpConnected && (
+          <div className="text-xs text-amber-500 mt-1">
+            MCP not connected. Some features may be limited.
           </div>
         )}
-
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4 mb-4">
-              {messages.length === 0 && (
-                <div className="text-center py-8">
-                  <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">
-                    How can I assist you today?
-                  </h3>
-                  <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-                    {projectId
-                      ? "I'm here to help with your project. Ask me about creating scenes, scripts, or generating content."
-                      : "I'm a multi-agent system that can help with writing, data analysis, image generation, and more."}
-                  </p>
-                </div>
-              )}
-
-              {messages.map((message, index) => (
-                <ChatMessage
-                  key={message.id}
-                  message={message}
-                  showAvatar={message.role !== "system"}
-                  agentName={
-                    message.agentType
-                      ? getBotName(message.agentType as AgentType)
-                      : undefined
-                  }
-                />
-              ))}
-
-              {isLoading && (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              )}
-
-              <div ref={scrollRef} />
-            </div>
-          </ScrollArea>
-
-          <Separator className="my-2" />
-
-          <div className="p-4 pt-0">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AgentSwitcher
-                  currentAgent={activeAgent}
-                  onSwitchAgent={switchAgent}
-                  showLabels={!compactMode}
-                  compact={compactMode}
-                />
-              </div>
-            </div>
-            <UserMessageForm
-              message={input}
-              setMessage={setInput}
-              onSubmit={handleSubmit}
-              onFileUpload={handleFileUpload}
-              isLoading={isLoading}
-              attachments={pendingAttachments}
-              onRemoveAttachment={removeAttachment}
-              placeholder={`Message ${getBotName(activeAgent)}...`}
-              showSendButton={!compactMode}
-            />
-          </div>
-        </div>
       </div>
     </div>
   );
+}
+
+function getAgentName(agentType: string): string {
+  switch (agentType) {
+    case "main": return "Assistant";
+    case "script": return "Script Writer";
+    case "image": return "Image Generator";
+    case "tool": return "Tool Specialist";
+    case "scene": return "Scene Creator";
+    default: return "AI Assistant";
+  }
 }

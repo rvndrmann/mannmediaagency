@@ -9,6 +9,7 @@ import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { useCanvasAgent } from "@/hooks/use-canvas-agent";
+import { toast } from "sonner";
 
 interface CanvasChatProps {
   projectId?: string;
@@ -25,10 +26,13 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
   const { 
     messages, 
     addUserMessage, 
+    addAgentMessage,
     generateSceneDescription,
     generateImagePrompt,
+    generateSceneScript,
     generateSceneImage,
-    generateSceneVideo
+    generateSceneVideo,
+    isLoading
   } = useCanvasAgent({
     projectId,
     sceneId,
@@ -57,6 +61,43 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
     }
   }, [projectId, getOrCreateChatSession]);
 
+  // Handle canvas-specific agent commands
+  const handleAgentCommand = async (command: any) => {
+    if (!command || !sceneId) return;
+    
+    try {
+      switch (command.action) {
+        case 'generate_script':
+          await generateSceneScript(sceneId, command.content || "");
+          toast.success("Script generated for scene");
+          break;
+        case 'generate_description':
+          await generateSceneDescription(sceneId, command.content || "");
+          toast.success("Description generated for scene");
+          break;
+        case 'generate_image_prompt':
+          await generateImagePrompt(sceneId, command.content || "");
+          toast.success("Image prompt generated for scene");
+          break;
+        case 'generate_scene_image':
+          await generateSceneImage(sceneId, command.content || "");
+          toast.success("Image generated for scene");
+          break;
+        case 'generate_voiceover':
+          if (updateScene) {
+            await updateScene(sceneId, 'voiceOverText', command.content || "");
+            toast.success("Voiceover text updated for scene");
+          }
+          break;
+        default:
+          console.log("Unknown canvas command:", command);
+      }
+    } catch (error) {
+      console.error("Error handling canvas command:", error);
+      toast.error("Failed to execute canvas command");
+    }
+  };
+
   const handleEditContent = (type: string, content: string, sceneId: string) => {
     if (updateScene && sceneId) {
       const updateType = type as 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video';
@@ -81,6 +122,8 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
             isEmbedded={true}
             sessionId={sessionId}
             compactMode={true}
+            sceneId={sceneId}
+            onAgentCommand={handleAgentCommand}
           />
         ) : (
           <ScrollArea className="h-full">

@@ -91,8 +91,8 @@ export const CanvasHeaderAdapter: React.FC<any> = (props) => {
   return (
     <CanvasHeader
       project={props.project}
-      onChatToggle={props.onToggleScriptPanel || (() => {})}
-      showChatButton={true}
+      onChatToggle={props.onToggleChatPanel || props.onToggleScriptPanel || (() => {})}
+      showChatButton={props.showChatButton || false}
       onFullChatOpen={props.onToggleDetailPanel || (() => {})}
       onShowHistory={() => {}}
       onUpdateTitle={onUpdateTitle}

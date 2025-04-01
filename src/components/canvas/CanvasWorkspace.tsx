@@ -121,7 +121,7 @@ export function CanvasWorkspace({
             
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-2">
-                {project.scenes.map((scene) => (
+                {project.scenes && project.scenes.map((scene) => (
                   <div 
                     key={scene.id}
                     className={`p-3 border rounded-md cursor-pointer transition-colors ${

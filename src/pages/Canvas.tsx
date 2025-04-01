@@ -10,7 +10,7 @@ import {
   CanvasDetailPanelAdapter,
   CanvasScriptPanelAdapter
 } from '@/components/canvas/adapters/CanvasProjectAdapter';
-import { CanvasScene } from '@/types/canvas';
+import { CanvasScene, CanvasProject } from '@/types/canvas';
 import { toast } from 'sonner';
 import { useProjectContext } from '@/hooks/multi-agent/project-context';
 import { CanvasChat } from '@/components/canvas/CanvasChat';
@@ -19,12 +19,12 @@ export default function Canvas() {
   const [showScriptPanel, setShowScriptPanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(true);
   const [showChatPanel, setShowChatPanel] = useState(false);
-  const [project, setProject] = useState(null);
-  const [scenes, setScenes] = useState([]);
-  const [selectedScene, setSelectedScene] = useState(null);
-  const [selectedSceneId, setSelectedSceneId] = useState(null);
+  const [project, setProject] = useState<CanvasProject | null>(null);
+  const [scenes, setScenes] = useState<CanvasScene[]>([]);
+  const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [projectId, setProjectId] = useState(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const { setActiveProject, setActiveScene } = useProjectContext();
   
   // Get canvas projects and related data/methods
@@ -37,7 +37,7 @@ export default function Canvas() {
   } = useCanvasProjects();
   
   // Define updateScene here, before it's used in useCanvasAgent
-  const updateScene = async (sceneId, type, value) => {
+  const updateScene = async (sceneId: string, type: string, value: string) => {
     console.log('Updating scene', sceneId, type, value);
     // Mock implementation - update scene in local state
     setScenes(prevScenes => {
@@ -78,7 +78,7 @@ export default function Canvas() {
   });
   
   // Simulate the missing methods that would be in useCanvasProjects
-  const createScene = async (projectId, data) => {
+  const createScene = async (projectId: string, data: any) => {
     console.log('Creating scene for project', projectId, data);
     // Mock implementation
     const newSceneId = `scene-${Date.now()}`;
@@ -95,7 +95,7 @@ export default function Canvas() {
     return newScene;
   };
   
-  const deleteScene = async (sceneId) => {
+  const deleteScene = async (sceneId: string) => {
     console.log('Deleting scene', sceneId);
     // Mock implementation - remove from local state
     setScenes(prev => prev.filter(scene => scene.id !== sceneId));
@@ -107,7 +107,7 @@ export default function Canvas() {
     }
   };
   
-  const fetchProject = async (id) => {
+  const fetchProject = async (id: string) => {
     setLoading(true);
     console.log('Fetching project', id);
     // Mock implementation - create a dummy project
@@ -130,15 +130,15 @@ export default function Canvas() {
     return newScene.id;
   };
   
-  const saveFullScript = async (script) => {
+  const saveFullScript = async (script: string) => {
     console.log('Saving full script', script);
     if (project) {
-      setProject(prev => ({...prev, fullScript: script}));
+      setProject(prev => prev ? {...prev, fullScript: script} : null);
       toast.success("Script saved successfully");
     }
   };
   
-  const divideScriptToScenes = async (sceneScripts) => {
+  const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
     console.log('Dividing script to scenes', sceneScripts);
     // Mock implementation
     for (const sceneScript of sceneScripts) {
@@ -151,7 +151,7 @@ export default function Canvas() {
   };
   
   // Add createNewProject function for CanvasWorkspace
-  const createNewProject = async (title, description) => {
+  const createNewProject = async (title: string, description?: string) => {
     console.log('Creating new project', title, description);
     try {
       const newProject = await createProject(title, description);
@@ -168,12 +168,12 @@ export default function Canvas() {
   };
   
   // Add updateProjectTitle function for CanvasWorkspace
-  const updateProjectTitle = async (title) => {
+  const updateProjectTitle = async (title: string) => {
     console.log('Updating project title', title);
     if (project && project.id) {
       try {
         await updateProject(project.id, { title });
-        setProject(prev => ({...prev, title}));
+        setProject(prev => prev ? {...prev, title} : null);
         toast.success("Project title updated successfully");
       } catch (error) {
         console.error("Error updating project title:", error);
@@ -220,7 +220,8 @@ export default function Canvas() {
   // Effect to update project.scenes when scenes state changes
   useEffect(() => {
     if (project) {
-      setProject(prev => ({...prev, scenes}));
+      // Make sure to include the scenes array in the project object
+      setProject(prev => prev ? {...prev, scenes} : null);
     }
   }, [scenes]);
   

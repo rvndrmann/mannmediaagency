@@ -23,9 +23,22 @@ export interface CanvasProject {
   title: string;
   description?: string;
   fullScript?: string;
-  scenes?: CanvasScene[];
+  scenes: CanvasScene[];  // Changed from optional to required
   created_at?: string;
   createdAt?: string;
   updated_at?: string;
   userId?: string;
+}
+
+export interface SceneData {
+  title?: string;
+  script?: string;
+  description?: string;
+  imagePrompt?: string;
+  voiceOverText?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  voiceOverUrl?: string;
+  backgroundMusicUrl?: string;
+  productImageUrl?: string;
 }

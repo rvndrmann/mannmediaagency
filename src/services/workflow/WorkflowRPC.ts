@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { checkTableExists } from "@/hooks/product-shoot/rpc-functions";
 import { MockWorkflowService } from "./mock-workflow-service";
@@ -128,7 +129,7 @@ export class WorkflowRPC {
       .from('workflow_states')
       .update({
         current_stage: stage,
-        stage_results: stageResults,
+        stage_results: stageResults as any, // Cast to any to avoid type issues
         completed_stages: completedStages
       })
       .eq('project_id', projectId)

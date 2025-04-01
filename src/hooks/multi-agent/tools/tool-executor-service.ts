@@ -1,13 +1,13 @@
 
 import { CommandExecutionState, ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
-import { getAvailableTools } from "./tool-registry";
+import { availableTools } from "./tool-registry";
 
 export const executeTool = async (toolName: string, parameters: any, context: ToolContext): Promise<any> => {
   // Get all available tools
-  const availableTools = getAvailableTools();
+  const tools = availableTools;
   
   // Check if the tool exists
-  const tool = availableTools.find(t => t.name === toolName);
+  const tool = tools.find(t => t.name === toolName);
   if (!tool) {
     console.warn(`Tool ${toolName} not found`);
     return {
@@ -76,10 +76,10 @@ export class ToolExecutorService {
   }
   
   public getAvailableTools(): ToolDefinition[] {
-    return getAvailableTools();
+    return availableTools;
   }
   
   public getToolByName(name: string): ToolDefinition | undefined {
-    return getAvailableTools().find(tool => tool.name === name);
+    return availableTools.find(tool => tool.name === name);
   }
 }

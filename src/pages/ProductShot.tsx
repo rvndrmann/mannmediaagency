@@ -1,55 +1,78 @@
 
-import React, { useState } from 'react';
-import { Layout } from '@/components/Layout';
+import React from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { InputPanelAdapter } from "@/components/product-shot/InputPanelAdapter";
+import { GalleryPanelAdapter } from "@/components/product-shot/GalleryPanelAdapter";
 import { useProductShoot } from '@/hooks/use-product-shoot';
-import { InputPanel } from '@/components/product-shoot/InputPanel';
-import { GalleryPanel } from '@/components/product-shoot/GalleryPanel';
-import { MobilePanelToggle } from '@/components/product-shoot/MobilePanelToggle';
 
-const ProductShot: React.FC = () => {
-  const [activePanel, setActivePanel] = useState<'input' | 'gallery'>('input');
-  
-  const productShoot = useProductShoot();
-  
+export default function ProductShot() {
+  const {
+    settings,
+    setSettings,
+    isGenerating,
+    generatedImages,
+    savedImages,
+    defaultImages,
+    uploadImage,
+    saveImage,
+    setAsDefault,
+    fetchSavedImages,
+    fetchDefaultImages,
+    generateProductShot
+  } = useProductShoot();
+
+  // Fetch saved and default images on component mount
+  React.useEffect(() => {
+    fetchSavedImages();
+    fetchDefaultImages();
+  }, [fetchSavedImages, fetchDefaultImages]);
+
   return (
-    <Layout>
-      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden">
-        <div className="md:hidden">
-          <MobilePanelToggle activePanel={activePanel} setActivePanel={setActivePanel} />
-        </div>
-        
-        <div className={`flex-1 md:w-1/2 md:block ${activePanel === 'input' ? 'block' : 'hidden'}`}>
-          <InputPanel 
-            prompt={productShoot.settings.prompt}
-            onPromptChange={(prompt) => productShoot.setSettings({...productShoot.settings, prompt})}
-            outputFormat={productShoot.settings.outputFormat}
-            onOutputFormatChange={(format) => productShoot.setSettings({...productShoot.settings, outputFormat: format})}
-            imageWidth={productShoot.settings.imageWidth}
-            imageHeight={productShoot.settings.imageHeight}
-            onDimensionsChange={(width, height) => productShoot.setSettings({...productShoot.settings, imageWidth: width, imageHeight: height})}
-            quality={productShoot.settings.quality}
-            onQualityChange={(quality) => productShoot.setSettings({...productShoot.settings, quality})}
-            seed={productShoot.settings.seed}
-            onSeedChange={(seed) => productShoot.setSettings({...productShoot.settings, seed})}
-            scale={productShoot.settings.scale}
-            onScaleChange={(scale) => productShoot.setSettings({...productShoot.settings, scale})}
-            isGenerating={productShoot.isGenerating}
-            onGenerate={() => productShoot.generateImage()}
-          />
-        </div>
-        
-        <div className={`flex-1 md:w-1/2 md:block ${activePanel === 'gallery' ? 'block' : 'hidden'}`}>
-          <GalleryPanel 
-            generatedImages={productShoot.generatedImages}
-            savedImages={productShoot.savedImages}
-            defaultImages={productShoot.defaultImages}
-            onSaveImage={productShoot.saveImage}
-            onSetAsDefault={productShoot.setAsDefault}
-          />
-        </div>
-      </div>
-    </Layout>
-  );
-};
+    <PageLayout>
+      <div className="flex flex-col w-full">
+        <h1 className="text-2xl font-bold mb-4">Product Shot Studio</h1>
 
-export default ProductShot;
+        <Tabs defaultValue="input" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="input">Input & Settings</TabsTrigger>
+            <TabsTrigger value="gallery">Gallery</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="input" className="mt-4">
+            <InputPanelAdapter
+              prompt={settings.prompt}
+              onPromptChange={(prompt) => setSettings({ ...settings, prompt })}
+              outputFormat={settings.outputFormat}
+              onOutputFormatChange={(outputFormat) => setSettings({ ...settings, outputFormat })}
+              imageWidth={settings.imageWidth}
+              imageHeight={settings.imageHeight}
+              onDimensionsChange={(width, height) => setSettings({ ...settings, imageWidth: width, imageHeight: height })}
+              sourceImageUrl={settings.sourceImageUrl}
+              onImageUpload={async (file) => {
+                const url = await uploadImage(file);
+                if (url) setSettings({ ...settings, sourceImageUrl: url });
+              }}
+              onImageSelect={(url) => setSettings({ ...settings, sourceImageUrl: url })}
+              defaultImages={defaultImages}
+              stylePreset={settings.stylePreset}
+              onStylePresetChange={(stylePreset) => setSettings({ ...settings, stylePreset })}
+              isGenerating={isGenerating}
+              onGenerate={() => generateProductShot(settings.sourceImageUrl)}
+            />
+          </TabsContent>
+
+          <TabsContent value="gallery" className="mt-4">
+            <GalleryPanelAdapter
+              generatedImages={generatedImages}
+              savedImages={savedImages}
+              defaultImages={defaultImages}
+              onSaveImage={saveImage}
+              onSetAsDefault={setAsDefault}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </PageLayout>
+  );
+}

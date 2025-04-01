@@ -1,14 +1,19 @@
-
 import { ToolContext, ToolDefinition, ToolExecutionResult } from "../types";
 import { CommandExecutionState } from "../runner/types";
 import { canvasTool } from "./canvas-tool";
 import { canvasContentTool } from "./canvas-content-tool";
+import { dataTool } from "./data-tool";
+import { browserUseTool } from "./browser-use-tool";
+import { webSearchTool } from "./web-search-tool";
 import { sdkCanvasDataTool } from "../sdk/tools/SdkCanvasDataTool";
 
-// Keep track of registered tools
+// Register all available tools
 export const availableTools: ToolDefinition[] = [
+  dataTool,
   canvasTool,
-  canvasContentTool
+  canvasContentTool,
+  browserUseTool,
+  webSearchTool
 ];
 
 // Map to quickly look up tools by name

@@ -1,8 +1,8 @@
-
 import { CanvasService } from "../canvas/CanvasService";
 import { MCPService } from "../mcp/MCPService";
 import { IntegrationService } from "../integration/IntegrationService";
 import { supabase } from "@/integrations/supabase/client";
+import { WorkflowRPC } from "./WorkflowRPC";
 import { 
   CanvasScene, 
   WorkflowStage, 
@@ -17,10 +17,12 @@ export class VideoWorkflowService {
   private static instance: VideoWorkflowService;
   private canvasService: CanvasService;
   private integrationService: IntegrationService;
+  private workflowRPC: WorkflowRPC;
   
   private constructor() {
     this.canvasService = CanvasService.getInstance();
     this.integrationService = IntegrationService.getInstance();
+    this.workflowRPC = WorkflowRPC.getInstance();
   }
   
   static getInstance(): VideoWorkflowService {
@@ -52,15 +54,11 @@ export class VideoWorkflowService {
         status: 'in_progress'
       };
       
-      // Store the workflow state in the database
-      const { data, error } = await supabase
-        .from('canvas_workflows')
-        .insert([workflowState])
-        .select()
-        .single();
-        
-      if (error) {
-        console.error("Error creating workflow:", error);
+      // Create the workflow using RPC
+      const data = await this.workflowRPC.createWorkflow(workflowState);
+      
+      if (!data) {
+        console.error("Error creating workflow");
         return null;
       }
       
@@ -111,7 +109,7 @@ export class VideoWorkflowService {
       console.error(`Error processing workflow stage ${workflow.currentStage}:`, error);
       
       // Update workflow status to failed
-      await this.updateWorkflowStatus(workflow.projectId, 'failed', {
+      await this.workflowRPC.updateWorkflowStatus(workflow.projectId, 'failed', {
         errorMessage: error instanceof Error ? error.message : 'Unknown error'
       });
       
@@ -702,19 +700,7 @@ export class VideoWorkflowService {
     currentStage: WorkflowStage, 
     nextStage: WorkflowStage
   ): Promise<void> {
-    // Update workflow state in the database
-    const { error } = await supabase
-      .from('canvas_workflows')
-      .update({
-        current_stage: nextStage,
-        completed_stages: supabase.sql`array_append(completed_stages, ${currentStage})`
-      })
-      .eq('project_id', projectId);
-      
-    if (error) {
-      console.error("Error moving to next workflow stage:", error);
-      throw error;
-    }
+    await this.workflowRPC.moveToNextStage(projectId, currentStage, nextStage);
   }
   
   /**
@@ -725,25 +711,7 @@ export class VideoWorkflowService {
     status: 'in_progress' | 'completed' | 'failed',
     additionalData: any = {}
   ): Promise<void> {
-    const updateData: any = {
-      status,
-      ...additionalData
-    };
-    
-    if (status === 'completed' || status === 'failed') {
-      updateData.completed_at = new Date().toISOString();
-    }
-    
-    // Update workflow state in the database
-    const { error } = await supabase
-      .from('canvas_workflows')
-      .update(updateData)
-      .eq('project_id', projectId);
-      
-    if (error) {
-      console.error("Error updating workflow status:", error);
-      throw error;
-    }
+    await this.workflowRPC.updateWorkflowStatus(projectId, status, additionalData);
   }
   
   /**
@@ -753,16 +721,7 @@ export class VideoWorkflowService {
     projectId: string,
     sceneStatuses: Record<string, any>
   ): Promise<void> {
-    // Update workflow state in the database
-    const { error } = await supabase
-      .from('canvas_workflows')
-      .update({ scene_statuses: sceneStatuses })
-      .eq('project_id', projectId);
-      
-    if (error) {
-      console.error("Error updating workflow scene statuses:", error);
-      throw error;
-    }
+    await this.workflowRPC.updateWorkflowSceneStatuses(projectId, sceneStatuses);
   }
   
   /**
@@ -770,29 +729,18 @@ export class VideoWorkflowService {
    */
   async retryWorkflowFromStage(projectId: string, stage: WorkflowStage, userId: string): Promise<boolean> {
     try {
-      // Get the current workflow state
-      const { data, error } = await supabase
-        .from('canvas_workflows')
-        .select('*')
-        .eq('project_id', projectId)
-        .single();
-        
-      if (error) {
-        throw error;
+      // Reset workflow stage via RPC
+      await this.workflowRPC.retryWorkflowFromStage(projectId, stage);
+      
+      // Get the updated workflow state
+      const workflow = await this.workflowRPC.getWorkflowByProject(projectId);
+      
+      if (!workflow) {
+        throw new Error("Workflow not found");
       }
       
-      // Update workflow to the new stage
-      await supabase
-        .from('canvas_workflows')
-        .update({
-          current_stage: stage,
-          status: 'in_progress',
-          error_message: null
-        })
-        .eq('project_id', projectId);
-      
       // Process the stage
-      return await this.processWorkflowStage(data, userId);
+      return await this.processWorkflowStage(workflow, userId);
     } catch (error) {
       console.error("Error retrying workflow stage:", error);
       return false;

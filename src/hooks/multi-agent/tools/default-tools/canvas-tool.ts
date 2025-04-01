@@ -1,4 +1,6 @@
 
+import { ToolDefinition, ToolContext, ToolExecutionResult } from "../../types";
+import { CommandExecutionState } from "../../runner/types";
 import { supabase } from "@/integrations/supabase/client";
 
 // Create a singleton instance to avoid multiple service instantiation
@@ -37,7 +39,7 @@ const canvasService = {
   }
 };
 
-export const canvasTool = {
+export const canvasTool: ToolDefinition = {
   name: "canvas",
   description: "Create and update video scenes in the Canvas system",
   version: "2.0",
@@ -87,15 +89,20 @@ export const canvasTool = {
     icon: "layers"
   },
   
-  execute: async (params, context) => {
+  execute: async (params, context): Promise<ToolExecutionResult> => {
     try {
-      const { action, projectId, sceneId, content, useMcp = true, productShotVersion, aspectRatio } = params;
+      const { action, projectId, sceneId, content } = params;
       
       // Handle different actions
       switch (action) {
         case "updateScene": {
           if (!sceneId) {
-            throw new Error("sceneId is required for updateScene action");
+            return {
+              success: false,
+              message: "sceneId is required for updateScene action",
+              error: "sceneId is required for updateScene action",
+              state: CommandExecutionState.FAILED
+            };
           }
           
           // Update scene script
@@ -106,7 +113,8 @@ export const canvasTool = {
           return {
             success,
             message: success ? "Scene updated" : "Failed to update scene",
-            data: { sceneId }
+            data: { sceneId },
+            state: success ? CommandExecutionState.COMPLETED : CommandExecutionState.FAILED
           };
         }
         
@@ -119,7 +127,8 @@ export const canvasTool = {
           return {
             success: !!scene,
             message: scene ? "New scene created" : "Failed to create scene",
-            data: scene ? { sceneId: scene.id } : null
+            data: scene ? { sceneId: scene.id } : null,
+            state: scene ? CommandExecutionState.COMPLETED : CommandExecutionState.FAILED
           };
         }
         
@@ -127,7 +136,8 @@ export const canvasTool = {
           return {
             success: false,
             message: `Unsupported action: ${action}`,
-            error: `Unsupported action: ${action}`
+            error: `Unsupported action: ${action}`,
+            state: CommandExecutionState.FAILED
           };
       }
     } catch (error) {
@@ -135,7 +145,8 @@ export const canvasTool = {
       return {
         success: false,
         message: `Canvas operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        data: null
+        data: null,
+        state: CommandExecutionState.FAILED
       };
     }
   }

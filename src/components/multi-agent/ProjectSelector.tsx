@@ -75,6 +75,11 @@ export function ProjectSelector({
             {project.title}
           </SelectItem>
         ))}
+        {allowCreateNew && (
+          <SelectItem value="create-new" className="text-primary font-medium">
+            + Create New Project
+          </SelectItem>
+        )}
       </SelectContent>
     </Select>
   );

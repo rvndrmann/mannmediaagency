@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
@@ -253,7 +254,7 @@ export default function Canvas() {
         
         {showScriptPanel && (
           <CanvasScriptPanelAdapter 
-            selectedScene={selectedScene}
+            scene={selectedScene}
             project={project}
             projectId={project?.id || ''}
             updateScene={updateScene}

@@ -1,6 +1,39 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
+// Agent types
+export type AgentType = "main" | "script" | "image" | "tool" | "scene" | "data";
+
+export interface AgentOptions {
+  name: string;
+  instructions?: string;
+  context?: RunnerContext;
+}
+
+export interface RunnerContext {
+  userId?: string;
+  sessionId?: string;
+  projectId?: string;
+  tracingEnabled?: boolean;
+  addMessage?: (message: string, type: string) => void;
+  metadata?: Record<string, any>;
+}
+
+export interface AgentResult {
+  response: string;
+  output: string; // Required field added
+  nextAgent: AgentType | null;
+  handoffReason?: string;
+  additionalContext?: Record<string, any>;
+  structured_output?: any;
+}
+
+// Define BaseAgent interface
+export interface BaseAgent {
+  run(input: string, context: RunnerContext): Promise<AgentResult>;
+  getType(): AgentType;
+}
+
 // Tool execution result states
 export enum CommandExecutionState {
   PENDING = "pending",
@@ -26,7 +59,6 @@ export interface ToolContext {
   toolAvailable?: boolean; 
   history?: any[];
   tracingEnabled?: boolean;
-  // Add any other context-specific properties tools might need
 }
 
 // Tool definition interface
@@ -51,11 +83,10 @@ export interface ToolDefinition {
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
-  state: CommandExecutionState; // Use string instead of enum for flexibility
+  state: CommandExecutionState; // Required field
   error?: Error | string;
   data?: any;
   usage?: {
     creditsUsed?: number;
-    // Add other usage metrics as needed
   };
 }

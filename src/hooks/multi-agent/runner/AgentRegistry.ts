@@ -1,4 +1,5 @@
-import { AgentType, AgentOptions, RunnerContext, AgentResult } from "../types";
+
+import { AgentType, AgentOptions, RunnerContext, AgentResult, BaseAgent } from "../types";
 import { MainAgent } from "./agents/MainAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
@@ -20,14 +21,20 @@ export class AgentRegistry {
     AgentRegistry.agents[agentType] = agentClass;
   }
 
-  static createAgent(agentType: AgentType, options: AgentOptions): any {
+  static createAgent(agentType: AgentType, options: AgentOptions): BaseAgent {
     const AgentClass = AgentRegistry.agents[agentType];
     if (!AgentClass) {
       console.error(`Agent type ${agentType} not found in registry`);
       return {
         response: "Agent not found",
         output: "Agent not found",
-        nextAgent: null
+        nextAgent: null,
+        run: async () => ({
+          response: "Agent not found",
+          output: "Agent not found",
+          nextAgent: null
+        }),
+        getType: () => agentType
       };
     }
     return new AgentClass(options);
@@ -54,8 +61,8 @@ export class AgentRegistry {
     } catch (error) {
       console.error(`Error running agent of type ${agentType}:`, error);
       return {
-        response: "Agent not found for type: " + agentType,
-        output: "Agent not found for type: " + agentType,
+        response: "Agent error for type: " + agentType,
+        output: "Agent error for type: " + agentType,
         nextAgent: null
       };
     }
@@ -64,11 +71,7 @@ export class AgentRegistry {
   static getAgentClass(agentType: AgentType): any | null {
     if (!AgentRegistry.agents[agentType]) {
       console.warn(`No agent class registered for type: ${agentType}`);
-      return {
-        response: "Agent not found for type: " + agentType,
-        output: "Agent not found for type: " + agentType,
-        nextAgent: null
-      };
+      return null;
     }
     return AgentRegistry.agents[agentType];
   }
@@ -78,14 +81,6 @@ export class AgentRegistry {
   }
 
   static hasAgentType(agentType: AgentType): boolean {
-    if (!AgentRegistry.agents[agentType]) {
-      console.warn(`No agent class registered for type: ${agentType}`);
-      return {
-        response: "Agent not found for type: " + agentType,
-        output: "Agent not found for type: " + agentType,
-        nextAgent: null
-      };
-    }
     return !!AgentRegistry.agents[agentType];
   }
 }

@@ -10,6 +10,8 @@ export interface ProductShootSettings {
   imageWidth: number;
   imageHeight: number;
   quality: string;
+  seed?: string; // Added to fix ProductShot.tsx errors
+  scale?: number; // Added to fix ProductShot.tsx errors
 }
 
 export interface GeneratedImage {
@@ -37,4 +39,37 @@ export interface StatusResponse {
   resultUrl: string | null;
   error: string | null;
   settings?: Record<string, any>;
+}
+
+// Additional types needed for product-shoot-v2 components
+export type AspectRatio = '1:1' | '16:9' | '9:16';
+
+export interface ProductShotFormData {
+  prompt: string;
+  sourceImage: File | null;
+  sourceImageUrl: string;
+  stylePreset: string;
+  background: string;
+  placement: string;
+  aspectRatio: AspectRatio;
+  // Additional fields for extended functionality
+  sourceFile: File | null;
+  referenceFile: File | null;
+  sceneDescription: string;
+  generationType: 'description' | 'reference';
+  placementType: 'original' | 'automatic' | 'manual_placement' | 'manual_padding';
+  manualPlacement: string;
+  optimizeDescription: boolean;
+  fastMode: boolean;
+  originalQuality: boolean;
+}
+
+export interface ProductShotResult {
+  resultUrl: string;
+  inputUrl: string;
+  placementType: string;
+  metadata?: {
+    model: string;
+    size: string;
+  };
 }

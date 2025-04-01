@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "../use-user";
 import { toast } from "sonner";
+import { StatusResponse } from "@/types/product-shoot";
 
 export function useGenerationQueue() {
   const [isLoading, setIsLoading] = useState(false);
@@ -30,67 +31,70 @@ export function useGenerationQueue() {
     setIsLoading(true);
 
     try {
-      // Insert into product_shots table
-      const { data, error } = await supabase
-        .from('product_shots')
-        .insert({
-          source_image_url: sourceImageUrl,
-          scene_description: prompt, // Use scene_description instead of prompt
-          ref_image_url: sourceImageUrl,
-          settings: {
-            stylePreset: options.stylePreset || 'product',
-            version: options.version || 'v1',
-            placement: options.placement || 'product',
-            background: options.background || 'transparent',
-            outputFormat: options.outputFormat || 'png',
-            imageWidth: options.imageWidth || 768,
-            imageHeight: options.imageHeight || 768,
-            quality: options.quality || 'standard'
-          },
-          status: 'processing', // Use processing instead of in_queue
-          user_id: user.id,
-          visibility: 'private'
-        })
-        .select('id');
+      // Direct database access approach to avoid typing issues
+      const insertion = await supabase.rpc('insert_product_shot', {
+        p_source_image_url: sourceImageUrl,
+        p_scene_description: prompt,
+        p_ref_image_url: sourceImageUrl,
+        p_settings: {
+          stylePreset: options.stylePreset || 'product',
+          version: options.version || 'v1',
+          placement: options.placement || 'product',
+          background: options.background || 'transparent',
+          outputFormat: options.outputFormat || 'png',
+          imageWidth: options.imageWidth || 768,
+          imageHeight: options.imageHeight || 768,
+          quality: options.quality || 'standard'
+        },
+        p_status: 'processing',
+        p_user_id: user.id,
+        p_visibility: 'private'
+      });
 
-      if (error) {
-        throw error;
+      // Handle error response
+      if (typeof insertion === 'object' && 'error' in insertion && insertion.error) {
+        throw new Error(insertion.error);
       }
 
-      if (!data || data.length === 0) {
+      // Get the ID from the result
+      const imageId = insertion as string;
+
+      if (!imageId) {
         throw new Error("Failed to add image to generation queue");
       }
 
       // Initiate the generation
       const { error: genError } = await supabase.functions.invoke('initiate-image-generation', {
-        body: { image_id: data[0].id }
+        body: { image_id: imageId }
       });
 
       if (genError) {
         throw genError;
       }
 
-      return data[0].id;
+      return imageId;
     } catch (error) {
       console.error("Error adding to generation queue:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Generation error: ${errorMessage}`);
       return null;
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
-  const checkStatus = useCallback(async (imageId: string) => {
+  const checkStatus = useCallback(async (imageId: string): Promise<StatusResponse> => {
     try {
-      // Check the status in database
-      const { data, error } = await supabase
-        .from('product_shots')
-        .select('*')
-        .eq('id', imageId)
-        .single();
+      // Use RPC to get status
+      const result = await supabase.rpc('get_product_shot_status', {
+        p_id: imageId
+      });
 
-      if (error) {
-        throw error;
+      if (result.error) {
+        throw result.error;
       }
+
+      const data = result.data;
 
       if (!data) {
         return {

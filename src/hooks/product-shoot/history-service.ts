@@ -3,9 +3,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Json } from "@/integrations/supabase/types";
 
+// Use a utility function for safer type casting from database results
+function mapDbResultToGeneratedImage(item: any): GeneratedImage {
+  return {
+    id: item.id || '',
+    prompt: item.scene_description || '',
+    status: 'completed',
+    createdAt: item.created_at || new Date().toISOString(),
+    resultUrl: item.result_url || '',
+    inputUrl: item.ref_image_url || '',
+    url: item.source_image_url || '',
+    source_image_url: item.source_image_url || '',
+    settings: (typeof item.settings === 'string') 
+      ? JSON.parse(item.settings) 
+      : (item.settings as Record<string, any>) || {}
+  };
+}
+
 // Fetch product image history
 export async function fetchHistory(): Promise<GeneratedImage[]> {
   try {
+    // Use a direct query approach to avoid type issues with supabase client
     const { data, error } = await supabase
       .from('product_shots')
       .select('*')
@@ -17,17 +35,7 @@ export async function fetchHistory(): Promise<GeneratedImage[]> {
     }
 
     // Convert DB response to GeneratedImage array
-    return (data || []).map(item => ({
-      id: item.id,
-      prompt: item.scene_description || '',
-      status: 'completed',
-      createdAt: item.created_at,
-      resultUrl: item.result_url,
-      inputUrl: item.ref_image_url,
-      url: item.source_image_url,
-      source_image_url: item.source_image_url,
-      settings: item.settings as Record<string, any>
-    }));
+    return (data || []).map(mapDbResultToGeneratedImage);
   } catch (error) {
     console.error('Error fetching product image history:', error);
     return [];
@@ -64,13 +72,14 @@ export async function fetchDefaultImages(): Promise<GeneratedImage[]> {
 // Save an image to history
 export async function saveImage(imageId: string): Promise<boolean> {
   try {
-    const { error } = await supabase
+    // Direct query to update visibility
+    const result = await supabase
       .from('product_shots')
       .update({ visibility: 'saved' })
       .eq('id', imageId);
 
-    if (error) {
-      throw error;
+    if (result.error) {
+      throw result.error;
     }
 
     return true;
@@ -84,18 +93,20 @@ export async function saveImage(imageId: string): Promise<boolean> {
 export async function setAsDefault(imageId: string): Promise<boolean> {
   try {
     // Get the image data
-    const { data: imageData, error: fetchError } = await supabase
+    const result = await supabase
       .from('product_shots')
       .select('*')
       .eq('id', imageId)
       .single();
 
-    if (fetchError || !imageData) {
-      throw fetchError || new Error('Image not found');
+    if (result.error || !result.data) {
+      throw result.error || new Error('Image not found');
     }
 
+    const imageData = result.data;
+
     // Create a default image entry
-    const { error: insertError } = await supabase
+    const insertResult = await supabase
       .from('default_product_images')
       .insert({
         url: imageData.result_url,
@@ -104,8 +115,8 @@ export async function setAsDefault(imageId: string): Promise<boolean> {
         user_id: imageData.user_id
       });
 
-    if (insertError) {
-      throw insertError;
+    if (insertResult.error) {
+      throw insertResult.error;
     }
 
     return true;

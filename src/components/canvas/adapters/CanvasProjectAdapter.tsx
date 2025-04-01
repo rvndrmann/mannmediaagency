@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CanvasProject, CanvasScene } from '@/types/canvas';
 import { CanvasSidebar } from '@/components/canvas/CanvasSidebar';
@@ -26,6 +25,7 @@ export const CanvasHeaderAdapter = ({
   onToggleScriptPanel,
   onToggleDetailPanel,
   onToggleChatPanel,
+  onToggleHistoryPanel,
   showChatButton = true
 }: { 
   project: CanvasProject | null;
@@ -33,6 +33,7 @@ export const CanvasHeaderAdapter = ({
   onToggleScriptPanel?: () => void;
   onToggleDetailPanel?: () => void;
   onToggleChatPanel?: () => void;
+  onToggleHistoryPanel?: () => void;
   showChatButton?: boolean;
 }) => {
   const handleUpdateTitle = async (title: string) => {
@@ -48,6 +49,7 @@ export const CanvasHeaderAdapter = ({
       onToggleScriptPanel={onToggleScriptPanel}
       onToggleDetailPanel={onToggleDetailPanel}
       onToggleChatPanel={onToggleChatPanel}
+      onToggleHistoryPanel={onToggleHistoryPanel}
       showChatButton={showChatButton}
     />
   );

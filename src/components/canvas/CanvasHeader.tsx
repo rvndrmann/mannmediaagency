@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Menu, MessageSquare } from "lucide-react";
+import { ChevronLeft, Menu, MessageSquare, History } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 
 export interface CanvasHeaderProps {
@@ -10,9 +10,11 @@ export interface CanvasHeaderProps {
   onToggleDetailPanel?: () => void;
   onToggleChatPanel?: () => void;
   onToggleScriptPanel?: () => void;
+  onToggleHistoryPanel?: () => void; // Add this line
   showBackButton?: boolean;
   showMenuButton?: boolean;
   showChatButton?: boolean;
+  showHistoryButton?: boolean; // Add this line
 }
 
 export const CanvasHeader = ({
@@ -21,9 +23,11 @@ export const CanvasHeader = ({
   onToggleDetailPanel,
   onToggleChatPanel,
   onToggleScriptPanel,
+  onToggleHistoryPanel, // Add this line
   showBackButton = true,
   showMenuButton = true,
-  showChatButton = true
+  showChatButton = true,
+  showHistoryButton = true, // Add this line
 }: CanvasHeaderProps) => {
   const navigate = useNavigate();
   
@@ -61,6 +65,18 @@ export const CanvasHeader = ({
       </div>
       
       <div className="flex items-center space-x-2">
+        {showHistoryButton && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToggleHistoryPanel}
+            className="px-3 h-9"
+          >
+            <History className="h-4 w-4 mr-2" />
+            Project History
+          </Button>
+        )}
+        
         {showChatButton && (
           <Button
             variant="outline"

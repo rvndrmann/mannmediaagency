@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 import { useCanvasAgent } from '@/hooks/use-canvas-agent';
@@ -14,11 +13,13 @@ import { CanvasScene, CanvasProject } from '@/types/canvas';
 import { toast } from 'sonner';
 import { useProjectContext } from '@/hooks/multi-agent/project-context';
 import { CanvasChat } from '@/components/canvas/CanvasChat';
+import { ProjectHistory } from '@/components/canvas/ProjectHistory';
 
 export default function Canvas() {
   const [showScriptPanel, setShowScriptPanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(true);
   const [showChatPanel, setShowChatPanel] = useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [project, setProject] = useState<CanvasProject | null>(null);
   const [scenes, setScenes] = useState<CanvasScene[]>([]);
   const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
@@ -233,6 +234,7 @@ export default function Canvas() {
   const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
   const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
   const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
+  const toggleHistoryPanel = () => setShowHistoryPanel(!showHistoryPanel);
   
   if (!project && !loading) {
     return <CanvasEmptyStateAdapter createProject={createNewProject} />;
@@ -246,6 +248,7 @@ export default function Canvas() {
         onToggleScriptPanel={toggleScriptPanel}
         onToggleDetailPanel={toggleDetailPanel}
         onToggleChatPanel={toggleChatPanel}
+        onToggleHistoryPanel={toggleHistoryPanel}
         showChatButton={true}
       />
       
@@ -305,6 +308,12 @@ export default function Canvas() {
               onClose={() => setShowChatPanel(false)}
               updateScene={updateScene}
             />
+          </div>
+        )}
+        
+        {showHistoryPanel && (
+          <div className="w-80 bg-[#111827] text-white">
+            <ProjectHistory />
           </div>
         )}
       </div>

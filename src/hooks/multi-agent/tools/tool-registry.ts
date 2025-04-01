@@ -1,40 +1,33 @@
 
-import { ToolDefinition } from "../types";
 import { canvasTool } from "./canvas-tool";
 import { canvasProjectTool } from "./default-tools/canvas-project-tool";
 import { workflowTool } from "./workflow-tool";
-import { productShotTool } from "./product-shot-tool";
 import { imageToVideoTool } from "./image-to-video-tool";
 import { browserUseTool } from "./browser-use-tool";
-import { searchTool } from "./search-tool";
-import { weatherTool } from "./weather-tool";
 
 // Register all available tools here for the tool executor
-export const availableTools: ToolDefinition[] = [
+export const availableTools = [
   canvasTool,
-  canvasProjectTool, // New tool for Canvas project management
+  canvasProjectTool,
   workflowTool,
-  productShotTool,
   imageToVideoTool,
-  browserUseTool,
-  searchTool,
-  weatherTool
+  browserUseTool
 ];
 
 // Helper to get tool by name
-export function getToolByName(name: string): ToolDefinition | undefined {
-  return availableTools.find(tool => tool.name === name);
+export function getToolByName(name: string) {
+  return availableTools.find((tool) => tool.name === name);
 }
 
 // Get tools by category
-export function getToolsByCategory(category: string): ToolDefinition[] {
-  return availableTools.filter(tool => tool.metadata?.category === category);
+export function getToolsByCategory(category: string) {
+  return availableTools.filter((tool) => tool.metadata?.category === category);
 }
 
 // Get all categories
-export function getAllToolCategories(): string[] {
+export function getAllToolCategories() {
   const categories = new Set<string>();
-  availableTools.forEach(tool => {
+  availableTools.forEach((tool) => {
     if (tool.metadata?.category) {
       categories.add(tool.metadata.category);
     }

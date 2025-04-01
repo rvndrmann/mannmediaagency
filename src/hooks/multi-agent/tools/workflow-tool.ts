@@ -43,15 +43,12 @@ export const workflowTool: ToolDefinition = {
     try {
       const { action, workflowId } = parameters;
       
-      // This is a placeholder implementation - in a real application,
-      // this would interact with a workflow management system
-      
       switch (action) {
         case "list":
           return {
             success: true,
             message: "Workflows retrieved successfully",
-            data: [], // Would return actual workflows in a real implementation
+            data: [], // Placeholder for actual workflows
             state: CommandExecutionState.COMPLETED
           };
           
@@ -67,7 +64,7 @@ export const workflowTool: ToolDefinition = {
           return {
             success: true,
             message: "Workflow retrieved successfully",
-            data: { id: workflowId, name: "Sample Workflow" }, // Placeholder data
+            data: { id: workflowId, name: "Sample Workflow" },
             state: CommandExecutionState.COMPLETED
           };
           

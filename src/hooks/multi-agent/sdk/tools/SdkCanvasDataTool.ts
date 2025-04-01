@@ -1,157 +1,162 @@
 
-import { v4 as uuidv4 } from "uuid";
-import { SupabaseClient } from "@supabase/supabase-js";
-import { CommandExecutionState, ToolExecutionResult } from "../../runner/types";
+import { ToolContext } from "../../tools/types";
+import { SDKTool } from "../types";
+import { CommandExecutionState } from "../../runner/types";
 
-export interface CanvasDataToolContext {
-  projectId?: string;
-  sceneId?: string;
-  supabase: SupabaseClient;
-  userId?: string;
+interface UpdateSceneParams {
+  sceneId: string;
+  field: string;
+  value: string;
 }
 
-export class SdkCanvasDataTool {
-  static name = "canvas_data_tool";
-  static description = "Get or update data related to Canvas projects and scenes";
+interface ListScenesParams {
+  projectId: string;
+}
+
+interface CreateSceneParams {
+  projectId: string;
+  title: string;
+  description?: string;
+}
+
+class SdkCanvasDataTool implements SDKTool {
+  name = "canvas_data";
+  description = "Get or update canvas project data like scenes, scripts, etc.";
+  version = "1.0";
   
-  static parameters = {
-    type: "object",
-    properties: {
-      action: {
-        type: "string",
-        enum: ["get_project", "get_scene", "update_scene", "list_scenes", "create_scene"],
-        description: "The action to perform"
-      },
-      projectId: {
-        type: "string",
-        description: "The ID of the project"
-      },
-      sceneId: {
-        type: "string",
-        description: "The ID of the scene (for scene-specific actions)"
-      },
-      data: {
-        type: "object",
-        description: "Data to update"
+  // Static methods to be referenced in the schema
+  static async updateScene(params: UpdateSceneParams, context: ToolContext) {
+    const { sceneId, field, value } = params;
+    
+    if (!sceneId) {
+      throw new Error("Scene ID is required");
+    }
+    
+    if (!field) {
+      throw new Error("Field name is required");
+    }
+    
+    try {
+      if (context.updateScene) {
+        await context.updateScene(sceneId, field, value);
+        return { success: true, message: `Updated ${field} for scene ${sceneId}` };
+      } else {
+        throw new Error("updateScene function not available in context");
       }
-    },
-    required: ["action"]
+    } catch (error) {
+      console.error("Error updating scene:", error);
+      throw new Error(`Failed to update scene: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  static async listScenes(params: ListScenesParams, context: ToolContext) {
+    const { projectId } = params;
+    
+    if (!projectId) {
+      throw new Error("Project ID is required");
+    }
+    
+    try {
+      // This would typically get scenes from a database
+      // For now, we'll return mock data if available in context
+      const scenes = context.scenes || [];
+      return { scenes, count: scenes.length };
+    } catch (error) {
+      console.error("Error listing scenes:", error);
+      throw new Error(`Failed to list scenes: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  static async createScene(params: CreateSceneParams, context: ToolContext) {
+    const { projectId, title, description } = params;
+    
+    if (!projectId) {
+      throw new Error("Project ID is required");
+    }
+    
+    if (!title) {
+      throw new Error("Scene title is required");
+    }
+    
+    try {
+      if (context.createScene) {
+        const sceneData = {
+          title,
+          description: description || ""
+        };
+        
+        const sceneId = await context.createScene(projectId, sceneData);
+        return { success: true, sceneId, message: `Created new scene "${title}"` };
+      } else {
+        throw new Error("createScene function not available in context");
+      }
+    } catch (error) {
+      console.error("Error creating scene:", error);
+      throw new Error(`Failed to create scene: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  schema = {
+    type: "function",
+    function: {
+      name: this.name,
+      description: this.description,
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["updateScene", "listScenes", "createScene"],
+            description: "The action to perform on canvas data"
+          },
+          params: {
+            type: "object",
+            description: "Parameters for the selected action"
+          }
+        },
+        required: ["action", "params"]
+      }
+    }
   };
   
-  static async execute(parameters: any, context: CanvasDataToolContext): Promise<ToolExecutionResult> {
+  async execute(parameters: any, context: ToolContext) {
+    const { action, params } = parameters;
+    
+    if (!action) {
+      return {
+        success: false,
+        message: "Action is required",
+        state: CommandExecutionState.ERROR
+      };
+    }
+    
     try {
-      const { action, projectId, sceneId, data } = parameters;
-      const { supabase } = context;
-      
-      if (!supabase) {
-        return {
-          success: false,
-          message: "Supabase client is required",
-          state: CommandExecutionState.ERROR,
-        };
-      }
-      
-      // Use project ID from context if not provided
-      const targetProjectId = projectId || context.projectId;
-      
       switch (action) {
-        case "get_project":
-          return await this.getProject(supabase, targetProjectId);
-          
-        case "get_scene":
-          return await this.getScene(supabase, sceneId || context.sceneId);
-          
-        case "update_scene":
-          return await this.updateScene(supabase, sceneId || context.sceneId, data);
-          
-        case "list_scenes":
-          return await this.listScenes(supabase, targetProjectId);
-          
-        case "create_scene":
-          return await this.createScene(supabase, targetProjectId, data);
-          
+        case "updateScene":
+          return await SdkCanvasDataTool.updateScene(params, context);
+        
+        case "listScenes":
+          return await SdkCanvasDataTool.listScenes(params, context);
+        
+        case "createScene":
+          return await SdkCanvasDataTool.createScene(params, context);
+        
         default:
           return {
             success: false,
             message: `Unknown action: ${action}`,
-            state: CommandExecutionState.ERROR,
+            state: CommandExecutionState.ERROR
           };
       }
     } catch (error) {
-      console.error("Error in CanvasDataTool:", error);
+      console.error(`Error executing canvas data tool (${action}):`, error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Unknown error",
-        state: CommandExecutionState.ERROR,
+        message: error instanceof Error ? error.message : String(error),
+        state: CommandExecutionState.ERROR
       };
     }
   }
-  
-  private static async getProject(supabase: SupabaseClient, projectId?: string): Promise<ToolExecutionResult> {
-    if (!projectId) {
-      return {
-        success: false,
-        message: "Project ID is required",
-        state: CommandExecutionState.ERROR,
-      };
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from("canvas_projects")
-        .select("*")
-        .eq("id", projectId)
-        .single();
-        
-      if (error) throw error;
-      
-      return {
-        success: true,
-        message: "Project retrieved successfully",
-        data,
-        state: CommandExecutionState.COMPLETED,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Failed to retrieve project",
-        state: CommandExecutionState.ERROR,
-      };
-    }
-  }
-  
-  private static async getScene(supabase: SupabaseClient, sceneId?: string): Promise<ToolExecutionResult> {
-    if (!sceneId) {
-      return {
-        success: false,
-        message: "Scene ID is required",
-        state: CommandExecutionState.ERROR,
-      };
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from("canvas_scenes")
-        .select("*")
-        .eq("id", sceneId)
-        .single();
-        
-      if (error) throw error;
-      
-      return {
-        success: true,
-        message: "Scene retrieved successfully",
-        data,
-        state: CommandExecutionState.COMPLETED,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Failed to retrieve scene",
-        state: CommandExecutionState.ERROR,
-      };
-    }
-  }
-  
-  // More methods...
 }
+
+export const sdkCanvasDataTool = new SdkCanvasDataTool();

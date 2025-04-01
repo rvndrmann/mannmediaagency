@@ -3,7 +3,7 @@ import { AgentType, AgentResult, RunnerContext, BaseAgent, AgentOptions } from "
 import { v4 as uuidv4 } from "uuid";
 
 export abstract class BaseAgentImpl implements BaseAgent {
-  protected name: string;
+  public name: string;
   protected instructions: string;
   protected tools: any[];
   protected context: RunnerContext;
@@ -71,8 +71,7 @@ export abstract class BaseAgentImpl implements BaseAgent {
       return {
         response: `The ${this.name} agent encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         output: `The ${this.name} agent encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        nextAgent: null,
-        structured_output: null
+        nextAgent: null
       };
     }
   }

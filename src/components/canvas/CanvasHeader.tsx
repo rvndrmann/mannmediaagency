@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Menu, MessageSquare } from "lucide-react";
-import { useRouter } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 export interface CanvasHeaderProps {
   title?: string;
@@ -25,7 +25,7 @@ export const CanvasHeader = ({
   showMenuButton = true,
   showChatButton = true
 }: CanvasHeaderProps) => {
-  const router = useRouter();
+  const navigate = useNavigate();
   
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onUpdateTitle) {
@@ -34,7 +34,7 @@ export const CanvasHeader = ({
   };
   
   const handleGoBack = () => {
-    router.navigate(-1);
+    navigate(-1);
   };
   
   return (

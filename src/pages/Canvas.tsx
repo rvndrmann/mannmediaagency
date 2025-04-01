@@ -11,6 +11,7 @@ import {
   CanvasScriptPanelAdapter
 } from '@/components/canvas/adapters/CanvasProjectAdapter';
 import { CanvasScene } from '@/types/canvas';
+import { toast } from 'sonner';
 
 export default function Canvas() {
   const [showScriptPanel, setShowScriptPanel] = useState(false);
@@ -30,6 +31,25 @@ export default function Canvas() {
     updateProject,
     deleteProject
   } = useCanvasProjects();
+  
+  // Get canvas agent for AI functionality
+  const {
+    generateSceneScript,
+    generateSceneDescription,
+    generateImagePrompt,
+    generateSceneImage,
+    generateSceneVideo,
+    isLoading: isAgentLoading,
+    messages,
+    addUserMessage,
+    addAgentMessage,
+    addSystemMessage,
+    activeAgent
+  } = useCanvasAgent({
+    projectId,
+    sceneId: selectedSceneId,
+    updateScene
+  });
   
   // Simulate the missing methods that would be in useCanvasProjects
   const createScene = async (projectId, data) => {
@@ -105,41 +125,66 @@ export default function Canvas() {
     return newScene.id;
   };
   
-  // Initialize agent context with mock/default values
-  const mockAgentProps = {
-    isLoading: false,
-    messages: [],
-    generateSceneScript: async () => true,
-    generateSceneDescription: async () => true,
-    generateImagePrompt: async () => true,
-    generateSceneImage: async () => true,
-    generateSceneVideo: async () => true,
-    addUserMessage: () => {},
-    addAgentMessage: () => {},
-    addSystemMessage: () => {},
-    activeAgent: 'main'
+  const saveFullScript = async (script) => {
+    console.log('Saving full script', script);
+    if (project) {
+      setProject(prev => ({...prev, fullScript: script}));
+      toast.success("Script saved successfully");
+    }
   };
   
-  // Initialize agent context with additional mocked properties
+  const divideScriptToScenes = async (sceneScripts) => {
+    console.log('Dividing script to scenes', sceneScripts);
+    // Mock implementation
+    for (const sceneScript of sceneScripts) {
+      if (sceneScript.id) {
+        await updateScene(sceneScript.id, 'script', sceneScript.content || '');
+        await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText || '');
+      }
+    }
+    toast.success("Script divided into scenes successfully");
+  };
+  
+  // Initialize agent context with additional properties for the adapter
   const agentProps = {
-    ...mockAgentProps,
-    isMcpEnabled: false,
-    isMcpConnected: false,
+    isLoading: isAgentLoading,
+    messages,
+    generateSceneScript,
+    generateSceneDescription,
+    generateImagePrompt,
+    generateSceneImage,
+    generateSceneVideo,
+    addUserMessage,
+    addAgentMessage,
+    addSystemMessage,
+    activeAgent,
+    isMcpEnabled: true,
+    isMcpConnected: true,
     toggleMcp: () => {},
     isGeneratingDescription: false,
     isGeneratingImagePrompt: false,
     isGeneratingImage: false,
     isGeneratingVideo: false,
     isGeneratingScript: false,
-    isGenerating: false
+    isGenerating: isAgentLoading
   };
   
   // Effect to load project data on mount
   useEffect(() => {
     if (projectId) {
       fetchProject(projectId);
+    } else {
+      // If no projectId, use a default one for testing
+      setProjectId('project-123');
     }
   }, [projectId]);
+  
+  // Effect to update project.scenes when scenes state changes
+  useEffect(() => {
+    if (project) {
+      setProject(prev => ({...prev, scenes}));
+    }
+  }, [scenes]);
   
   // Effect to update selectedScene when selectedSceneId changes
   useEffect(() => {
@@ -188,6 +233,8 @@ export default function Canvas() {
             updateScene={updateScene}
             addScene={addScene}
             deleteScene={deleteScene}
+            divideScriptToScenes={divideScriptToScenes}
+            saveFullScript={saveFullScript}
             agent={agentProps}
           />
         </main>
@@ -208,22 +255,8 @@ export default function Canvas() {
             projectId={project?.id || ''}
             onUpdateScene={updateScene}
             onClose={() => setShowScriptPanel(false)}
-            saveFullScript={async (script) => {
-              console.log('Saving full script', script);
-              if (project) {
-                setProject(prev => ({...prev, fullScript: script}));
-              }
-            }}
-            divideScriptToScenes={async (sceneScripts) => {
-              console.log('Dividing script to scenes', sceneScripts);
-              // Mock implementation
-              for (const sceneScript of sceneScripts) {
-                if (sceneScript.id) {
-                  await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText || '');
-                  await updateScene(sceneScript.id, 'script', sceneScript.content || '');
-                }
-              }
-            }}
+            saveFullScript={saveFullScript}
+            divideScriptToScenes={divideScriptToScenes}
           />
         )}
       </div>

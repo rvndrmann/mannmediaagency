@@ -10,7 +10,7 @@ import { CanvasScriptPanel } from '@/components/canvas/CanvasScriptPanel';
 
 // Fixed interface definitions based on actual component requirements
 export interface CanvasEmptyStateProps {
-  onCreateProject: (title: string, description?: string) => Promise<string>;
+  createProject: (title: string, description?: string) => Promise<any>;
 }
 
 // Updated to match actual CanvasHeader component props
@@ -25,12 +25,13 @@ export interface CanvasHeaderProps {
 
 // Updated to match actual CanvasSidebar component props
 export interface CanvasSidebarProps {
-  project: CanvasProject;
+  project: CanvasProject | null;
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string) => void;
   addScene: () => Promise<string | undefined>;
   deleteScene: (id: string) => Promise<void>;
   collapsed: boolean;
+  loading?: boolean;
 }
 
 // Updated to match actual CanvasWorkspace component props
@@ -42,16 +43,17 @@ export interface CanvasWorkspaceProps {
   addScene: () => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
   updateScene: (sceneId: string, type: string, value: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
-  saveFullScript: (script: string) => Promise<void>;
-  createNewProject: (title: string, description?: string) => Promise<string>;
-  updateProjectTitle: (title: string) => Promise<void>;
+  divideScriptToScenes?: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
+  saveFullScript?: (script: string) => Promise<void>;
+  agent?: any;
 }
 
 // Updated to match actual CanvasScriptPanel component props
 export interface CanvasScriptPanelProps {
-  project: CanvasProject;
+  project: CanvasProject | null;
+  projectId: string;
   onClose: () => void;
+  onUpdateScene?: (sceneId: string, type: string, value: string) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
 }
@@ -61,17 +63,17 @@ export interface CanvasDetailPanelProps {
   projectId: string;
   updateScene: (sceneId: string, type: string, value: string) => Promise<void>;
   collapsed: boolean;
-  setCollapsed: () => void;
+  setCollapsed: (collapsed: boolean) => void;
 }
 
 // Adapter components
 export const CanvasEmptyStateAdapter: React.FC<any> = (props) => {
-  const createProject = async (title: string, description?: string) => {
+  const onCreateProject = async (title: string, description?: string) => {
     const project = await props.createProject(title, description);
-    return project.id || "";
+    return project?.id || "";
   };
 
-  return <CanvasEmptyState onCreateProject={createProject} />;
+  return <CanvasEmptyState onCreateProject={onCreateProject} />;
 };
 
 export const CanvasHeaderAdapter: React.FC<any> = (props) => {
@@ -108,22 +110,24 @@ export const CanvasSidebarAdapter: React.FC<any> = (props) => {
 
   return (
     <CanvasSidebar
-      project={props.project || { id: "", title: "", scenes: [], user_id: "" }}
+      project={props.project}
       selectedSceneId={props.selectedSceneId}
       setSelectedSceneId={props.setSelectedSceneId}
       addScene={addScene}
       deleteScene={props.deleteScene}
       collapsed={false}
+      loading={props.loading}
     />
   );
 };
 
 export const CanvasWorkspaceAdapter: React.FC<any> = (props) => {
-  // Filter out the agent prop which isn't expected by CanvasWorkspace
-  const { agent, ...workspaceProps } = props;
-  
   // Provide defaults for missing methods
   const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
+    if (props.divideScriptToScenes) {
+      return await props.divideScriptToScenes(sceneScripts);
+    }
+    
     console.log("Dividing script to scenes", sceneScripts);
     // Map to updateScene calls if possible
     if (props.updateScene) {
@@ -139,36 +143,26 @@ export const CanvasWorkspaceAdapter: React.FC<any> = (props) => {
   };
 
   const saveFullScript = async (script: string) => {
+    if (props.saveFullScript) {
+      return await props.saveFullScript(script);
+    }
+    
     console.log("Saving full script", script);
     // No-op if not implemented
-  };
-
-  const createNewProject = async (title: string, description?: string) => {
-    console.log("Creating new project", title, description);
-    return "";
-  };
-
-  const updateProjectTitle = async (title: string) => {
-    console.log("Updating project title", title);
-    // Use updateProject if available
-    if (props.project && props.project.id && props.updateProject) {
-      await props.updateProject(props.project.id, { title });
-    }
   };
   
   return (
     <CanvasWorkspace
-      project={workspaceProps.project}
-      selectedScene={workspaceProps.selectedScene}
-      selectedSceneId={workspaceProps.selectedSceneId}
-      setSelectedSceneId={workspaceProps.setSelectedSceneId}
-      updateScene={workspaceProps.updateScene}
-      addScene={props.addScene || (async () => {})}
-      deleteScene={props.deleteScene || (async () => {})}
+      project={props.project}
+      selectedScene={props.selectedScene}
+      selectedSceneId={props.selectedSceneId}
+      setSelectedSceneId={props.setSelectedSceneId}
+      updateScene={props.updateScene}
+      addScene={props.addScene}
+      deleteScene={props.deleteScene}
       divideScriptToScenes={divideScriptToScenes}
       saveFullScript={saveFullScript}
-      createNewProject={createNewProject}
-      updateProjectTitle={updateProjectTitle}
+      agent={props.agent}
     />
   );
 };
@@ -176,11 +170,19 @@ export const CanvasWorkspaceAdapter: React.FC<any> = (props) => {
 export const CanvasScriptPanelAdapter: React.FC<any> = (props) => {
   // Provide implementations for required methods
   const saveFullScript = async (script: string) => {
+    if (props.saveFullScript) {
+      return await props.saveFullScript(script);
+    }
+    
     console.log("Saving full script", script);
     // No-op if not implemented
   };
 
   const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
+    if (props.divideScriptToScenes) {
+      return await props.divideScriptToScenes(sceneScripts);
+    }
+    
     console.log("Dividing script to scenes", sceneScripts);
     // Map to updateScene calls if possible
     if (props.onUpdateScene) {
@@ -197,8 +199,10 @@ export const CanvasScriptPanelAdapter: React.FC<any> = (props) => {
 
   return (
     <CanvasScriptPanel
-      project={props.project || { id: props.projectId, title: '', user_id: '' }}
+      project={props.project}
+      projectId={props.projectId || ''}
       onClose={props.onClose}
+      onUpdateScene={props.onUpdateScene}
       saveFullScript={props.saveFullScript || saveFullScript}
       divideScriptToScenes={props.divideScriptToScenes || divideScriptToScenes}
     />
@@ -211,8 +215,8 @@ export const CanvasDetailPanelAdapter: React.FC<any> = (props) => {
       scene={props.scene}
       projectId={props.projectId || ''}
       updateScene={props.updateScene}
-      collapsed={props.collapsed}
-      setCollapsed={props.setCollapsed}
+      collapsed={props.collapsed || false}
+      setCollapsed={props.setCollapsed || (() => {})}
     />
   );
 };

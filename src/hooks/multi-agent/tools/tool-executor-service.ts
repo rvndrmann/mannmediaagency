@@ -1,6 +1,6 @@
 
 import { ToolContext, ToolDefinition } from "./types";
-import { getAvailableTools } from "../tools";
+import { getAvailableTools } from "./tool-registry";
 
 export class ToolExecutorService {
   private static instance: ToolExecutorService;

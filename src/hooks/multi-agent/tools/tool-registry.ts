@@ -55,3 +55,6 @@ export const availableTools: ToolDefinition[] = [
   dataTool,
   browserUseTool
 ];
+
+// Export getAvailableTools function explicitly
+export const getAvailableTools = () => availableTools;

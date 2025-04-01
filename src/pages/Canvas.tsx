@@ -7,7 +7,6 @@ import { CanvasHeader } from '@/components/canvas/CanvasHeader';
 import { CanvasScriptPanel } from '@/components/canvas/CanvasScriptPanel';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 import { useCanvasAgent } from '@/hooks/use-canvas-agent';
-import { useCanvasMessages } from '@/hooks/use-canvas-messages';
 import { CanvasEmptyState } from '@/components/canvas/CanvasEmptyState';
 import { CanvasProject, CanvasScene } from '@/types/canvas';
 
@@ -18,22 +17,21 @@ export default function Canvas() {
   // Get projects instead of project
   const {
     projects,
-    createProject,
-    updateProject,
-    deleteProject,
-    isLoading,
-    // These properties need to be fixed in the hook
     project,
     scenes,
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,
+    createProject,
+    updateProject,
+    deleteProject,
     createScene,
     updateScene,
     deleteScene,
     loading,
     projectId,
-    fetchProject
+    fetchProject,
+    isLoading
   } = useCanvasProjects();
   
   // Add fetchProjects method
@@ -66,7 +64,7 @@ export default function Canvas() {
     isGeneratingScript
   } = useCanvasAgent({
     projectId,
-    sceneId: selectedSceneId,
+    sceneId: selectedSceneId || undefined,
     updateScene
   });
   
@@ -80,11 +78,6 @@ export default function Canvas() {
   // Toggle panels
   const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
   const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
-  
-  // Project creation if no project exists
-  if (!project && !loading) {
-    return <CanvasEmptyState createProject={createProject} />;
-  }
   
   // Create agent props object
   const agentProps = {
@@ -105,11 +98,16 @@ export default function Canvas() {
     isGenerating: isGeneratingScript || isGeneratingDescription || isGeneratingImagePrompt || isGeneratingImage || isGeneratingVideo
   };
   
+  // Project creation if no project exists
+  if (!project && !loading) {
+    return <CanvasEmptyState onCreateProject={createProject} />;
+  }
+  
   return (
     <div className="flex flex-col h-screen">
       <CanvasHeader 
         project={project}
-        updateProject={updateProject}
+        onUpdateProject={updateProject}
         showScriptPanel={showScriptPanel}
         showDetailPanel={showDetailPanel}
         onToggleScriptPanel={toggleScriptPanel}
@@ -119,10 +117,9 @@ export default function Canvas() {
       <div className="flex flex-1 overflow-hidden">
         <CanvasSidebar 
           project={project}
-          projects={projects}
           scenes={scenes}
           selectedScene={selectedScene}
-          selectedSceneId={selectedSceneId}
+          selectedSceneId={selectedSceneId || null}
           setSelectedSceneId={setSelectedSceneId}
           createScene={createScene}
           deleteScene={deleteScene}
@@ -132,9 +129,8 @@ export default function Canvas() {
         <main className="flex-1 overflow-hidden flex flex-col bg-[#1a1a1a]">
           <CanvasWorkspace 
             project={project}
-            scenes={scenes}
             selectedScene={selectedScene}
-            selectedSceneId={selectedSceneId}
+            selectedSceneId={selectedSceneId || ""}
             setSelectedSceneId={setSelectedSceneId}
             createScene={createScene}
             updateScene={updateScene}

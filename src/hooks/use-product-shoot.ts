@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { GeneratedImage, ProductShotFormData } from '@/types/product-shoot';
 import { useQueryClient } from '@tanstack/react-query';
-import { ProductShootHistoryService } from './product-shoot/history-service';
+import { productHistoryService } from './product-shoot/history-service';
 
 export const useProductShoot = () => {
   const [formData, setFormData] = useState<ProductShotFormData | null>(null);
@@ -15,7 +15,7 @@ export const useProductShoot = () => {
   const queryClient = useQueryClient();
   
   // Get the history service instance
-  const historyService = ProductShootHistoryService.getInstance();
+  const historyService = productHistoryService;
 
   useEffect(() => {
     fetchAvailableCredits();
@@ -25,7 +25,8 @@ export const useProductShoot = () => {
     try {
       const { data, error } = await supabase.from('user_credits').select('*').single();
       if (error) throw error;
-      setAvailableCredits(data?.credits || 0);
+      // Use credits_remaining field instead of credits
+      setAvailableCredits(data?.credits_remaining || 0);
     } catch (err) {
       console.error('Error fetching credits:', err);
       setAvailableCredits(0);
@@ -87,39 +88,35 @@ export const useProductShoot = () => {
         referenceImageUrl = refUrl;
       }
 
-      // Create the product shot request
-      const { data, error: insertError } = await supabase
-        .from('product_shot_requests')
-        .insert({
-          source_image_url: sourceImageUrl,
-          reference_image_url: referenceImageUrl,
-          prompt: formData.prompt,
-          scene_description: formData.sceneDescription,
-          aspect_ratio: formData.aspectRatio,
-          placement_type: formData.placementType,
-          manual_placement: formData.manualPlacement,
-          generation_type: formData.generationType,
-          optimize_description: formData.optimizeDescription,
-          fast_mode: formData.fastMode,
-          original_quality: formData.originalQuality,
-          status: 'pending'
-        })
-        .select()
-        .single();
+      // Create the product shot request using RPC function to avoid deep type errors
+      const { data, error: insertError } = await supabase.rpc('create_product_shot_request', {
+        p_source_image_url: sourceImageUrl,
+        p_reference_image_url: referenceImageUrl,
+        p_prompt: formData.prompt,
+        p_scene_description: formData.sceneDescription,
+        p_aspect_ratio: formData.aspectRatio,
+        p_placement_type: formData.placementType,
+        p_manual_placement: formData.manualPlacement,
+        p_generation_type: formData.generationType,
+        p_optimize_description: formData.optimizeDescription,
+        p_fast_mode: formData.fastMode,
+        p_original_quality: formData.originalQuality
+      });
 
       if (insertError) throw insertError;
 
       // Update the placeholder image with the actual ID
+      const requestId = data?.id || placeholderImage.id;
       setImages(prev => 
         prev.map(img => 
           img.id === placeholderImage.id 
-            ? { ...img, id: data.id } 
+            ? { ...img, id: requestId } 
             : img
         )
       );
 
       // Start a polling process to check the status
-      pollProductShotStatus(data.id);
+      pollProductShotStatus(requestId);
       
       toast.success('Product Shot request submitted successfully');
     } catch (err) {
@@ -137,15 +134,14 @@ export const useProductShoot = () => {
   const pollProductShotStatus = async (id: string) => {
     const checkStatus = async () => {
       try {
-        const { data, error } = await supabase
-          .from('product_shot_requests')
-          .select('*')
-          .eq('id', id)
-          .single();
+        // Use RPC function to get status
+        const { data, error } = await supabase.rpc('get_product_shot_status', {
+          p_request_id: id
+        });
 
         if (error) throw error;
 
-        if (data.status === 'completed' && data.result_url) {
+        if (data?.status === 'completed' && data.result_url) {
           // Update the image in the state
           setImages(prev => 
             prev.map(img => 
@@ -165,7 +161,7 @@ export const useProductShoot = () => {
           queryClient.invalidateQueries({ queryKey: ['product-shot-history'] });
           
           return true; // Stop polling
-        } else if (data.status === 'failed') {
+        } else if (data?.status === 'failed') {
           setImages(prev => 
             prev.map(img => 
               img.id === id
@@ -196,15 +192,14 @@ export const useProductShoot = () => {
 
   const retryStatusCheck = async (imageId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('product_shot_requests')
-        .select('*')
-        .eq('id', imageId)
-        .single();
+      // Use RPC function to get status
+      const { data, error } = await supabase.rpc('get_product_shot_status', {
+        p_request_id: imageId
+      });
 
       if (error) throw error;
 
-      if (data.status === 'completed' && data.result_url) {
+      if (data?.status === 'completed' && data.result_url) {
         setImages(prev => 
           prev.map(img => 
             img.id === imageId
@@ -218,7 +213,7 @@ export const useProductShoot = () => {
           )
         );
         toast.success('Image is ready!');
-      } else if (data.status === 'failed') {
+      } else if (data?.status === 'failed') {
         toast.error(data.error_message || 'Image generation failed');
       } else {
         toast.info('Image is still processing. Please check back later.');

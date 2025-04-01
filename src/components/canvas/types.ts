@@ -1,14 +1,62 @@
 
+export enum CommandExecutionState {
+  COMPLETED = "completed",
+  FAILED = "failed",
+  PROCESSING = "processing",
+  ERROR = "error",
+  PENDING = "pending",
+  RUNNING = "running",
+  CANCELLED = "cancelled"
+}
+
+export interface ToolExecutionResult {
+  success: boolean;
+  message: string;
+  data?: any;
+  error?: string;
+  state: CommandExecutionState;
+  usage?: {
+    creditsUsed?: number;
+  };
+}
+
+export interface ToolContext {
+  supabase: any;
+  user: any;
+  session: any;
+  userId?: string;
+  projectId?: string;
+  [key: string]: any;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
+  parameters: {
+    type: string;
+    properties: { [key: string]: any };
+    required: string[];
+  };
+  metadata?: {
+    category?: string;
+    displayName?: string;
+    icon?: string;
+  };
+  requiredCredits?: number;
+  version?: string;
+}
+
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Message } from "@/types/message";
 
 export interface CanvasEmptyStateProps {
-  createProject: (title: string, description?: string) => Promise<CanvasProject>;
+  onCreateProject: (title: string, description?: string) => Promise<CanvasProject>;
 }
 
 export interface CanvasHeaderProps {
   project: CanvasProject | null;
-  updateProject: (id: string, updates: Partial<CanvasProject>) => Promise<CanvasProject>;
+  onUpdateProject: (id: string, updates: Partial<CanvasProject>) => Promise<CanvasProject>;
   showScriptPanel: boolean;
   showDetailPanel: boolean;
   onToggleScriptPanel: () => void;
@@ -17,11 +65,10 @@ export interface CanvasHeaderProps {
 
 export interface CanvasSidebarProps {
   project: CanvasProject | null;
-  projects: CanvasProject[];
   scenes: CanvasScene[];
   selectedScene: CanvasScene | null;
-  selectedSceneId: string;
-  setSelectedSceneId: (id: string) => void;
+  selectedSceneId: string | null;
+  setSelectedSceneId: (id: string | null) => void;
   createScene: (projectId: string, data: any) => Promise<any>;
   deleteScene: (sceneId: string) => Promise<void>;
   loading: boolean;
@@ -29,10 +76,9 @@ export interface CanvasSidebarProps {
 
 export interface CanvasWorkspaceProps {
   project: CanvasProject | null;
-  scenes: CanvasScene[];
   selectedScene: CanvasScene | null;
-  selectedSceneId: string;
-  setSelectedSceneId: (id: string) => void;
+  selectedSceneId: string | null;
+  setSelectedSceneId: (id: string | null) => void;
   createScene: (projectId: string, data: any) => Promise<any>;
   updateScene: (sceneId: string, type: string, value: string) => Promise<void>;
   agent: {

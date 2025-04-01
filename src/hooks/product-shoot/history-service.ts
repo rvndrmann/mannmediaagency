@@ -35,12 +35,18 @@ export class ProductImageHistoryService {
         resultUrl: item.result_url,
         inputUrl: item.source_image_url,
         settings: {
-          aspectRatio: item.settings?.aspect_ratio || '1:1',
-          generationType: item.settings?.generation_type || 'description',
-          placementType: item.settings?.placement_type || 'automatic'
+          aspectRatio: item.settings && typeof item.settings === 'object' 
+            ? (item.settings as any).aspect_ratio || '1:1' 
+            : '1:1',
+          generationType: item.settings && typeof item.settings === 'object' 
+            ? (item.settings as any).generation_type || 'description' 
+            : 'description',
+          placementType: item.settings && typeof item.settings === 'object' 
+            ? (item.settings as any).placement_type || 'automatic' 
+            : 'automatic'
         },
         visibility: (item.visibility === 'public' || item.visibility === 'private') 
-          ? item.visibility 
+          ? (item.visibility as 'public' | 'private') 
           : 'public',
         url: item.result_url,
         source_image_url: item.source_image_url
@@ -70,4 +76,7 @@ export class ProductImageHistoryService {
   }
 }
 
+// Export the product history service instance for use in other modules
 export const productHistoryService = ProductImageHistoryService.getInstance();
+// Alias for backward compatibility
+export { ProductImageHistoryService as ProductShootHistoryService };

@@ -53,7 +53,7 @@ export function adaptToolDefinition(tool: ToolsToolDefinition): any {
       }
       
       // Convert Error objects to strings for compatibility
-      let errorValue = result.error;
+      let errorValue = result.error || null;
       if (errorValue && typeof errorValue === 'object' && 'message' in errorValue) {
         errorValue = errorValue.message;
       }
@@ -69,12 +69,13 @@ export function adaptToolDefinition(tool: ToolsToolDefinition): any {
 }
 
 // Export adapted tools
-export const adaptedCanvasTool = adaptToolDefinition(canvasTool);
-export const adaptedCanvasContentTool = adaptToolDefinition(canvasContentTool);
-export const adaptedDataTool = adaptToolDefinition(dataTool);
-export const adaptedBrowserUseTool = adaptToolDefinition(browserUseTool);
-export const adaptedProductShotV2Tool = adaptToolDefinition(productShotV2Tool);
-export const adaptedImageToVideoTool = adaptToolDefinition(imageToVideoTool);
+// Using type casting to address TypeScript errors while preserving functionality
+export const adaptedCanvasTool = adaptToolDefinition(canvasTool) as unknown as ToolsToolDefinition;
+export const adaptedCanvasContentTool = adaptToolDefinition(canvasContentTool) as unknown as ToolsToolDefinition;
+export const adaptedDataTool = adaptToolDefinition(dataTool) as unknown as ToolsToolDefinition;
+export const adaptedBrowserUseTool = adaptToolDefinition(browserUseTool) as unknown as ToolsToolDefinition;
+export const adaptedProductShotV2Tool = adaptToolDefinition(productShotV2Tool) as unknown as ToolsToolDefinition;
+export const adaptedImageToVideoTool = adaptToolDefinition(imageToVideoTool) as unknown as ToolsToolDefinition;
 
 // Create a list of adapted tools
 export const adaptedTools = [

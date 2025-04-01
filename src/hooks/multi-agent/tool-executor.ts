@@ -1,8 +1,7 @@
 
 import { useState, useCallback } from 'react';
-import { ToolContext, ToolDefinition } from "./tools/types";
-import { CommandExecutionState, ToolExecutionResult } from "./runner/types";
-import { getAvailableTools } from "./tools/tool-registry";
+import { ToolContext, ToolDefinition, CommandExecutionState, ToolResult } from "./tools/types";
+import { getAvailableTools } from "./tools";
 
 export class ToolExecutorService {
   private static instance: ToolExecutorService;
@@ -23,7 +22,7 @@ export class ToolExecutorService {
     toolName: string,
     parameters: any,
     context: ToolContext
-  ): Promise<ToolExecutionResult> {
+  ): Promise<ToolResult> {
     const tool = this.availableTools.find(tool => tool.name === toolName);
     
     if (!tool) {

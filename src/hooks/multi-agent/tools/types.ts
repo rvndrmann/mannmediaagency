@@ -12,7 +12,10 @@ export enum CommandExecutionState {
   RUNNING = "running",
   COMPLETED = "completed",
   FAILED = "failed",
-  CANCELED = "canceled"
+  CANCELED = "canceled",
+  CANCELLED = "cancelled", // Alternative spelling for compatibility
+  ERROR = "error",
+  PROCESSING = "processing"
 }
 
 export interface ToolResult {
@@ -20,6 +23,10 @@ export interface ToolResult {
   message: string;
   data?: any;
   state: CommandExecutionState;
+  error?: string;
+  usage?: {
+    creditsUsed?: number;
+  };
 }
 
 export interface ToolDefinition {
@@ -35,5 +42,7 @@ export interface ToolDefinition {
     displayName?: string;
     icon?: string;
   };
+  requiredCredits?: number;
+  version?: string;
   execute: (parameters: any, context: ToolContext) => Promise<ToolResult>;
 }

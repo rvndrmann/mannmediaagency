@@ -1,9 +1,11 @@
 
-import { ToolDefinition } from "../types";
-import { canvasTool } from "../canvas-tool";
-import { json2videoTool } from "../json2video-tool";
+import { canvasTool } from './canvas-tool';
+import { ToolDefinition } from '../types';
 
+// Export default tools array
 export const defaultTools: ToolDefinition[] = [
-  canvasTool,
-  json2videoTool
+  canvasTool
 ];
+
+// Export individual tools for direct import
+export { canvasTool };

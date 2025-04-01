@@ -1,7 +1,7 @@
 
-import { ToolContext, ToolDefinition, ToolExecutionResult, CommandExecutionState } from './tools/types';
-import { dataTool } from './tools/data-tool';
-import { browserUseTool } from './tools/browser-use-tool';
+import { ToolContext, ToolDefinition, CommandExecutionState } from './tools/types';
+import { dataTool } from './tools/tool-registry';
+import { browserUseTool } from './tools/tool-registry';
 import { canvasTool } from './tools/default-tools/canvas-tool';
 
 // Helper to ensure error is a string
@@ -20,6 +20,18 @@ export const errorToString = (error: unknown): string => {
 
   return String(error);
 };
+
+// Type interface for tool execution results
+export interface ToolExecutionResult {
+  success: boolean;
+  message: string;
+  error?: string;
+  data?: any;
+  state: CommandExecutionState;
+  usage?: {
+    creditsUsed?: number;
+  };
+}
 
 // Create wrapper for tool definitions to ensure error is always string
 export const adaptToolDefinition = (tool: any): ToolDefinition => {

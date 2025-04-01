@@ -154,6 +154,12 @@ export function CanvasWorkspaceAdapter({
   updateProjectTitle,
   agent
 }: CanvasWorkspaceAdapterProps) {
+  // Create a wrapper function that adapts the return type to match what CanvasWorkspace expects
+  const handleAddScene = async () => {
+    await addScene();
+    // Return void to match the expected type
+  };
+
   return (
     <CanvasWorkspace
       project={project}
@@ -161,7 +167,7 @@ export function CanvasWorkspaceAdapter({
       selectedSceneId={selectedSceneId}
       setSelectedSceneId={setSelectedSceneId}
       updateScene={updateScene}
-      addScene={addScene}
+      addScene={handleAddScene}
       deleteScene={deleteScene}
       divideScriptToScenes={divideScriptToScenes}
       saveFullScript={saveFullScript}

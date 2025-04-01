@@ -35,7 +35,7 @@ export function MultiAgentChat({
 }: MultiAgentChatProps) {
   const { toast } = useToast();
   const { activeProject } = useProjectContext();
-  const { status } = useMCPContext(); // Updated from mcpConnected to status
+  const { status } = useMCPContext(); // Using status instead of mcpConnected
   const mcpConnected = status === 'connected'; // Derive mcpConnected from status
   
   const [userInput, setUserInput] = useState<string>("");
@@ -81,7 +81,7 @@ export function MultiAgentChat({
   }, [sessionId, activeChatId, setActiveChatId]);
   
   async function handleSendMessage() {
-    if (!userInput.trim() || isLoading) return;
+    if (!userInput || !userInput.trim() || isLoading) return;
     
     const userMessage: Message = {
       id: uuidv4(),
@@ -118,7 +118,8 @@ export function MultiAgentChat({
           sceneId: sceneId,
           runId: currentSessionId || uuidv4(),
           groupId: currentSessionId || uuidv4(),
-          contextData: projectId ? { projectId, sceneId } : null
+          contextData: projectId ? { projectId, sceneId } : null,
+          useSDK: true // Enable SDK mode
         })
       });
       
@@ -219,7 +220,7 @@ export function MultiAgentChat({
           />
           <Button 
             onClick={handleSendMessage} 
-            disabled={isLoading || !userInput.trim()}
+            disabled={isLoading || !userInput || !userInput.trim()}
             size="icon"
           >
             {isLoading ? (

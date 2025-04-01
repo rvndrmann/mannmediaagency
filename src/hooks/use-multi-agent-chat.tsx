@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Message, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -54,16 +55,20 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   useEffect(() => {
     if (options.projectId) {
       projectContext.setActiveProject(options.projectId);
-      projectContext.fetchProjectDetails(options.projectId);
       
-      const projectDetails = projectContext.projectDetails;
-      const projectContent = projectContext.projectContent;
+      // Project details might not be available immediately, so we need to fetch them
+      const fetchProject = async () => {
+        await projectContext.fetchProjectDetails(options.projectId || '');
+      };
       
-      if (projectDetails && projectContent) {
+      fetchProject();
+      
+      // If we have project details, add them to the chat context
+      if (projectContext.projectDetails && projectContext.projectContent) {
         // Add a system message about the project if it doesn't exist
         const hasProjectContextMessage = messages.some(msg => 
           msg.role === 'system' && 
-          msg.content.includes(`Project context: ${projectDetails.title || options.projectId}`)
+          msg.content.includes(`Project context: ${projectContext.projectDetails.title || options.projectId}`)
         );
         
         if (!hasProjectContextMessage) {
@@ -71,7 +76,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
           const contextMessage: Message = {
             id: uuidv4(),
             role: "system",
-            content: `Project context: ${projectDetails.title || options.projectId}\n\n${projectContent}`,
+            content: `Project context: ${projectContext.projectDetails.title || options.projectId}\n\n${projectContext.projectContent}`,
             createdAt: new Date().toISOString(),
             type: "context" as MessageType
           };
@@ -82,7 +87,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         setActiveProjectContext(options.projectId);
       }
     }
-  }, [options.projectId, projectContext, messages]);
+  }, [options.projectId, projectContext.projectDetails, projectContext.projectContent, messages, projectContext]);
 
   useEffect(() => {
     const fetchCredits = async () => {
@@ -211,8 +216,15 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const setProjectContext = (projectId: string, context?: any) => {
     setActiveProjectContext(projectId);
     projectContext.setActiveProject(projectId);
-    projectContext.fetchProjectDetails(projectId);
     
+    // Project details might not be available immediately, so we need to fetch them
+    const fetchProject = async () => {
+      await projectContext.fetchProjectDetails(projectId);
+    };
+    
+    fetchProject();
+    
+    // If we have project details, add them to the chat context
     if (projectContext.projectDetails && projectContext.projectContent) {
       // Add a system message with project context if it doesn't exist
       const hasProjectContextMessage = messages.some(msg => 
@@ -364,9 +376,11 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       try {
         // Add project context to the request if available
         const contextData: Record<string, any> = {
-          projectId: options.projectId
+          projectId: options.projectId,
+          useSDK: true
         };
         
+        // Add project details if available
         if (projectContext.projectDetails) {
           contextData.projectTitle = projectContext.projectDetails.title;
           contextData.projectDescription = projectContext.projectDetails.description;
@@ -448,7 +462,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         processingTimeoutRef.current = null;
       }
     }
-  }, [activeAgent, isLoading, messages, options.projectId, options.sessionId, projectContext, updateChatSession, usePerformanceModel]);
+  }, [activeAgent, isLoading, messages, options.projectId, options.sessionId, projectContext.projectDetails, projectContext.projectContent, updateChatSession, usePerformanceModel]);
 
   return {
     messages,

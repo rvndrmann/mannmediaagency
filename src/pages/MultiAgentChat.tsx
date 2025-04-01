@@ -59,6 +59,7 @@ const MultiAgentChat = () => {
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
+  const [useSDK, setUseSDK] = useState<boolean>(true); // Enable SDK by default
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -241,6 +242,32 @@ const MultiAgentChat = () => {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant={useSDK ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => {
+                    setUseSDK(!useSDK);
+                    toast.success(useSDK ? "SDK disabled" : "SDK enabled");
+                  }}
+                  className={`flex items-center gap-1 ${
+                    useSDK 
+                      ? "bg-gradient-to-r from-blue-600 to-cyan-600" 
+                      : "border-blue-600 bg-blue-800/20 text-blue-500 hover:bg-blue-800/30"
+                  }`}
+                >
+                  <BarChartBig className="h-4 w-4" />
+                  {useSDK ? "SDK Enabled" : "SDK Disabled"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{useSDK ? "Using OpenAI Agents SDK" : "Using custom agent infrastructure"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <Card className="h-[600px] flex flex-col">
@@ -377,6 +404,9 @@ const MultiAgentChat = () => {
                 </div>
                 <div>
                   Tool Access: {enableDirectToolExecution ? "Direct (any agent)" : "Via Tool Agent"}
+                </div>
+                <div>
+                  SDK: {useSDK ? "Enabled" : "Disabled"}
                 </div>
                 <div>
                   Tracing: {tracingEnabled ? "Enabled" : "Disabled"}

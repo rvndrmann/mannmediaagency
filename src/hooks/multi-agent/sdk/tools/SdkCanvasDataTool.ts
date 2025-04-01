@@ -1,139 +1,157 @@
 
-import { ToolDefinition, ToolExecutionResult } from "../../types";
-import { CommandExecutionState } from "../../runner/types";
+import { v4 as uuidv4 } from "uuid";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { CommandExecutionState, ToolExecutionResult } from "../../runner/types";
 
-export const sdkCanvasDataTool: ToolDefinition = {
-  name: "sdk_canvas_data",
-  description: "Retrieve data from the Canvas project",
-  parameters: {
+export interface CanvasDataToolContext {
+  projectId?: string;
+  sceneId?: string;
+  supabase: SupabaseClient;
+  userId?: string;
+}
+
+export class SdkCanvasDataTool {
+  static name = "canvas_data_tool";
+  static description = "Get or update data related to Canvas projects and scenes";
+  
+  static parameters = {
     type: "object",
     properties: {
+      action: {
+        type: "string",
+        enum: ["get_project", "get_scene", "update_scene", "list_scenes", "create_scene"],
+        description: "The action to perform"
+      },
       projectId: {
         type: "string",
-        description: "The ID of the project to fetch data from"
+        description: "The ID of the project"
       },
       sceneId: {
         type: "string",
-        description: "Optional scene ID to fetch specific scene data"
+        description: "The ID of the scene (for scene-specific actions)"
       },
-      dataType: {
-        type: "string",
-        description: "Type of data to fetch (project, scene, or all)",
-        enum: ["project", "scene", "all"]
+      data: {
+        type: "object",
+        description: "Data to update"
       }
     },
-    required: ["projectId", "dataType"]
-  },
-  execute: async (parameters, context): Promise<ToolExecutionResult> => {
+    required: ["action"]
+  };
+  
+  static async execute(parameters: any, context: CanvasDataToolContext): Promise<ToolExecutionResult> {
     try {
-      const { projectId, sceneId, dataType } = parameters;
+      const { action, projectId, sceneId, data } = parameters;
+      const { supabase } = context;
       
-      if (!projectId) {
+      if (!supabase) {
         return {
           success: false,
-          message: "Project ID is required",
-          state: CommandExecutionState.FAILED
+          message: "Supabase client is required",
+          state: CommandExecutionState.ERROR,
         };
       }
       
-      // Fetch project data
-      if (dataType === "project" || dataType === "all") {
-        const { data: projectData, error: projectError } = await context.supabase
-          .from('canvas_projects')
-          .select('*')
-          .eq('id', projectId)
-          .single();
+      // Use project ID from context if not provided
+      const targetProjectId = projectId || context.projectId;
+      
+      switch (action) {
+        case "get_project":
+          return await this.getProject(supabase, targetProjectId);
           
-        if (projectError) {
+        case "get_scene":
+          return await this.getScene(supabase, sceneId || context.sceneId);
+          
+        case "update_scene":
+          return await this.updateScene(supabase, sceneId || context.sceneId, data);
+          
+        case "list_scenes":
+          return await this.listScenes(supabase, targetProjectId);
+          
+        case "create_scene":
+          return await this.createScene(supabase, targetProjectId, data);
+          
+        default:
           return {
             success: false,
-            message: `Failed to fetch project data: ${projectError.message}`,
-            state: CommandExecutionState.FAILED
+            message: `Unknown action: ${action}`,
+            state: CommandExecutionState.ERROR,
           };
-        }
-        
-        // If only project data was requested, return now
-        if (dataType === "project") {
-          return {
-            success: true,
-            message: "Project data retrieved successfully",
-            data: projectData,
-            state: CommandExecutionState.COMPLETED
-          };
-        }
       }
-      
-      // Fetch scene data if requested
-      if (dataType === "scene" && sceneId) {
-        const { data: sceneData, error: sceneError } = await context.supabase
-          .from('canvas_scenes')
-          .select('*')
-          .eq('id', sceneId)
-          .single();
-          
-        if (sceneError) {
-          return {
-            success: false,
-            message: `Failed to fetch scene data: ${sceneError.message}`,
-            state: CommandExecutionState.FAILED
-          };
-        }
-        
-        return {
-          success: true,
-          message: "Scene data retrieved successfully",
-          data: sceneData,
-          state: CommandExecutionState.COMPLETED
-        };
-      }
-      
-      // Fetch all scenes for the project
-      if (dataType === "all") {
-        const { data: scenesData, error: scenesError } = await context.supabase
-          .from('canvas_scenes')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('scene_order', { ascending: true });
-          
-        if (scenesError) {
-          return {
-            success: false,
-            message: `Failed to fetch scenes data: ${scenesError.message}`,
-            state: CommandExecutionState.FAILED
-          };
-        }
-        
-        // Get project data again
-        const { data: projectData, error: projectError } = await context.supabase
-          .from('canvas_projects')
-          .select('*')
-          .eq('id', projectId)
-          .single();
-          
-        // Combine project and scenes data
-        return {
-          success: true,
-          message: "Project and scenes data retrieved successfully",
-          data: {
-            project: projectData,
-            scenes: scenesData
-          },
-          state: CommandExecutionState.COMPLETED
-        };
-      }
-      
-      return {
-        success: false,
-        message: "Invalid dataType parameter",
-        state: CommandExecutionState.FAILED
-      };
     } catch (error) {
-      console.error("Error executing SDK Canvas Data Tool:", error);
+      console.error("Error in CanvasDataTool:", error);
       return {
         success: false,
-        message: `Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        state: CommandExecutionState.ERROR
+        message: error instanceof Error ? error.message : "Unknown error",
+        state: CommandExecutionState.ERROR,
       };
     }
   }
-};
+  
+  private static async getProject(supabase: SupabaseClient, projectId?: string): Promise<ToolExecutionResult> {
+    if (!projectId) {
+      return {
+        success: false,
+        message: "Project ID is required",
+        state: CommandExecutionState.ERROR,
+      };
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from("canvas_projects")
+        .select("*")
+        .eq("id", projectId)
+        .single();
+        
+      if (error) throw error;
+      
+      return {
+        success: true,
+        message: "Project retrieved successfully",
+        data,
+        state: CommandExecutionState.COMPLETED,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to retrieve project",
+        state: CommandExecutionState.ERROR,
+      };
+    }
+  }
+  
+  private static async getScene(supabase: SupabaseClient, sceneId?: string): Promise<ToolExecutionResult> {
+    if (!sceneId) {
+      return {
+        success: false,
+        message: "Scene ID is required",
+        state: CommandExecutionState.ERROR,
+      };
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from("canvas_scenes")
+        .select("*")
+        .eq("id", sceneId)
+        .single();
+        
+      if (error) throw error;
+      
+      return {
+        success: true,
+        message: "Scene retrieved successfully",
+        data,
+        state: CommandExecutionState.COMPLETED,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to retrieve scene",
+        state: CommandExecutionState.ERROR,
+      };
+    }
+  }
+  
+  // More methods...
+}

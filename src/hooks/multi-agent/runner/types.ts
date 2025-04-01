@@ -36,7 +36,7 @@ export interface AgentResult {
     reason: string;
     additionalContext?: Record<string, any>;
   };
-  // Additional properties used in components
+  // Additional properties for SDK compatibility
   structured_output?: any;
   commandSuggestion?: any;
 }
@@ -68,18 +68,30 @@ export interface AgentOptions {
   description?: string;
   instructions?: string;
   tools?: any[];
+  context?: RunnerContext;
+  traceId?: string;
+  model?: string;
   contextData?: Record<string, any>;
 }
 
-export interface CommandExecutionState {
-  inProgress: boolean;
-  hasError: boolean;
-  output?: any;
-  error?: Error;
+// Define CommandExecutionState as enum for proper usage
+export enum CommandExecutionState {
+  PENDING = "pending",
+  RUNNING = "running",
+  COMPLETED = "completed",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
+  ERROR = "error",
+  PROCESSING = "processing"
 }
 
 export interface ToolExecutionResult {
   success: boolean;
-  result?: any;
-  error?: string;
+  message?: string;
+  state: CommandExecutionState; 
+  error?: string | Error;
+  data?: any;
+  usage?: {
+    creditsUsed?: number;
+  };
 }

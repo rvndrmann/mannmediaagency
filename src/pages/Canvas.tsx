@@ -146,6 +146,38 @@ export default function Canvas() {
     toast.success("Script divided into scenes successfully");
   };
   
+  // Add createNewProject function for CanvasWorkspace
+  const createNewProject = async (title, description) => {
+    console.log('Creating new project', title, description);
+    try {
+      const newProject = await createProject(title, description);
+      if (newProject && newProject.id) {
+        setProjectId(newProject.id);
+        return newProject.id;
+      }
+      return "";
+    } catch (error) {
+      console.error("Error creating project:", error);
+      toast.error("Failed to create project");
+      return "";
+    }
+  };
+  
+  // Add updateProjectTitle function for CanvasWorkspace
+  const updateProjectTitle = async (title) => {
+    console.log('Updating project title', title);
+    if (project && project.id) {
+      try {
+        await updateProject(project.id, { title });
+        setProject(prev => ({...prev, title}));
+        toast.success("Project title updated successfully");
+      } catch (error) {
+        console.error("Error updating project title:", error);
+        toast.error("Failed to update project title");
+      }
+    }
+  };
+  
   // Initialize agent context with additional properties for the adapter
   const agentProps = {
     isLoading: isAgentLoading,
@@ -236,6 +268,8 @@ export default function Canvas() {
             deleteScene={deleteScene}
             divideScriptToScenes={divideScriptToScenes}
             saveFullScript={saveFullScript}
+            createNewProject={createNewProject}
+            updateProjectTitle={updateProjectTitle}
             agent={agentProps}
           />
         </main>

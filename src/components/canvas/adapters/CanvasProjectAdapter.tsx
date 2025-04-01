@@ -45,6 +45,8 @@ export interface CanvasWorkspaceProps {
   updateScene: (sceneId: string, type: string, value: string) => Promise<void>;
   divideScriptToScenes?: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript?: (script: string) => Promise<void>;
+  createNewProject: (title: string, description?: string) => Promise<string>;
+  updateProjectTitle: (title: string) => Promise<void>;
   agent?: any; // Added agent prop to match CanvasWorkspace
 }
 
@@ -151,6 +153,25 @@ export const CanvasWorkspaceAdapter: React.FC<any> = (props) => {
     // No-op if not implemented
   };
   
+  // Add missing required props with fallback implementations
+  const createNewProject = async (title: string, description?: string): Promise<string> => {
+    if (props.createNewProject) {
+      return await props.createNewProject(title, description);
+    }
+    
+    console.log("Creating new project", title, description);
+    return "new-project-id";
+  };
+  
+  const updateProjectTitle = async (title: string): Promise<void> => {
+    if (props.updateProjectTitle) {
+      return await props.updateProjectTitle(title);
+    }
+    
+    console.log("Updating project title", title);
+    // No-op if not implemented
+  };
+  
   return (
     <CanvasWorkspace
       project={props.project}
@@ -162,6 +183,8 @@ export const CanvasWorkspaceAdapter: React.FC<any> = (props) => {
       deleteScene={props.deleteScene}
       divideScriptToScenes={divideScriptToScenes}
       saveFullScript={saveFullScript}
+      createNewProject={createNewProject}
+      updateProjectTitle={updateProjectTitle}
       agent={props.agent}
     />
   );

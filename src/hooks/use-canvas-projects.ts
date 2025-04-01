@@ -1,326 +1,313 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { CanvasProject, CanvasScene, SceneUpdateType } from '@/types/canvas';
 import { toast } from 'sonner';
-import { useUser } from './use-user';
-import { CanvasProject, CanvasScene } from '@/types/canvas';
+import axios from 'axios';
 
-export interface UseCanvasProjectsReturn {
-  projects: CanvasProject[];
-  createProject: (title: string, description?: string) => Promise<CanvasProject>;
-  updateProject: (id: string, updates: Partial<CanvasProject>) => Promise<CanvasProject>;
-  deleteProject: (id: string) => Promise<void>;
-  isLoading: boolean;
-  
-  // Additional properties needed by Canvas.tsx
-  project: CanvasProject | null;
-  scenes: CanvasScene[];
-  selectedScene: CanvasScene | null;
-  selectedSceneId: string | null;
-  setSelectedSceneId: (id: string | null) => void;
-  createScene: (projectId: string, data: any) => Promise<CanvasScene>;
-  updateScene: (sceneId: string, type: string, value: string) => Promise<void>;
-  deleteScene: (sceneId: string) => Promise<void>;
-  loading: boolean;
-  projectId: string | null;
-  fetchProject: (id: string) => Promise<void>;
-}
+// API base URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.example.com';
 
-export function useCanvasProjects() {
+// Helper functions to transform data
+const mapApiSceneToCanvasScene = (apiScene: any): CanvasScene => {
+  return {
+    id: apiScene.id,
+    projectId: apiScene.project_id,
+    title: apiScene.title || '',
+    description: apiScene.description || '',
+    script: apiScene.script || '',
+    imagePrompt: apiScene.image_prompt || '',
+    imageUrl: apiScene.image_url || '',
+    videoUrl: apiScene.video_url || '',
+    sceneOrder: apiScene.scene_order || 0,
+    createdAt: apiScene.created_at || '',
+    updatedAt: apiScene.updated_at || '',
+    voiceOverText: apiScene.voice_over_text || '',
+    productImageUrl: apiScene.product_image_url || '',
+    voiceOverUrl: apiScene.voice_over_url || '',
+    backgroundMusicUrl: apiScene.background_music_url || '',
+    duration: apiScene.duration || 5,
+    // Add aliases for compatibility
+    project_id: apiScene.project_id,
+    image_prompt: apiScene.image_prompt,
+    image_url: apiScene.image_url,
+    video_url: apiScene.video_url,
+    scene_order: apiScene.scene_order,
+    created_at: apiScene.created_at,
+    updated_at: apiScene.updated_at,
+    voice_over_text: apiScene.voice_over_text,
+    order: apiScene.scene_order || apiScene.order || 0,
+  };
+};
+
+export const useCanvasProjects = () => {
   const [projects, setProjects] = useState<CanvasProject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [project, setProject] = useState<CanvasProject | null>(null);
   const [scenes, setScenes] = useState<CanvasScene[]>([]);
-  const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
-  const { user } = useUser();
 
+  // Fetch projects
   const fetchProjects = useCallback(async () => {
-    if (!user) {
-      setProjects([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('canvas_projects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      setProjects(data || []);
-    } catch (error) {
-      console.error('Error fetching canvas projects:', error);
-      toast.error('Failed to load projects');
+      const response = await axios.get(`${API_BASE_URL}/api/canvas/projects`);
+      setProjects(response.data);
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      setError('Failed to fetch projects');
+      toast.error('Failed to fetch projects');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [user]);
+  }, []);
 
-  useEffect(() => {
-    fetchProjects();
-  }, [user, fetchProjects]);
-
-  const createProject = async (title: string, description?: string) => {
-    if (!user) {
-      toast.error('You must be logged in to create a project');
-      return null;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('canvas_projects')
-        .insert({
-          title,
-          description: description || '',
-          user_id: user.id
-        })
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      setProjects(prev => [data, ...prev]);
-      return data;
-    } catch (error) {
-      console.error('Error creating project:', error);
-      toast.error('Failed to create project');
-      return null;
-    }
-  };
-
-  const updateProject = async (id: string, updates: Partial<CanvasProject>) => {
-    try {
-      const { data, error } = await supabase
-        .from('canvas_projects')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      setProjects(prev =>
-        prev.map(project => (project.id === id ? data : project))
-      );
-      
-      if (project && project.id === id) {
-        setProject({ ...project, ...updates });
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error updating project:', error);
-      toast.error('Failed to update project');
-      return null;
-    }
-  };
-
-  const deleteProject = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('canvas_projects')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        throw error;
-      }
-
-      setProjects(prev => prev.filter(project => project.id !== id));
-      
-      if (project && project.id === id) {
-        setProject(null);
-        setScenes([]);
-        setSelectedScene(null);
-        setSelectedSceneId(null);
-      }
-    } catch (error) {
-      console.error('Error deleting project:', error);
-      toast.error('Failed to delete project');
-    }
-  };
-  
+  // Fetch project
   const fetchProject = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('canvas_projects')
-        .select('*')
-        .eq('id', id)
-        .single();
-        
-      if (error) throw error;
-      
-      setProject(data);
+      const response = await axios.get(`${API_BASE_URL}/api/canvas/projects/${id}`);
+      setProject(response.data);
       setProjectId(id);
+      fetchScenes(id);
+    } catch (err) {
+      console.error('Error fetching project:', err);
+      setError('Failed to fetch project');
+      toast.error('Failed to fetch project');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch scenes
+  const fetchScenes = useCallback(async (projectId: string) => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/canvas/projects/${projectId}/scenes`);
+      // Map the API response to our CanvasScene format
+      const mappedScenes = response.data.map(mapApiSceneToCanvasScene);
+      setScenes(mappedScenes);
       
-      // Fetch scenes for this project
-      const { data: scenesData, error: scenesError } = await supabase
-        .from('canvas_scenes')
-        .select('*')
-        .eq('project_id', id)
-        .order('scene_order', { ascending: true });
-        
-      if (scenesError) throw scenesError;
-      
-      setScenes(scenesData || []);
-      
-      if (scenesData && scenesData.length > 0 && !selectedSceneId) {
-        setSelectedSceneId(scenesData[0].id);
+      // Set selected scene to first scene if no scene is selected
+      if (mappedScenes.length > 0 && !selectedSceneId) {
+        setSelectedSceneId(mappedScenes[0].id);
       }
-    } catch (error) {
-      console.error('Error fetching project:', error);
-      toast.error('Failed to load project');
+    } catch (err) {
+      console.error('Error fetching scenes:', err);
+      setError('Failed to fetch scenes');
+      toast.error('Failed to fetch scenes');
     } finally {
       setLoading(false);
     }
   }, [selectedSceneId]);
-  
-  const createScene = async (projectId: string, data: any) => {
+
+  // Create project
+  const createProject = useCallback(async (title: string, description?: string) => {
+    setLoading(true);
     try {
-      const { data: newScene, error } = await supabase
-        .from('canvas_scenes')
-        .insert([{
-          project_id: projectId,
-          ...data
-        }])
-        .select()
-        .single();
-        
-      if (error) throw error;
+      const response = await axios.post(`${API_BASE_URL}/api/canvas/projects`, {
+        title,
+        description
+      });
+      fetchProjects();
+      setProject(response.data);
+      setProjectId(response.data.id);
+      return response.data;
+    } catch (err) {
+      console.error('Error creating project:', err);
+      setError('Failed to create project');
+      toast.error('Failed to create project');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchProjects]);
+
+  // Update project
+  const updateProject = useCallback(async (id: string, data: any) => {
+    setLoading(true);
+    try {
+      const response = await axios.put(`${API_BASE_URL}/api/canvas/projects/${id}`, data);
       
+      // Update the project in local state
+      setProject(prev => {
+        if (prev && prev.id === id) {
+          return { ...prev, ...data };
+        }
+        return prev;
+      });
+      
+      return response.data;
+    } catch (err) {
+      console.error('Error updating project:', err);
+      setError('Failed to update project');
+      toast.error('Failed to update project');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Delete project
+  const deleteProject = useCallback(async (id: string) => {
+    setLoading(true);
+    try {
+      await axios.delete(`${API_BASE_URL}/api/canvas/projects/${id}`);
+      fetchProjects();
+      
+      // Clear current project if it's the one being deleted
+      if (project && project.id === id) {
+        setProject(null);
+        setProjectId(null);
+        setScenes([]);
+        setSelectedScene(null);
+        setSelectedSceneId(null);
+      }
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      setError('Failed to delete project');
+      toast.error('Failed to delete project');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchProjects, project]);
+
+  // Create scene
+  const createScene = useCallback(async (projectId: string, data: any) => {
+    setLoading(true);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/canvas/projects/${projectId}/scenes`, data);
+      // Map the API response to our CanvasScene format
+      const newScene = mapApiSceneToCanvasScene(response.data);
+      
+      // Update scenes list with the new scene
       setScenes(prev => [...prev, newScene]);
+      
       return newScene;
-    } catch (error) {
-      console.error('Error creating scene:', error);
+    } catch (err) {
+      console.error('Error creating scene:', err);
+      setError('Failed to create scene');
       toast.error('Failed to create scene');
       return null;
+    } finally {
+      setLoading(false);
     }
-  };
-  
-  const updateScene = async (sceneId: string, type: string, value: string) => {
+  }, []);
+
+  // Update scene
+  const updateScene = useCallback(async (sceneId: string, type: SceneUpdateType, value: string) => {
+    setLoading(true);
     try {
-      const fieldMap: Record<string, string> = {
+      // Map our type to API field name
+      const fieldMap: Record<SceneUpdateType, string> = {
+        description: 'description',
         script: 'script',
         imagePrompt: 'image_prompt',
-        description: 'description',
         image: 'image_url',
-        productImage: 'product_image_url',
         video: 'video_url',
         voiceOver: 'voice_over_url',
-        voiceOverText: 'voice_over_text',
-        backgroundMusic: 'background_music_url',
+        voiceOverText: 'voice_over_text', 
         imageUrl: 'image_url',
-        videoUrl: 'video_url'
+        videoUrl: 'video_url',
+        productImage: 'product_image_url',
+        backgroundMusic: 'background_music_url'
       };
       
-      const dbField = fieldMap[type] || type;
+      const field = fieldMap[type];
+      const data = { [field]: value };
       
-      const { error } = await supabase
-        .from('canvas_scenes')
-        .update({ [dbField]: value })
-        .eq('id', sceneId);
-        
-      if (error) throw error;
+      const response = await axios.put(`${API_BASE_URL}/api/canvas/scenes/${sceneId}`, data);
       
-      // Update local state
-      setScenes(prev => prev.map(scene => {
-        if (scene.id === sceneId) {
-          // Update both the camelCase and snake_case versions of the field
-          return { 
-            ...scene, 
-            [type]: value,
-            [dbField]: value 
-          };
-        }
-        return scene;
-      }));
+      // Map the API response to our CanvasScene format
+      const updatedScene = mapApiSceneToCanvasScene(response.data);
       
-      // Update selected scene if it's the one being modified
+      // Update scenes list with the updated scene
+      setScenes(prev => prev.map(scene => 
+        scene.id === sceneId ? updatedScene : scene
+      ));
+      
+      // Update selected scene if it's the one being updated
       if (selectedScene && selectedScene.id === sceneId) {
-        setSelectedScene(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            [type]: value,
-            [dbField]: value
-          };
-        });
+        setSelectedScene(updatedScene);
       }
-    } catch (error) {
-      console.error(`Error updating scene ${type}:`, error);
+    } catch (err) {
+      console.error(`Error updating scene ${type}:`, err);
+      setError(`Failed to update scene ${type}`);
       toast.error(`Failed to update scene ${type}`);
+    } finally {
+      setLoading(false);
     }
-  };
-  
-  const deleteScene = async (sceneId: string) => {
+  }, [selectedScene]);
+
+  // Delete scene
+  const deleteScene = useCallback(async (sceneId: string) => {
+    setLoading(true);
     try {
-      const { error } = await supabase
-        .from('canvas_scenes')
-        .delete()
-        .eq('id', sceneId);
-        
-      if (error) throw error;
+      await axios.delete(`${API_BASE_URL}/api/canvas/scenes/${sceneId}`);
       
+      // Remove scene from scenes list
       setScenes(prev => prev.filter(scene => scene.id !== sceneId));
       
-      if (selectedSceneId === sceneId) {
-        const remainingScenes = scenes.filter(s => s.id !== sceneId);
-        if (remainingScenes.length > 0) {
-          setSelectedSceneId(remainingScenes[0].id);
-        } else {
-          setSelectedSceneId(null);
-          setSelectedScene(null);
-        }
+      // Clear selected scene if it's the one being deleted
+      if (selectedScene && selectedScene.id === sceneId) {
+        setSelectedScene(null);
+        setSelectedSceneId(null);
+        
+        // Set selected scene to first scene in list if there are any left
+        setTimeout(() => {
+          if (scenes.length > 1) {
+            const nextScene = scenes.find(scene => scene.id !== sceneId);
+            if (nextScene) {
+              setSelectedSceneId(nextScene.id);
+            }
+          }
+        }, 100);
       }
-    } catch (error) {
-      console.error('Error deleting scene:', error);
+    } catch (err) {
+      console.error('Error deleting scene:', err);
+      setError('Failed to delete scene');
       toast.error('Failed to delete scene');
+    } finally {
+      setLoading(false);
     }
-  };
-  
-  // Update selectedScene when selectedSceneId or scenes change
+  }, [selectedScene, scenes]);
+
+  // Update selected scene when selectedSceneId changes
   useEffect(() => {
     if (selectedSceneId) {
-      const scene = scenes.find(s => s.id === selectedSceneId);
-      setSelectedScene(scene || null);
+      const scene = scenes.find(s => s.id === selectedSceneId) || null;
+      setSelectedScene(scene);
     } else {
       setSelectedScene(null);
     }
   }, [selectedSceneId, scenes]);
 
+  // Load scenes when project changes
+  useEffect(() => {
+    if (project && project.id) {
+      fetchScenes(project.id);
+    }
+  }, [project, fetchScenes]);
+
   return {
     projects,
-    isLoading,
-    createProject,
-    updateProject,
-    deleteProject,
-    refreshProjects: fetchProjects,
-    
-    // Additional properties for Canvas.tsx
     project,
     scenes,
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,
+    loading,
+    error,
+    projectId,
+    fetchProjects,
+    fetchProject,
+    createProject,
+    updateProject,
+    deleteProject,
     createScene,
     updateScene,
     deleteScene,
-    loading,
-    projectId,
-    fetchProject
   };
-}
+};

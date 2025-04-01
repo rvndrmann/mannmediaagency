@@ -73,8 +73,8 @@ export default function Canvas() {
     return '';
   }, [project, createScene, scenes.length]);
   
-  const saveFullScript = useCallback(async (script: string) => {
-    if (!project) return false;
+  const saveFullScript = useCallback(async (script: string): Promise<void> => {
+    if (!project) return;
     
     try {
       await updateProject(project.id, { 
@@ -82,15 +82,15 @@ export default function Canvas() {
         fullScript: script // update both for compatibility
       });
       toast.success("Script saved successfully");
-      return true;
     } catch (error) {
       console.error('Error saving full script:', error);
       toast.error('Failed to save script');
-      return false;
     }
   }, [project, updateProject]);
   
-  const divideScriptToScenes = useCallback(async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
+  const divideScriptToScenes = useCallback(async (
+    sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>
+  ): Promise<void> => {
     for (const sceneScript of sceneScripts) {
       if (sceneScript.id) {
         await updateScene(sceneScript.id, 'script', sceneScript.content || '');
@@ -100,10 +100,9 @@ export default function Canvas() {
       }
     }
     toast.success("Script divided into scenes successfully");
-    return true;
   }, [updateScene]);
   
-  const createNewProject = useCallback(async (title: string, description?: string) => {
+  const createNewProject = useCallback(async (title: string, description?: string): Promise<string> => {
     try {
       const newProject = await createProject(title, description);
       if (newProject) {
@@ -117,19 +116,16 @@ export default function Canvas() {
     }
   }, [createProject]);
   
-  const updateProjectTitle = useCallback(async (title: string) => {
+  const updateProjectTitle = useCallback(async (title: string): Promise<void> => {
     if (project && project.id) {
       try {
         await updateProject(project.id, { title });
         toast.success("Project title updated successfully");
-        return true;
       } catch (error) {
         console.error("Error updating project title:", error);
         toast.error("Failed to update project title");
-        return false;
       }
     }
-    return false;
   }, [project, updateProject]);
   
   // Effects

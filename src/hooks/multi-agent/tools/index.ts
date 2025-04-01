@@ -1,50 +1,69 @@
 
-import { ToolDefinition } from "../types";
+import { ToolDefinition } from "./types";
 import { defaultTools } from "./default-tools";
 
-let toolSystem: {
-  availableTools: ToolDefinition[];
-  isInitialized: boolean;
-} = {
-  availableTools: [],
-  isInitialized: false
-};
+let toolRegistry: ToolDefinition[] = [];
 
-export const initializeToolSystem = async (): Promise<void> => {
-  try {
-    // Initialize with default tools
-    toolSystem.availableTools = [...defaultTools];
-    toolSystem.isInitialized = true;
+/**
+ * Initializes the tool system by registering default tools
+ */
+export async function initializeToolSystem(): Promise<void> {
+  // Reset the registry
+  toolRegistry = [];
+  
+  // Register default tools
+  registerTools(defaultTools);
+  
+  console.log(`Tool system initialized with ${toolRegistry.length} tools`);
+}
+
+/**
+ * Register one or more tools with the tool system
+ */
+export function registerTools(tools: ToolDefinition[]): void {
+  tools.forEach(tool => {
+    // Check if tool with the same name already exists
+    const existingToolIndex = toolRegistry.findIndex(t => t.name === tool.name);
     
-    console.log(`Tool system initialized with ${toolSystem.availableTools.length} tools`);
-  } catch (error) {
-    console.error("Failed to initialize tool system:", error);
-    throw error;
-  }
-};
+    if (existingToolIndex !== -1) {
+      // Update existing tool
+      toolRegistry[existingToolIndex] = tool;
+      console.log(`Updated existing tool: ${tool.name}`);
+    } else {
+      // Add new tool
+      toolRegistry.push(tool);
+      console.log(`Registered new tool: ${tool.name}`);
+    }
+  });
+}
 
-export const getAvailableTools = (): ToolDefinition[] => {
-  if (!toolSystem.isInitialized) {
-    console.warn("Tool system not initialized yet, returning empty tool list");
-    return [];
-  }
-  return toolSystem.availableTools;
-};
+/**
+ * Get all available tools
+ */
+export function getAvailableTools(): ToolDefinition[] {
+  return [...toolRegistry];
+}
 
-export const addTool = (tool: ToolDefinition): void => {
-  if (!toolSystem.isInitialized) {
-    console.warn("Tool system not initialized yet, initializing now");
-    toolSystem.availableTools = [...defaultTools];
-    toolSystem.isInitialized = true;
+/**
+ * Get a tool by name
+ */
+export function getToolByName(name: string): ToolDefinition | undefined {
+  return toolRegistry.find(tool => tool.name === name);
+}
+
+/**
+ * Execute a tool by name with the provided parameters and context
+ */
+export async function executeToolByName(
+  name: string, 
+  parameters: any, 
+  context: Record<string, any>
+): Promise<any> {
+  const tool = getToolByName(name);
+  
+  if (!tool) {
+    throw new Error(`Tool "${name}" not found`);
   }
   
-  // Check if tool with same name already exists
-  const existingToolIndex = toolSystem.availableTools.findIndex(t => t.name === tool.name);
-  if (existingToolIndex >= 0) {
-    // Replace existing tool
-    toolSystem.availableTools[existingToolIndex] = tool;
-  } else {
-    // Add new tool
-    toolSystem.availableTools.push(tool);
-  }
-};
+  return await tool.execute(parameters, context);
+}

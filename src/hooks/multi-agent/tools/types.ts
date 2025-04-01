@@ -1,41 +1,25 @@
 
-export enum CommandExecutionState {
-  COMPLETED = "completed",
-  FAILED = "failed",
-  PROCESSING = "processing",
-  ERROR = "error",
-  PENDING = "pending",
-  RUNNING = "running",
-  CANCELLED = "cancelled"
+export interface ToolContext {
+  userId?: string;
+  projectId?: string;
+  sceneId?: string;
+  metadata?: Record<string, any>;
+  [key: string]: any;
 }
 
-export interface ToolExecutionResult {
+export enum CommandExecutionState {
+  PENDING = "pending",
+  RUNNING = "running",
+  COMPLETED = "completed",
+  FAILED = "failed",
+  CANCELED = "canceled"
+}
+
+export interface ToolResult {
   success: boolean;
   message: string;
   data?: any;
-  error?: string;
   state: CommandExecutionState;
-  usage?: {
-    creditsUsed?: number;
-  };
-}
-
-export interface ToolContext {
-  supabase: any;
-  userId?: string;
-  sessionId?: string;
-  projectId?: string;
-  groupId?: string;
-  userCredits?: number;
-  metadata?: Record<string, any>;
-  usePerformanceModel?: boolean;
-  enableDirectToolExecution?: boolean;
-  addMessage?: (message: string, type: string) => void;
-  toolAvailable?: boolean; 
-  history?: any[];
-  tracingEnabled?: boolean;
-  user?: any;
-  session?: any;
 }
 
 export interface ToolDefinition {
@@ -43,7 +27,7 @@ export interface ToolDefinition {
   description: string;
   parameters: {
     type: string;
-    properties: { [key: string]: any };
+    properties: Record<string, any>;
     required?: string[];
   };
   metadata?: {
@@ -51,7 +35,5 @@ export interface ToolDefinition {
     displayName?: string;
     icon?: string;
   };
-  requiredCredits?: number;
-  version?: string;
-  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
+  execute: (parameters: any, context: ToolContext) => Promise<ToolResult>;
 }

@@ -27,7 +27,7 @@ export function ProjectSelector({
   isCompact = false 
 }: ProjectSelectorProps) {
   const { user } = useUser();
-  const { projects, loading, createProject } = useCanvasProjects();
+  const { projects, isLoading, createProject } = useCanvasProjects();
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreateProject = async () => {
@@ -56,7 +56,7 @@ export function ProjectSelector({
       <Select
         value={selectedProjectId}
         onValueChange={onProjectSelect}
-        disabled={loading}
+        disabled={isLoading}
       >
         <SelectTrigger className={`${isCompact ? 'h-8 text-xs' : ''} bg-gray-800/60 border-gray-700`}>
           <SelectValue placeholder="Select a project" />

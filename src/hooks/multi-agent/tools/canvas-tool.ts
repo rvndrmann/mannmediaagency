@@ -1,6 +1,5 @@
 
-import { ToolDefinition } from "../types";
-import { CommandExecutionState } from "../types";
+import { CommandExecutionState, ToolDefinition } from "./types";
 
 export const canvasTool: ToolDefinition = {
   name: "canvas_tool",
@@ -24,7 +23,12 @@ export const canvasTool: ToolDefinition = {
           "generate_description", 
           "generate_image_prompt", 
           "generate_scene_image", 
-          "generate_voiceover"
+          "generate_voiceover",
+          "create_scene",
+          "delete_scene",
+          "generate_full_video",
+          "list_project_scenes",
+          "get_scene_details"
         ]
       },
       content: {
@@ -59,7 +63,7 @@ export const canvasTool: ToolDefinition = {
         };
       }
       
-      if (!sceneId && action !== "list_scenes") {
+      if (action !== "list_project_scenes" && action !== "create_scene" && !sceneId) {
         return {
           success: false,
           message: "Scene ID is required for this action",
@@ -68,10 +72,9 @@ export const canvasTool: ToolDefinition = {
       }
       
       // For now, we'll return a command object that will be processed by the UI
-      // In a full implementation, you might handle this in the edge function
       return {
         success: true,
-        message: `Canvas action "${action}" will be performed for scene ${sceneId} in project ${projectId}`,
+        message: `Canvas action "${action}" will be performed for ${sceneId ? `scene ${sceneId}` : ''} in project ${projectId}`,
         data: { 
           command: {
             action,

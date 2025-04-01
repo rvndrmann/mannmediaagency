@@ -1,3 +1,4 @@
+
 import { WorkflowState, WorkflowStage } from "@/types/canvas";
 
 export interface Message {
@@ -9,7 +10,7 @@ export interface Message {
   sceneId?: string;
   projectId?: string;
   metadata?: Record<string, any>;
-  status?: 'pending' | 'completed' | 'error';
+  status?: MessageStatus;
   type?: MessageType;
   attachments?: Attachment[];
   tool_name?: string;
@@ -31,7 +32,7 @@ export interface Message {
   };
 }
 
-export type MessageType = 'text' | 'canvas' | 'system' | 'tool' | 'image' | 'video';
+export type MessageType = 'text' | 'canvas' | 'system' | 'tool' | 'image' | 'video' | 'handoff' | 'error' | 'context';
 
 export interface Attachment {
   id: string;
@@ -46,10 +47,12 @@ export interface Attachment {
 export interface Task {
   id: string;
   type: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'error' | 'working';
   result?: any;
   error?: string;
   metadata?: Record<string, any>;
+  name?: string;
+  details?: string;
 }
 
 export interface Command {
@@ -57,6 +60,9 @@ export interface Command {
   content?: string;
   target?: string;
   params?: Record<string, any>;
+  name?: string;
+  feature?: string;
+  parameters?: Record<string, any>;
 }
 
 export interface AgentInfo {
@@ -66,6 +72,7 @@ export interface AgentInfo {
   icon?: string;
   color?: string;
   instructions?: string;
+  type?: string;
 }
 
-export type MessageStatus = 'pending' | 'completed' | 'error';
+export type MessageStatus = 'pending' | 'completed' | 'error' | 'thinking' | 'working' | 'in-progress';

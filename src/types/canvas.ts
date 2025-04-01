@@ -1,93 +1,58 @@
-
-// Add or extend this file with the necessary Canvas project types
 export interface CanvasProject {
   id: string;
   title: string;
   description?: string;
-  userId?: string;
-  user_id?: string; // For API compatibility
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
   fullScript?: string;
-  full_script?: string; // For API compatibility
-  createdAt?: string;
-  created_at?: string; // For API compatibility
-  updatedAt?: string;
-  updated_at?: string; // For API compatibility
   scenes?: CanvasScene[];
-  cover_image_url?: string;
+  productImage?: string;
 }
 
 export interface CanvasScene {
   id: string;
-  project_id: string;
-  projectId?: string; // Alias for project_id
-  title?: string;
-  description?: string;
+  title: string;
   script?: string;
   imagePrompt?: string;
-  image_prompt?: string; // For API compatibility
-  imageUrl?: string;
-  image_url?: string; // For API compatibility
-  productImageUrl?: string;
-  product_image_url?: string; // For API compatibility
-  videoUrl?: string;
-  video_url?: string; // For API compatibility
-  voiceOverUrl?: string;
-  voice_over_url?: string; // For API compatibility
-  voiceOverText?: string;
-  voice_over_text?: string; // For API compatibility
-  backgroundMusicUrl?: string;
-  background_music_url?: string; // For API compatibility
-  scene_order?: number;
-  sceneOrder?: number; // Alias for scene_order
-  order?: number; // Alias for scene_order/sceneOrder
-  createdAt?: string;
-  created_at?: string; // For API compatibility
-  updatedAt?: string;
-  updated_at?: string; // For API compatibility
-  duration?: number;
-}
-
-export interface SceneData {
-  title?: string;
   description?: string;
-  script?: string;
-  imagePrompt?: string;
-  imageUrl?: string;
-  videoUrl?: string;
-  voiceOverUrl?: string;
+  image?: string;
+  video?: string;
+  voiceOver?: string;
   voiceOverText?: string;
-  backgroundMusicUrl?: string;
+  backgroundMusic?: string;
+  projectId: string;
+  createdAt: string;
+  updatedAt: string;
   scene_order?: number;
-  projectId?: string;
-  project_id?: string;
+  productImage?: string;
 }
 
-export type SceneUpdateType = 
-  | 'script' 
-  | 'imagePrompt' 
-  | 'description' 
-  | 'image' 
-  | 'imageUrl' 
-  | 'videoUrl' 
-  | 'productImage' 
-  | 'video' 
-  | 'voiceOver' 
-  | 'backgroundMusic' 
-  | 'voiceOverText';
+export type WorkflowStage = 
+  | 'planning' 
+  | 'script_writing'
+  | 'scene_generation'
+  | 'image_generation'
+  | 'video_generation'
+  | 'audio_generation'
+  | 'final_compilation';
 
-// Add workflow types
 export interface WorkflowState {
   projectId: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  currentStage?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'paused';
+  currentStage?: WorkflowStage;
   stageResults?: Record<string, any>;
-  createdAt?: string;
-  updatedAt?: string;
-  completedStages?: string[];
+  createdAt: string;
+  updatedAt: string;
+  completedStages?: WorkflowStage[];
   errorMessage?: string;
   startedAt?: string;
   completedAt?: string;
   sceneStatuses?: Record<string, any>;
+  progress?: number;
 }
 
-export type WorkflowStage = string;
+export interface SceneUpdateType {
+  type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'voiceOverText';
+  value: string;
+}

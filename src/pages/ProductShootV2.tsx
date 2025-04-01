@@ -16,6 +16,8 @@ export default function ProductShootV2() {
     defaultImages,
     uploadImage,
     saveImage,
+    generateProductShot,
+    checkImageStatus,
     setAsDefault,
     fetchSavedImages,
     fetchDefaultImages
@@ -30,7 +32,7 @@ export default function ProductShootV2() {
   const handleGenerate = async () => {
     try {
       if (settings.sourceImageUrl) {
-        await generateProductShot();
+        await generateProductShot(settings.sourceImageUrl);
       } else {
         console.error("No source image URL");
       }
@@ -85,34 +87,4 @@ export default function ProductShootV2() {
       </div>
     </PageLayout>
   );
-
-  // Helper function to handle the generation
-  async function generateProductShot() {
-    if (!settings.sourceImageUrl) {
-      console.error("No source image URL");
-      return;
-    }
-    
-    if (!settings.prompt) {
-      console.error("No prompt provided");
-      return;
-    }
-    
-    try {
-      // Access the generateProductShot method from useProductShoot hook
-      await useProductShoot().generateProductShot(settings.sourceImageUrl);
-    } catch (error) {
-      console.error("Error generating product shot:", error);
-    }
-  }
-
-  // Helper function to check image status
-  async function checkImageStatus(imageId: string) {
-    try {
-      // Access the checkImageStatus method from useProductShoot hook
-      await useProductShoot().checkImageStatus(imageId);
-    } catch (error) {
-      console.error("Error checking image status:", error);
-    }
-  }
 }

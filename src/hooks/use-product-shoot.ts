@@ -3,8 +3,7 @@ import { useState, useCallback } from "react";
 import { ProductShootSettings, GeneratedImage } from "@/types/product-shoot";
 import { useGenerationQueue } from "./product-shoot/use-generation-queue";
 import { supabase } from '@/integrations/supabase/client';
-import { createClient } from '@supabase/supabase-js';
-import { historyService } from "./product-shoot/history-service";
+import * as historyService from "./product-shoot/history-service";
 import { toast } from "sonner";
 
 // Default settings
@@ -88,18 +87,17 @@ export function useProductShoot() {
   }, []);
 
   // Generate a product shot
-  const generateProductShot = useCallback(async (uploadedImageUrl?: string): Promise<string | null> => {
+  const generateProductShot = useCallback(async (sourceImageUrl: string): Promise<string | null> => {
     try {
       setIsGenerating(true);
       
-      // If no image URL is provided, check if we have one in settings
-      const sourceImageUrl = uploadedImageUrl || settings.sourceImageUrl;
+      // Validate inputs
       if (!sourceImageUrl) {
         toast.error('Please upload or select a source image');
         return null;
       }
       
-      if (!settings.prompt && !settings.prompt.trim()) {
+      if (!settings.prompt || !settings.prompt.trim()) {
         toast.error('Please enter a prompt');
         return null;
       }
@@ -137,8 +135,8 @@ export function useProductShoot() {
           status: 'completed',
           createdAt: new Date().toISOString(),
           resultUrl: initialStatus.resultUrl,
-          source_image_url: sourceImageUrl,
-          content_type: 'image/jpeg' // Default value
+          url: sourceImageUrl,
+          source_image_url: sourceImageUrl
         };
         
         setGeneratedImages(prev => [newImage, ...prev]);

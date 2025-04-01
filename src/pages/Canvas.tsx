@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 import { useCanvasAgent } from '@/hooks/use-canvas-agent';
 import {
@@ -10,49 +11,34 @@ import {
   CanvasDetailPanelAdapter,
   CanvasScriptPanelAdapter
 } from '@/components/canvas/adapters/CanvasProjectAdapter';
-import { CanvasScene, CanvasProject } from '@/types/canvas';
 import { toast } from 'sonner';
 import { useProjectContext } from '@/hooks/multi-agent/project-context';
 import { CanvasChat } from '@/components/canvas/CanvasChat';
 
 export default function Canvas() {
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const [showScriptPanel, setShowScriptPanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(true);
   const [showChatPanel, setShowChatPanel] = useState(false);
-  const [project, setProject] = useState<CanvasProject | null>(null);
-  const [scenes, setScenes] = useState<CanvasScene[]>([]);
-  const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [projectId, setProjectId] = useState<string | null>(null);
   const { setActiveProject, setActiveScene } = useProjectContext();
 
   const {
+    project,
     projects,
-    isLoading,
+    scenes,
+    selectedScene,
+    selectedSceneId,
+    setSelectedSceneId,
     createProject,
     updateProject,
-    deleteProject
+    deleteProject,
+    createScene,
+    updateScene,
+    deleteScene,
+    loading,
+    projectId,
+    fetchProject
   } = useCanvasProjects();
-  
-  const updateScene = useCallback(async (sceneId: string, type: string, value: string) => {
-    console.log('Updating scene', sceneId, type, value);
-    setScenes(prevScenes => {
-      return prevScenes.map(scene => {
-        if (scene.id === sceneId) {
-          return { ...scene, [type]: value };
-        }
-        return scene;
-      });
-    });
-    
-    if (selectedScene && selectedScene.id === sceneId) {
-      setSelectedScene(prevScene => ({
-        ...prevScene!,
-        [type]: value
-      }));
-    }
-  }, [selectedScene]);
   
   const {
     generateSceneScript,
@@ -67,97 +53,61 @@ export default function Canvas() {
     addSystemMessage,
     activeAgent
   } = useCanvasAgent({
-    projectId,
+    projectId: projectId || routeProjectId,
     sceneId: selectedSceneId,
     updateScene
   });
   
-  const createScene = useCallback(async (projectId: string, data: any) => {
-    console.log('Creating scene for project', projectId, data);
-    const newSceneId = `scene-${Date.now()}`;
-    const newScene = { 
-      id: newSceneId, 
-      title: data.title || 'New Scene', 
-      projectId: projectId,
-      project_id: projectId,
-      description: '',
-      script: '',
-      image_prompt: '',
-      image_url: '',
-      voice_over_text: '',
-      duration: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      ...data 
-    };
-    
-    setScenes(prev => [...prev, newScene]);
-    
-    return newSceneId;
-  }, []);
-  
-  const deleteScene = useCallback(async (sceneId: string) => {
-    console.log('Deleting scene', sceneId);
-    setScenes(prev => prev.filter(scene => scene.id !== sceneId));
-    
-    if (selectedSceneId === sceneId) {
-      setSelectedSceneId(null);
-      setSelectedScene(null);
-    }
-  }, [selectedSceneId]);
-  
-  const fetchProject = useCallback(async (id: string) => {
-    setLoading(true);
-    console.log('Fetching project', id);
-    const dummyProject = {
-      id,
-      title: 'Project ' + id,
-      description: '',
-      user_id: 'user-1',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      full_script: '',
-      scenes: []
-    };
-    
-    setProject(dummyProject);
-    setScenes([]);
-    setLoading(false);
-  }, []);
-  
   const addScene = useCallback(async () => {
-    if (!project) return '';
+    if (!project) return null;
     
-    const newSceneId = await createScene(project.id, { title: 'New Scene' });
-    return newSceneId;
-  }, [project, createScene]);
+    const newScene = await createScene(project.id, { 
+      title: 'New Scene',
+      scene_order: scenes.length + 1 
+    });
+    
+    if (newScene) {
+      return newScene.id;
+    }
+    
+    return '';
+  }, [project, createScene, scenes.length]);
   
   const saveFullScript = useCallback(async (script: string) => {
-    console.log('Saving full script', script);
-    if (project) {
-      setProject(prev => prev ? {...prev, full_script: script} : null);
+    if (!project) return false;
+    
+    try {
+      await updateProject(project.id, { 
+        full_script: script,
+        fullScript: script // update both for compatibility
+      });
       toast.success("Script saved successfully");
+      return true;
+    } catch (error) {
+      console.error('Error saving full script:', error);
+      toast.error('Failed to save script');
+      return false;
     }
-  }, [project]);
+  }, [project, updateProject]);
   
   const divideScriptToScenes = useCallback(async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
-    console.log('Dividing script to scenes', sceneScripts);
     for (const sceneScript of sceneScripts) {
       if (sceneScript.id) {
         await updateScene(sceneScript.id, 'script', sceneScript.content || '');
-        await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText || '');
+        if (sceneScript.voiceOverText) {
+          await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText);
+        }
       }
     }
     toast.success("Script divided into scenes successfully");
+    return true;
   }, [updateScene]);
   
   const createNewProject = useCallback(async (title: string, description?: string) => {
-    console.log('Creating new project', title, description);
     try {
-      const newProjectData = await createProject(title, description);
-      if (newProjectData && newProjectData.id) {
-        setProjectId(newProjectData.id);
-        return newProjectData.id;
+      const newProject = await createProject(title, description);
+      if (newProject) {
+        return newProject.id;
       }
       return "";
     } catch (error) {
@@ -168,18 +118,45 @@ export default function Canvas() {
   }, [createProject]);
   
   const updateProjectTitle = useCallback(async (title: string) => {
-    console.log('Updating project title', title);
     if (project && project.id) {
       try {
         await updateProject(project.id, { title });
-        setProject(prev => prev ? {...prev, title} : null);
         toast.success("Project title updated successfully");
+        return true;
       } catch (error) {
         console.error("Error updating project title:", error);
         toast.error("Failed to update project title");
+        return false;
       }
     }
+    return false;
   }, [project, updateProject]);
+  
+  // Effects
+  useEffect(() => {
+    // If we have a project ID in the route, load that project
+    if (routeProjectId) {
+      fetchProject(routeProjectId);
+    }
+  }, [routeProjectId, fetchProject]);
+  
+  useEffect(() => {
+    // Set the active project in the context
+    if (projectId) {
+      setActiveProject(projectId);
+    } else if (routeProjectId) {
+      setActiveProject(routeProjectId);
+    }
+  }, [projectId, routeProjectId, setActiveProject]);
+  
+  useEffect(() => {
+    // Set the active scene in the context
+    if (selectedSceneId) {
+      setActiveScene(selectedSceneId);
+    } else {
+      setActiveScene(null);
+    }
+  }, [selectedSceneId, setActiveScene]);
   
   const agentProps = {
     isLoading: isAgentLoading,
@@ -204,38 +181,25 @@ export default function Canvas() {
     isGenerating: isAgentLoading
   };
   
-  useEffect(() => {
-    if (projectId) {
-      fetchProject(projectId);
-      setActiveProject(projectId);
-    } else {
-      setProjectId('project-123');
-    }
-  }, [projectId, fetchProject, setActiveProject]);
-  
-  useEffect(() => {
-    if (project) {
-      setProject(prev => prev ? {...prev, scenes} : null);
-    }
-  }, [scenes]);
-  
-  useEffect(() => {
-    if (selectedSceneId) {
-      const scene = scenes.find(s => s.id === selectedSceneId);
-      setSelectedScene(scene || null);
-      setActiveScene(selectedSceneId);
-    } else {
-      setSelectedScene(null);
-      setActiveScene(null);
-    }
-  }, [selectedSceneId, scenes, setActiveScene]);
-  
   const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
   const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
   const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
   
-  if (!project && !loading) {
+  // Show empty state when no project is loaded
+  if (!project && !routeProjectId && !loading) {
     return <CanvasEmptyStateAdapter createProject={createNewProject} />;
+  }
+  
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg">Loading project...</p>
+        </div>
+      </div>
+    );
   }
   
   return (

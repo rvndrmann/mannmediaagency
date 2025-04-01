@@ -1,48 +1,50 @@
 
-import { ToolContext, ToolExecutionResult, CommandExecutionState } from './types';
-import { availableTools, getAvailableTools } from './tool-registry';
+import { ToolDefinition } from "../types";
+import { defaultTools } from "./default-tools";
 
-// Execute a tool by name with parameters
-export const executeTool = async (
-  toolName: string,
-  parameters: Record<string, any>,
-  context: ToolContext
-): Promise<ToolExecutionResult> => {
+let toolSystem: {
+  availableTools: ToolDefinition[];
+  isInitialized: boolean;
+} = {
+  availableTools: [],
+  isInitialized: false
+};
+
+export const initializeToolSystem = async (): Promise<void> => {
   try {
-    // Get all available tools
-    const tools = getAvailableTools();
+    // Initialize with default tools
+    toolSystem.availableTools = [...defaultTools];
+    toolSystem.isInitialized = true;
     
-    // Find the requested tool
-    const tool = tools.find(t => t.name === toolName);
-    
-    if (!tool) {
-      return {
-        success: false,
-        message: `Tool with name "${toolName}" not found`,
-        error: `Tool "${toolName}" not found`,
-        state: CommandExecutionState.FAILED
-      };
-    }
-    
-    // Execute the tool
-    return await tool.execute(parameters, context);
+    console.log(`Tool system initialized with ${toolSystem.availableTools.length} tools`);
   } catch (error) {
-    console.error(`Error executing tool ${toolName}:`, error);
-    
-    return {
-      success: false,
-      message: `Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error: error instanceof Error ? error.message : String(error),
-      state: CommandExecutionState.FAILED
-    };
+    console.error("Failed to initialize tool system:", error);
+    throw error;
   }
 };
 
-// Initialize tools system (if needed)
-export const initializeTools = () => {
-  console.log('Tool system initialized with', availableTools.length, 'tools');
-  return {
-    availableTools,
-    executeTool
-  };
+export const getAvailableTools = (): ToolDefinition[] => {
+  if (!toolSystem.isInitialized) {
+    console.warn("Tool system not initialized yet, returning empty tool list");
+    return [];
+  }
+  return toolSystem.availableTools;
+};
+
+export const addTool = (tool: ToolDefinition): void => {
+  if (!toolSystem.isInitialized) {
+    console.warn("Tool system not initialized yet, initializing now");
+    toolSystem.availableTools = [...defaultTools];
+    toolSystem.isInitialized = true;
+  }
+  
+  // Check if tool with same name already exists
+  const existingToolIndex = toolSystem.availableTools.findIndex(t => t.name === tool.name);
+  if (existingToolIndex >= 0) {
+    // Replace existing tool
+    toolSystem.availableTools[existingToolIndex] = tool;
+  } else {
+    // Add new tool
+    toolSystem.availableTools.push(tool);
+  }
 };

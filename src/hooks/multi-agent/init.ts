@@ -1,19 +1,25 @@
 
-import { initializeTools } from "./tools/index";
+import { initializeToolSystem } from "./tools";
 
 /**
  * Initializes the Multi-Agent system and its components
  */
-export function initializeMultiAgentSystem(): void {
-  // Initialize the tool system
-  initializeTools();
-  
-  // Future: Initialize other multi-agent components here
-  
-  console.log("Multi-Agent system initialized successfully");
+export async function initializeMultiAgentSystem(): Promise<void> {
+  try {
+    // Initialize the tool system
+    await initializeToolSystem();
+    
+    // Future: Initialize other multi-agent components here
+    
+    console.log("Multi-Agent system initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize Multi-Agent system:", error);
+  }
 }
 
-// Auto-initialize when imported
-initializeMultiAgentSystem();
+// Initialize on import
+initializeMultiAgentSystem().catch(error => {
+  console.error("Error during automatic Multi-Agent system initialization:", error);
+});
 
 export default { initializeMultiAgentSystem };

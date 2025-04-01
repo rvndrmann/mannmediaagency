@@ -19,3 +19,15 @@ export interface ProductShotResult {
   sourceImageUrl?: string;
   settings?: any;
 }
+
+export interface GeneratedImage {
+  id: string;
+  resultUrl: string;
+  url: string; // Alias for resultUrl for compatibility
+  prompt: string;
+  sourceImageUrl?: string;
+  source_image_url?: string; // For API compatibility
+  settings?: any;
+  createdAt?: string;
+  created_at?: string; // For API compatibility
+}

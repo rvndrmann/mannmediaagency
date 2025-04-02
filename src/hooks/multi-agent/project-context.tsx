@@ -1,5 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+import { toast } from "sonner"; // Import toast
 import { CanvasProject, CanvasScene } from '@/types/canvas';
 
 export interface ProjectContextType {
@@ -37,31 +39,34 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
 
   useEffect(() => {
     const fetchProjects = async () => {
+      console.log("Fetching initial project list for UI...");
       try {
-        const mockProjects: CanvasProject[] = [
-          {
-            id: 'project-123',
-            title: 'Demo Project',
-            description: 'A demo project for testing',
-            user_id: 'user-1',
-            userId: 'user-1',
-            scenes: [],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            full_script: '',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            fullScript: ''
-          }
-        ];
-        setProjects(mockProjects);
+        // Use standard client which respects RLS
+        const { data: projectsData, error } = await supabase
+          .from('canvas_projects')
+          .select('*') // Select columns needed for the list
+          .order('created_at', { ascending: false }); // Example order
+
+        if (error) {
+          console.error('Error fetching projects for UI:', error);
+          toast.error(`Failed to load projects: ${error.message}`);
+          setProjects([]); // Set empty on error
+        } else if (projectsData) {
+          const normalized = projectsData.map(normalizeProject);
+          console.log(`Fetched ${normalized.length} projects for UI.`);
+          setProjects(normalized);
+        } else {
+          setProjects([]);
+        }
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        console.error('Unexpected error fetching projects for UI:', error);
+        toast.error("An unexpected error occurred while loading projects.");
+        setProjects([]);
       }
     };
 
     fetchProjects();
-  }, []);
+  }, []); // Fetch only on initial mount
 
   const normalizeProject = (project: any): CanvasProject => {
     return {
@@ -196,26 +201,88 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
   };
 
   const fetchProjectDetails = async (projectId: string): Promise<any> => {
+    if (!projectId) {
+      console.warn("fetchProjectDetails called with no projectId");
+      setProjectDetails(null);
+      setProjectContent(null);
+      return null;
+    }
+
     try {
-      console.log(`Fetching project details for ${projectId}`);
+      console.log(`Fetching project details from Supabase for ${projectId}`);
       
-      setProjectDetails({
-        id: projectId,
-        title: 'Sample Project',
-        description: 'A sample project for testing',
-      });
-      
+      // Fetch project details from Supabase
+      const { data: projectData, error: projectError } = await supabase
+        .from('canvas_projects') // Corrected table name
+        .select('*')      // Select all columns for now
+        .eq('id', projectId)
+        .single(); // Expecting only one project
+
+      if (projectError) {
+        console.error('Error fetching project details from Supabase:', projectError);
+        setProjectDetails(null); // Clear details on error
+        setProjectContent(null); // Clear content on error
+        throw projectError;
+      }
+
+      if (!projectData) {
+        console.warn(`Project with ID ${projectId} not found in Supabase.`);
+        setProjectDetails(null);
+        setProjectContent(null);
+        return null; // Or throw an error? Returning null for now.
+      }
+
+      // Normalize and set project details state
+      const normalizedDetails = normalizeProject(projectData); // Use existing normalizer
+      setProjectDetails(normalizedDetails);
+      console.log("Fetched and set project details:", normalizedDetails);
+
+      // --- Fetch associated content (e.g., scenes) ---
+      console.log(`Fetching associated scenes from Supabase for project ${projectId}`);
+      const { data: scenesData, error: scenesError } = await supabase
+        .from('canvas_scenes') // Corrected table name
+        .select('*')
+        .eq('project_id', projectId) // Assuming foreign key is 'project_id'
+        .order('scene_order', { ascending: true }); // Assuming ordering column is 'scene_order'
+
+      if (scenesError) {
+        console.error(`Error fetching scenes for project ${projectId}:`, scenesError);
+        // Decide how to handle partial failure: maybe return details but no content?
+        // For now, clear content state and throw.
+        setProjectContent(null);
+        throw scenesError;
+      }
+
+      const normalizedScenes = scenesData ? scenesData.map(normalizeScene) : [];
+      console.log(`Fetched and normalized ${normalizedScenes.length} scenes.`);
+
+      // Update projectContent state with fetched scenes
       setProjectContent({
-        files: [],
-        dependencies: {}
+        // Structure this based on how the backend/agent expects project context.
+        // Putting scenes in 'files' for now, similar to previous placeholder.
+        // This might need adjustment. Consider a dedicated 'scenes' field?
+        files: normalizedScenes, // Use normalized scenes here
+        dependencies: {}, // Keep placeholder unless needed
+        fullScript: normalizedDetails.fullScript // Include fetched script
       });
       
+      // Return fetched data (or normalized data)
+      // The return value might not be strictly necessary if components use the context state
       return {
-        details: projectDetails,
-        content: projectContent
+        details: normalizedDetails,
+        content: { // Return the structure set in state
+           files: [],
+           dependencies: {},
+           fullScript: normalizedDetails.fullScript
+        }
       };
+
     } catch (error) {
-      console.error('Error fetching project details:', error);
+      // Catch errors from Supabase call or normalization
+      console.error('Error in fetchProjectDetails:', error);
+      setProjectDetails(null); // Ensure state is cleared on error
+      setProjectContent(null);
+      // Re-throw the error so callers can handle it if needed
       throw error;
     }
   };

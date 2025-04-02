@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react"; // Import useCallback
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,23 +23,27 @@ import { AttachmentButton } from "@/components/multi-agent/AttachmentButton";
 import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
 
 const MultiAgentChat = () => {
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
+  const [useSDK, setUseSDK] = useState<boolean>(true); // Enable SDK by default
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
   const {
     messages,
     input,
     setInput,
     isLoading,
-    activeAgent,
+    // activeAgent, // Removed
     userCredits,
     pendingAttachments,
     setPendingAttachments,
-    usePerformanceModel,
-    enableDirectToolExecution,
+    // usePerformanceModel, // Removed
+    // enableDirectToolExecution, // Removed
     tracingEnabled,
     handleSubmit,
-    switchAgent,
+    // switchAgent, // Removed
     clearChat,
-    togglePerformanceMode,
-    toggleDirectToolExecution,
+    // togglePerformanceMode, // Removed
+    // toggleDirectToolExecution, // Removed
     toggleTracing,
     addAttachments,
     removeAttachment
@@ -51,15 +55,12 @@ const MultiAgentChat = () => {
         content: "Welcome to Multi-Agent Chat. How can I help you today?",
         createdAt: new Date().toISOString()
       }
-    ]
+    ],
+    projectId: selectedProjectId // Pass the selected project ID here
   });
   
   const { status, reconnectToMcp } = useMCPContext();
   const connectionStatus = status; // Use the status from the context
-  
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
-  const [useSDK, setUseSDK] = useState<boolean>(true); // Enable SDK by default
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -100,10 +101,13 @@ const MultiAgentChat = () => {
     }
   };
 
-  const handleProjectSelect = (projectId: string) => {
+  // Wrap handleProjectSelect in useCallback
+  const handleProjectSelect = useCallback((projectId: string) => {
     setSelectedProjectId(projectId);
+    // Optionally clear chat/thread when project changes?
+    // clearChat(); // Example: Uncomment to clear chat on project change
     toast.success(`Selected project: ${projectId}`);
-  };
+  }, []); // Empty dependency array means this function reference never changes
 
   const handleAttachmentAdd = (newAttachments: Attachment[]) => {
     addAttachments(newAttachments);
@@ -152,62 +156,21 @@ const MultiAgentChat = () => {
         </Card>
         
         <div className="flex flex-wrap gap-2 mb-4">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant={usePerformanceModel ? "outline" : "default"} 
-                  size="sm"
-                  onClick={togglePerformanceMode}
-                  className={`flex items-center gap-1 ${
-                    usePerformanceModel 
-                      ? "border-yellow-600 bg-yellow-800/20 text-yellow-500 hover:bg-yellow-800/30" 
-                      : "bg-gradient-to-r from-blue-600 to-indigo-600"
-                  }`}
-                >
-                  <Zap className="h-4 w-4" />
-                  {usePerformanceModel ? "Performance Mode" : "High Quality Mode"}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="text-xs">{usePerformanceModel ? "Faster responses with GPT-4o-mini" : "Higher quality responses with GPT-4o"}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {/* Removed Performance Mode Button */}
           
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant={enableDirectToolExecution ? "default" : "outline"} 
-                  size="sm"
-                  onClick={toggleDirectToolExecution}
-                  className={`flex items-center gap-1 ${
-                    enableDirectToolExecution 
-                      ? "bg-gradient-to-r from-green-600 to-teal-600" 
-                      : "border-teal-600 bg-teal-800/20 text-teal-500 hover:bg-teal-800/30"
-                  }`}
-                >
-                  <Hammer className="h-4 w-4" />
-                  {enableDirectToolExecution ? "Direct Tools" : "Tool Agent"}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="text-xs">{enableDirectToolExecution ? "Any agent can use tools directly" : "Tools require handoff to tool agent"}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {/* Removed Tool Agent Button */}
           
+          {/* Keep Tracing Button if still needed */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant={tracingEnabled ? "default" : "outline"} 
+                <Button
+                  variant={tracingEnabled ? "default" : "outline"}
                   size="sm"
                   onClick={toggleTracing}
                   className={`flex items-center gap-1 ${
-                    tracingEnabled 
-                      ? "bg-gradient-to-r from-purple-600 to-pink-600" 
+                    tracingEnabled
+                      ? "bg-gradient-to-r from-purple-600 to-pink-600"
                       : "border-purple-600 bg-purple-800/20 text-purple-500 hover:bg-purple-800/30"
                   }`}
                 >
@@ -274,20 +237,7 @@ const MultiAgentChat = () => {
           <CardHeader className="pb-3">
             <div className="flex justify-between items-center">
               <CardTitle>Chat</CardTitle>
-              <div className="flex space-x-2">
-                <select 
-                  className="bg-background text-foreground px-3 py-1 rounded-md border"
-                  value={activeAgent}
-                  onChange={(e) => switchAgent(e.target.value as AgentType)}
-                >
-                  <option value="main">Main Assistant</option>
-                  <option value="script">Script Writer</option>
-                  <option value="image">Image Generator</option>
-                  <option value="tool">Tool Specialist</option>
-                  <option value="scene">Scene Creator</option>
-                  <option value="data">Data Agent</option>
-                </select>
-              </div>
+              {/* Removed Agent Selector Dropdown */}
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col">
@@ -317,8 +267,8 @@ const MultiAgentChat = () => {
                         )}
                         <span className="text-xs opacity-70">
                           {message.role === 'user' ? 'You' : 
-                          message.role === 'system' ? 'System' :
-                          message.agentType ? getAgentName(message.agentType as AgentType) : 'Assistant'}
+                          message.role === 'system' ? 'System' : 'Assistant'}
+                          {/* Simplified agent name display */}
                         </span>
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -399,12 +349,9 @@ const MultiAgentChat = () => {
                 Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
               </div>
               <div className="flex justify-end gap-2">
-                <div>
-                  Model: {usePerformanceModel ? "GPT-4o-mini (faster)" : "GPT-4o (higher quality)"}
-                </div>
-                <div>
-                  Tool Access: {enableDirectToolExecution ? "Direct (any agent)" : "Via Tool Agent"}
-                </div>
+                {/* Removed Model Display */}
+                {/* Removed Tool Access Display */}
+                {/* Keep SDK Toggle Display if needed */}
                 <div>
                   SDK: {useSDK ? "Enabled" : "Disabled"}
                 </div>

@@ -31,6 +31,7 @@ export interface Message {
     progress?: number;
   };
   canvasContent?: any; // Added this property for use-canvas-messages.ts
+  runId?: string; // <-- Add optional runId
 }
 
 export type MessageType = 'text' | 'canvas' | 'system' | 'tool' | 'image' | 'video' | 'handoff' | 'error' | 'context';

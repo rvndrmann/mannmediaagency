@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Trash2 } from 'lucide-react'; // Import Trash icon
+import { Button } from '@/components/ui/button'; // Import Button
 import { MCPServerService } from '../../services/mcpService';
 import { VideoProject } from '../../types/video-project';
 
 interface VideoProjectHistoryProps {
   mcpService: MCPServerService;
   onSelectProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string) => Promise<void>; // Add delete prop
 }
 
-export function VideoProjectHistory({ mcpService, onSelectProject }: VideoProjectHistoryProps) {
+export function VideoProjectHistory({ mcpService, onSelectProject, onDeleteProject }: VideoProjectHistoryProps) { // Destructure delete prop
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
@@ -78,11 +81,30 @@ export function VideoProjectHistory({ mcpService, onSelectProject }: VideoProjec
           {projects.map((project) => (
             <div
               key={project.id}
-              className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition"
-              onClick={() => handleSelectProject(project.id)}
+              className="border rounded-lg p-4 hover:bg-gray-50 transition relative group" // Added relative group for positioning delete button
+              // Removed main onClick from div, selection happens on title/description click now
             >
-              <h4 className="font-medium text-lg mb-1">{project.name}</h4>
-              <p className="text-sm text-gray-600 mb-2">{project.description}</p>
+              {/* Delete Button */}
+              {onDeleteProject && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-7 w-7 text-gray-400 hover:text-red-500" /* Removed hover opacity classes */
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent card click
+                    if (confirm(`Are you sure you want to delete project "${project.name}"?`)) {
+                      onDeleteProject(project.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              {/* Make title/description clickable for selection */}
+              <div onClick={() => handleSelectProject(project.id)} className="cursor-pointer">
+                <h4 className="font-medium text-lg mb-1 pr-8">{project.name}</h4> {/* Added padding-right */}
+                <p className="text-sm text-gray-600 mb-2">{project.description}</p>
+              </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs px-2 py-1 bg-blue-100 rounded-full text-blue-800">
                   {project.status}

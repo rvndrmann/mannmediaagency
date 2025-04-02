@@ -1,5 +1,7 @@
 // Add Supabase client import
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Add OpenAI import if not already present at the top
+import { OpenAI } from "https://deno.land/x/openai@v4.52.7/mod.ts"; // Use Deno specific import if available or stick to fetch
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "./cors.ts";
 // Assuming canvas-tools.ts might contain MCP interaction logic later
@@ -25,15 +27,14 @@ async function get_project_details_tool(projectId: string): Promise<string> {
   console.log(`[TOOL] Executing get_project_details for project: ${projectId}`);
   try {
     // Fetch project details and associated scenes
-    // Adjust table names ('canvas_projects', 'scenes') and columns as per your schema
     const { data: projectData, error: projectError } = await supabaseAdmin
-      .from('canvas_projects') // Adjust table name
+      .from('canvas_projects') // Corrected table name
       .select(`
         *,
-        scenes ( * )
-      `)
+        canvas_scenes ( * ) 
+      `) // Fetch associated scenes from canvas_scenes
       .eq('id', projectId)
-      .single(); // Use single() if projectId is unique
+      .single(); 
 
     if (projectError) {
       console.error(`[TOOL ERROR] Supabase error fetching project ${projectId}:`, projectError);
@@ -44,10 +45,11 @@ async function get_project_details_tool(projectId: string): Promise<string> {
       return JSON.stringify({ error: "Project not found" });
     }
 
-    // Format details as needed for the assistant (e.g., limit scene details)
+    // Format details as needed for the assistant
     const formattedDetails = {
         ...projectData,
-        scenes: projectData.scenes?.map((scene: any) => ({ id: scene.id, title: scene.title })) || [] // Example formatting
+        // Use the correct relation name if different from table name
+        scenes: projectData.canvas_scenes?.map((scene: any) => ({ id: scene.id, title: scene.title })) || [] 
     };
 
     return JSON.stringify(formattedDetails);
@@ -61,14 +63,12 @@ async function get_project_details_tool(projectId: string): Promise<string> {
 async function update_project_title_tool(projectId: string, newTitle: string): Promise<string> {
   console.log(`[TOOL] Executing update_project_title for project: ${projectId} with title: ${newTitle}`);
   try {
-    // Update the project title
-    // Adjust table name ('canvas_projects') and column ('title') as per your schema
     const { data, error } = await supabaseAdmin
-      .from('canvas_projects') // Adjust table name
-      .update({ title: newTitle }) // Adjust column name
+      .from('canvas_projects') // Corrected table name
+      .update({ title: newTitle }) 
       .eq('id', projectId)
-      .select() // Select to confirm the update
-      .single(); // Assuming update on unique ID
+      .select() 
+      .single(); 
 
     if (error) {
       console.error(`[TOOL ERROR] Supabase error updating title for project ${projectId}:`, error);
@@ -76,27 +76,23 @@ async function update_project_title_tool(projectId: string, newTitle: string): P
     }
 
     if (!data) {
-        // This might happen if the project ID didn't exist
          return JSON.stringify({ error: "Project not found or update failed." });
     }
 
     return JSON.stringify({ success: true, message: `Project title updated to "${newTitle}"`, updatedProject: data });
 
-  } catch (err) { // <-- Added (err) parameter
+  } catch (err) { 
     console.error(`[TOOL ERROR] Unexpected error in update_project_title_tool for ${projectId}:`, err);
-    return JSON.stringify({ error: `Unexpected error: ${err.message}` }); // <-- Corrected return
+    return JSON.stringify({ error: `Unexpected error: ${err.message}` }); 
   }
 }
 
-// Add this new tool implementation function
 async function get_script_tool(projectId: string): Promise<string> {
   console.log(`[TOOL] Executing get_script for project: ${projectId}`);
   try {
-    // Fetch the full script for the project
-    // Adjust table name ('canvas_projects') and column ('full_script') as per your schema
     const { data, error } = await supabaseAdmin
-      .from('canvas_projects') // Adjust table name
-      .select('full_script')   // Adjust column name
+      .from('canvas_projects') // Corrected table name
+      .select('full_script')   
       .eq('id', projectId)
       .single();
 
@@ -105,19 +101,195 @@ async function get_script_tool(projectId: string): Promise<string> {
       return JSON.stringify({ error: `Failed to fetch script: ${error.message}` });
     }
 
-    if (!data || !data.full_script) { // Check if data or script exists
-      return JSON.stringify({ error: "Script not found for this project." });
+    if (!data || data.full_script === null || data.full_script === undefined) { 
+      return JSON.stringify({ error: "Script not found or is empty for this project." });
     }
 
-    // Return only the script content
     return JSON.stringify({ script: data.full_script });
 
   } catch (err) {
     console.error(`[TOOL ERROR] Unexpected error in get_script_tool for ${projectId}:`, err);
-    return JSON.stringify({ error: `Unexpected error: ${err.message}` }); // <-- Corrected return
+    return JSON.stringify({ error: `Unexpected error: ${err.message}` }); 
   }
 }
+
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+async function create_scene_image_tool(projectId: string, prompt: string): Promise<string> {
+  console.log(`[TOOL] Executing create_scene_image for project: ${projectId} with prompt: "${prompt}"`);
+  try {
+    // 1. Generate Image
+    console.log(`[TOOL] Calling OpenAI Image Generate API...`);
+    const imageResponse = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: prompt,
+      n: 1, 
+      size: "1024x1024", 
+      response_format: "url", 
+    });
+
+    const imageUrl = imageResponse.data[0]?.url;
+    if (!imageUrl) {
+      throw new Error("Image generation failed, no URL returned.");
+    }
+    console.log(`[TOOL] Image generated (temp URL): ${imageUrl}`);
+
+    // 2. Upload to Supabase Storage
+    const imageFileName = `scene_${projectId}_${Date.now()}.png`;
+    const storageBucket = 'scene_images'; 
+
+    console.log(`[TOOL] Fetching image from temporary URL...`);
+    const imageBlobResponse = await fetch(imageUrl);
+    if (!imageBlobResponse.ok) {
+        throw new Error(`Failed to fetch generated image from URL: ${imageBlobResponse.statusText}`);
+    }
+    const imageBlob = await imageBlobResponse.blob();
+    console.log(`[TOOL] Uploading image to Supabase Storage: ${storageBucket}/${imageFileName}`);
+
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      .from(storageBucket)
+      .upload(imageFileName, imageBlob, {
+        cacheControl: '3600',
+        upsert: false, 
+        contentType: imageBlob.type || 'image/png' 
+      });
+
+    if (uploadError) {
+      console.error(`[TOOL ERROR] Supabase Storage upload error:`, uploadError);
+      throw new Error(`Failed to upload image to storage: ${uploadError.message}`);
+    }
+
+    // 3. Get Public URL
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from(storageBucket)
+      .getPublicUrl(imageFileName);
+
+    const publicImageUrl = publicUrlData?.publicUrl;
+    if (!publicImageUrl) {
+        console.warn(`[TOOL WARN] Could not get public URL for ${imageFileName}, using original OpenAI URL.`);
+    }
+    const finalImageUrl = publicImageUrl || imageUrl; 
+    console.log(`[TOOL] Image stored at: ${finalImageUrl}`);
+
+    // 4. Add Scene to Database
+    console.log(`[TOOL] Adding scene record to database for project ${projectId}`);
+    const { data: sceneData, error: sceneError } = await supabaseAdmin
+      .from('canvas_scenes') // Corrected table name
+      .insert({
+        project_id: projectId, 
+        image_prompt: prompt, 
+        image_url: finalImageUrl,
+        title: `Scene - ${prompt.substring(0, 30)}...` 
+      })
+      .select() 
+      .single();
+
+    if (sceneError) {
+      console.error(`[TOOL ERROR] Supabase error inserting scene for project ${projectId}:`, sceneError);
+      throw new Error(`Failed to save scene data: ${sceneError.message}`);
+    }
+
+    console.log(`[TOOL] Scene created successfully with ID: ${sceneData?.id}`);
+    return JSON.stringify({
+        success: true,
+        message: "Scene image generated and saved successfully.",
+        imageUrl: finalImageUrl,
+        sceneId: sceneData?.id 
+    });
+
+  } catch (err) {
+    console.error(`[TOOL ERROR] Unexpected error in create_scene_image_tool for project ${projectId}:`, err);
+    return JSON.stringify({ error: `Failed to create scene image: ${err.message}` });
+  }
+}
+
+// Helper function to validate UUID format
+function isValidUUID(uuid: string): boolean {
+  if (!uuid || typeof uuid !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
 // --- End Tool Implementation ---
+
+// --- Define Tool Schemas ---
+const toolsList = [
+  {
+    type: "function",
+    function: {
+      name: "get_project_details",
+      description: "Fetches general details about the current video project, including its title and scenes.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "The ID of the video project." 
+          }
+        },
+        required: ["projectId"] 
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_project_title",
+      description: "Updates the title of the current video project.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "The ID of the video project to update." 
+          },
+          newTitle: {
+            type: "string",
+            description: "The new title for the project."
+          }
+        },
+        required: ["projectId", "newTitle"] 
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_script",
+      description: "Fetches the full script content for the current video project.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "The ID of the video project whose script needs to be fetched." 
+          }
+        },
+        required: ["projectId"] 
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_scene_image",
+      description: "Generates an image for a new scene based on a prompt and adds it to the current project.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "The ID of the video project to add the new scene to." 
+          },
+          prompt: {
+            type: "string",
+            description: "A detailed description of the image to be generated for the scene."
+          }
+        },
+        required: ["projectId", "prompt"] 
+      }
+    }
+  }
+];
 
 // Interface for Tool Output submission
 interface ToolOutput {
@@ -125,8 +297,21 @@ interface ToolOutput {
   output: string;
 }
 
+// Helper function to extract user ID from JWT
+function extractUserIdFromJWT(token: string): string {
+  try {
+    const payloadBase64 = token.split('.')[1];
+    const decodedPayload = atob(payloadBase64);
+    const payload = JSON.parse(decodedPayload);
+    return payload.sub || "anonymous"; 
+  } catch (e) {
+    console.error("Error decoding JWT:", e);
+    return "anonymous";
+  }
+}
+
 serve(async (req: Request) => {
-  // Handle CORS preflight requests (keep existing logic)
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -138,17 +323,15 @@ serve(async (req: Request) => {
   console.log(`[INFO] [${requestId}] Received new request `);
 
   try {
-    // Get request body (keep existing parsing)
+    // Get request body
     const requestData = await req.json();
     const {
       input,
-      // agentType = "main", // Less relevant with single Assistant initially
-      // conversationHistory = [], // Handled by Thread
-      // usePerformanceModel = false, // Model defined in Assistant
-      projectId,
-      // sceneId, // May be needed for context or specific tools later
-      thread_id, // <-- Expect thread_id from frontend
+      projectId, // Extracted from initial request
+      thread_id, // Provided by frontend
     } = requestData;
+
+    console.log(`[DEBUG] [${requestId}] Extracted projectId from requestData: ${projectId}`);
 
     if (!input) {
         throw new Error("Input message is required.");
@@ -157,13 +340,13 @@ serve(async (req: Request) => {
         throw new Error("VIDEO_PROJECT_ASSISTANT_ID is not configured.");
     }
 
-    // Extract user ID (keep existing logic)
+    // Extract user ID
     const authHeader = req.headers.get("authorization");
     const token = authHeader?.split("Bearer ")[1];
     const userId = token ? extractUserIdFromJWT(token) : "anonymous";
 
     console.log(`[INFO] [${requestId}] Processing request for user ${userId}`, {
-      projectId,
+      projectId, 
       threadIdProvided: !!thread_id,
       inputLength: input?.length || 0,
     });
@@ -178,11 +361,11 @@ serve(async (req: Request) => {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "OpenAI-Beta": "assistants=v2", // Use Assistants v2
+          "OpenAI-Beta": "assistants=v2", 
         },
         body: JSON.stringify({
-          metadata: { // Optionally store project_id here if needed globally for the thread
-             project_id: projectId,
+          metadata: { 
+             project_id: projectId, 
              user_id: userId
           }
         })
@@ -196,8 +379,6 @@ serve(async (req: Request) => {
       console.log(`[INFO] [${requestId}] Created new thread: ${currentThreadId}`);
     } else {
        console.log(`[INFO] [${requestId}] Using existing thread: ${currentThreadId}`);
-       // Optionally update thread metadata if project context changes
-       // await fetch(`https://api.openai.com/v1/threads/${currentThreadId}`, { ... method: 'POST', body: JSON.stringify({ metadata: { project_id: projectId }})})
     }
 
     // 2. Add User Message to Thread
@@ -212,17 +393,58 @@ serve(async (req: Request) => {
       body: JSON.stringify({
         role: "user",
         content: input,
-        // attachments: [] // Add attachment handling if needed later
       }),
     });
     if (!messageResponse.ok) {
       const errorData = await messageResponse.json();
       throw new Error(`Failed to add message: ${JSON.stringify(errorData)}`);
     }
-    // const addedMessage = await messageResponse.json(); // We don't strictly need the response object here
 
     // 3. Create a Run
+    const runMetadata = { 
+        project_id: projectId, 
+        request_id: requestId,
+        user_id: userId
+    };
+    console.log(`[DEBUG] [${requestId}] Creating Run with metadata:`, runMetadata);
+
+    // Simplify Tool Choice Logic 
+    let toolChoice: any = "auto"; 
+    const lowerInput = input.toLowerCase().trim(); 
+    console.log(`[DEBUG] [${requestId}] Checking input for tool choice: "${lowerInput}"`); 
+
+    if (lowerInput.includes("script")) {
+        console.log(`[INFO] [${requestId}] Input contains 'script'. Forcing tool_choice to 'get_script'.`);
+        toolChoice = {"type": "function", "function": {"name": "get_script"}};
+    } else {
+        console.log(`[INFO] [${requestId}] Input does not seem to require forcing 'get_script'. Using tool_choice: 'auto'.`);
+    }
+
     console.log(`[INFO] [${requestId}] Creating run on thread ${currentThreadId} with assistant ${VIDEO_PROJECT_ASSISTANT_ID}`);
+    const runPayload: any = { 
+        assistant_id: VIDEO_PROJECT_ASSISTANT_ID,
+        metadata: runMetadata,
+    };
+
+    // Conditionally add tools and tool_choice
+    if (toolChoice !== "auto") {
+        runPayload.tool_choice = toolChoice;
+        const chosenToolName = toolChoice.function.name;
+        const chosenToolDef = toolsList.find(t => t.function.name === chosenToolName);
+        if (chosenToolDef) {
+            runPayload.tools = [chosenToolDef]; 
+            console.log(`[DEBUG] [${requestId}] Passing chosen tool definition for ${chosenToolName}`);
+        } else {
+            console.warn(`[WARN] [${requestId}] Could not find tool definition for forced choice: ${chosenToolName}. Passing all tools.`);
+            runPayload.tools = toolsList; 
+        }
+    } else {
+        runPayload.tools = toolsList;
+        console.log(`[DEBUG] [${requestId}] Passing all available tools.`);
+    }
+
+    console.log(`[DEBUG] [${requestId}] Run creation payload:`, JSON.stringify(runPayload, null, 2)); 
+
     const runResponse = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
       method: "POST",
       headers: {
@@ -230,17 +452,7 @@ serve(async (req: Request) => {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "OpenAI-Beta": "assistants=v2",
       },
-      body: JSON.stringify({
-        assistant_id: VIDEO_PROJECT_ASSISTANT_ID,
-        // instructions: "Override assistant instructions here if needed",
-        // model: "Override model here if needed",
-        metadata: { // Pass per-run context if needed (e.g., if project changes mid-thread)
-            project_id: projectId,
-            request_id: requestId,
-            user_id: userId
-        },
-        // tools: [] // Override tools here if needed dynamically
-      }),
+      body: JSON.stringify(runPayload), 
     });
     if (!runResponse.ok) {
       const errorData = await runResponse.json();
@@ -258,7 +470,6 @@ serve(async (req: Request) => {
        // Check for timeout
        if (Date.now() - pollingStartTime > maxPollingDuration) {
            console.error(`[ERROR] [${requestId}] Run polling timed out after ${maxPollingDuration / 1000}s for run ${run.id}`);
-           // Attempt to cancel the run
            try {
                await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${run.id}/cancel`, {
                    method: "POST",
@@ -273,7 +484,7 @@ serve(async (req: Request) => {
            throw new Error("Run processing timed out.");
        }
 
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before polling again
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
 
       console.log(`[INFO] [${requestId}] Polling run ${run.id}...`);
       const retrieveRunResponse = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${run.id}`, {
@@ -284,15 +495,12 @@ serve(async (req: Request) => {
       });
       if (!retrieveRunResponse.ok) {
          const errorData = await retrieveRunResponse.json();
-         // Handle potential 404 if run expires quickly or other errors
          console.error(`[ERROR] [${requestId}] Failed to retrieve run ${run.id}: ${JSON.stringify(errorData)}`);
-         // Decide if this is a retryable error or should fail the request
          if (retrieveRunResponse.status === 404) {
              throw new Error(`Run ${run.id} not found. It might have expired or been cancelled.`);
          }
-         // Continue polling for some errors, or throw for others
-         await new Promise(resolve => setTimeout(resolve, 2000)); // Longer wait on error?
-         continue; // Or throw based on error type
+         await new Promise(resolve => setTimeout(resolve, 2000)); 
+         continue; 
       }
       run = await retrieveRunResponse.json();
       console.log(`[INFO] [${requestId}] Run ${run.id} Status: ${run.status}`);
@@ -301,162 +509,170 @@ serve(async (req: Request) => {
         const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
         console.log(`[INFO] [${requestId}] Run ${run.id} requires action: ${toolCalls.length} tool call(s)`);
 
-        const toolOutputs: ToolOutput[] = []; // Explicitly type the array
+        const toolOutputs: ToolOutput[] = []; 
 
         for (const toolCall of toolCalls) {
           const functionName = toolCall.function.name;
-          const args = JSON.parse(toolCall.function.arguments || "{}");
+          // --- START MODIFICATION: Force inject projectId ---
+          let args = JSON.parse(toolCall.function.arguments || "{}");
+          const resolvedProjectId = args.projectId || run.metadata?.project_id || projectId; // Get the best available projectId
+
+          // Check if the tool needs a projectId and if the resolved one is invalid or the literal string "project_id"
+          const needsProjectId = ["get_project_details", "update_project_title", "get_script", "create_scene_image"].includes(functionName);
+
+          if (needsProjectId && (!isValidUUID(resolvedProjectId) || args.projectId === "project_id")) {
+              const fallbackProjectId = run.metadata?.project_id || projectId; // Get ID from metadata or initial request
+              if (isValidUUID(fallbackProjectId)) {
+                  console.warn(`[WARN] [${requestId}] Assistant provided invalid/missing projectId for ${functionName}. Injecting ID: ${fallbackProjectId}`);
+                  args.projectId = fallbackProjectId; // Force inject the correct ID into args
+              } else {
+                  console.error(`[ERROR] [${requestId}] Cannot determine a valid projectId for ${functionName}. Aborting tool call.`);
+                  toolOutputs.push({
+                      tool_call_id: toolCall.id,
+                      output: JSON.stringify({ error: `Failed to execute ${functionName}: Could not determine a valid Project ID.` }),
+                  });
+                  continue; // Skip to the next tool call
+              }
+          }
+          // --- END MODIFICATION ---
+
           let output = "";
           let toolExecuted = false;
 
-          console.log(`[INFO] [${requestId}] Executing tool: ${functionName}`, args);
+          console.log(`[INFO] [${requestId}] Executing tool: ${functionName}`, args); // Log the potentially modified args
+
+          // Use the (potentially modified) args.projectId for the tool call
+          const toolProjectId = args.projectId; // Now use the potentially corrected args
 
           try {
             // --- Tool Execution Logic ---
             if (functionName === "get_project_details") {
-              // Ensure projectId is available, potentially from run metadata or args
-              const toolProjectId = args.projectId || run.metadata?.project_id || projectId;
-              if (!toolProjectId) {
-                  output = JSON.stringify({ error: "Project ID is missing for get_project_details" });
+              if (!isValidUUID(toolProjectId)) { 
+                  output = JSON.stringify({ error: `Invalid Project ID format for get_project_details: ${toolProjectId}` });
               } else {
                   output = await get_project_details_tool(toolProjectId);
                   toolExecuted = true;
               }
-            } else if (functionName === "update_project_title") {
-              const toolProjectId = args.projectId || run.metadata?.project_id || projectId;
-              const newTitle = args.newTitle;
-               if (!toolProjectId || !newTitle) {
-                   output = JSON.stringify({ error: "Project ID or new title is missing for update_project_title" });
-               } else {
-                   output = await update_project_title_tool(toolProjectId, newTitle);
-                   toolExecuted = true;
-               }
-            }
-            // +++ Add get_script tool execution +++
-            else if (functionName === "get_script") {
-              const toolProjectId = args.projectId || run.metadata?.project_id || projectId;
-              if (!toolProjectId) {
-                  output = JSON.stringify({ error: "Project ID is missing for get_script" });
+            } else if (functionName === "get_script") {
+               if (!isValidUUID(toolProjectId)) { 
+                  output = JSON.stringify({ error: `Invalid Project ID format for get_script: ${toolProjectId}` });
               } else {
                   output = await get_script_tool(toolProjectId);
                   toolExecuted = true;
               }
-            }
-            // +++ End add get_script tool execution +++
-            else {
-              console.warn(`[WARN] [${requestId}] Unimplemented tool called: ${functionName}`);
-              output = JSON.stringify({ error: `Tool '${functionName}' is not implemented.` });
+            } else if (functionName === "update_project_title") {
+              const newTitle = args.newTitle;
+               if (!isValidUUID(toolProjectId) || !newTitle) {
+                  output = JSON.stringify({ error: `Invalid Project ID or missing title for update_project_title. ID: ${toolProjectId}` });
+              } else {
+                  output = await update_project_title_tool(toolProjectId, newTitle);
+                  toolExecuted = true;
+              }
+            } else if (functionName === "create_scene_image") {
+              const prompt = args.prompt;
+               if (!isValidUUID(toolProjectId) || !prompt) {
+                  output = JSON.stringify({ error: `Invalid Project ID or missing prompt for create_scene_image. ID: ${toolProjectId}` });
+              } else {
+                  output = await create_scene_image_tool(toolProjectId, prompt);
+                  toolExecuted = true;
+              }
+            } else { // Catch-all for unknown functions
+                console.warn(`[WARN] [${requestId}] Unknown tool function called: ${functionName}`);
+                output = JSON.stringify({ error: `Unknown tool function: ${functionName}` });
             }
           } catch (toolError) {
-             console.error(`[ERROR] [${requestId}] Error executing tool ${functionName}:`, toolError);
-             output = JSON.stringify({ error: `Error executing tool ${functionName}: ${toolError.message}` });
+            console.error(`[ERROR] [${requestId}] Error executing tool ${functionName}:`, toolError);
+            output = JSON.stringify({ error: `Tool execution failed: ${toolError.message}` });
           }
 
-          console.log(`[INFO] [${requestId}] Tool ${functionName} output:`, output);
+          if (toolExecuted) {
+            console.log(`[INFO] [${requestId}] Tool ${functionName} executed successfully.`);
+          }
+
           toolOutputs.push({
             tool_call_id: toolCall.id,
             output: output,
           });
-        } // end for loop over toolCalls
+        } // End loop through toolCalls
 
-        // Submit tool outputs
+        // Submit tool outputs back to the Assistant
         console.log(`[INFO] [${requestId}] Submitting ${toolOutputs.length} tool output(s) for run ${run.id}`);
-        const submitOutputsResponse = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${run.id}/submit_tool_outputs`, {
+        const submitOutputResponse = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs/${run.id}/submit_tool_outputs`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${OPENAI_API_KEY}`,
             "OpenAI-Beta": "assistants=v2",
           },
-          body: JSON.stringify({
-            tool_outputs: toolOutputs,
-          }),
+          body: JSON.stringify({ tool_outputs: toolOutputs }),
         });
 
-        if (!submitOutputsResponse.ok) {
-          const errorData = await submitOutputsResponse.json();
-          // Handle potential race conditions or other errors
-          console.error(`[ERROR] [${requestId}] Failed to submit tool outputs for run ${run.id}: ${JSON.stringify(errorData)}`);
-          // Decide how to proceed - maybe retry submission, maybe fail the run
-          if (submitOutputsResponse.status === 400 && errorData.code === 'invalid_state') {
-              console.warn(`[WARN] [${requestId}] Run ${run.id} was likely no longer in 'requires_action' state when submitting outputs. Continuing polling.`);
-              // The run might have moved on (e.g., expired, cancelled). Continue polling to see final state.
+        if (!submitOutputResponse.ok) {
+          const errorData = await submitOutputResponse.json();
+          if (errorData?.code === 'run_not_in_required_action_state') {
+             console.warn(`[WARN] [${requestId}] Run ${run.id} was likely no longer in 'requires_action' state when submitting outputs. Continuing polling.`);
           } else {
-              throw new Error(`Failed to submit tool outputs: ${JSON.stringify(errorData)}`);
+             throw new Error(`Failed to submit tool outputs: ${JSON.stringify(errorData)}`);
           }
         } else {
            console.log(`[INFO] [${requestId}] Tool outputs submitted successfully for run ${run.id}.`);
-           // Run status will change, continue polling
         }
-      } // end if requires_action
-    } // end while polling loop
+        continue; // Continue polling after submitting outputs
+      } // End if requires_action
+    } // End while polling loop
 
-    // 5. Process Final Run State
-    let responseContent = "An unexpected error occurred."; // Default error message
-    let finalMessages = [];
-
+    // 5. Retrieve Final Response
+    let responseContent = "An error occurred, and I couldn't get a response."; 
     if (run.status === "completed") {
       console.log(`[INFO] [${requestId}] Run ${run.id} completed. Fetching messages...`);
-      // Fetch the latest messages added by the assistant in this run
       const messagesListResponse = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages?order=desc&run_id=${run.id}`, {
-          headers: {
-              "Authorization": `Bearer ${OPENAI_API_KEY}`,
-              "OpenAI-Beta": "assistants=v2",
-          },
+        headers: {
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "OpenAI-Beta": "assistants=v2",
+        },
       });
-
       if (!messagesListResponse.ok) {
           const errorData = await messagesListResponse.json();
           console.error(`[ERROR] [${requestId}] Failed to list messages for run ${run.id}: ${JSON.stringify(errorData)}`);
-          // Fallback or throw error
-          responseContent = "Failed to retrieve the final response.";
       } else {
           const messageList = await messagesListResponse.json();
-          finalMessages = messageList.data.filter((msg: any) => msg.run_id === run.id && msg.role === 'assistant');
+          const finalMessages = messageList.data.filter((msg: any) => msg.run_id === run.id && msg.role === 'assistant');
 
-          if (finalMessages.length > 0) {
-              // Combine content from potentially multiple assistant messages in the run
+          if (finalMessages.length > 0 && finalMessages[0].content?.[0]?.type === 'text') {
               responseContent = finalMessages
-                  .map((msg: any) =>
+                  .map((msg: any) => 
                       msg.content
-                          .filter((contentItem: any) => contentItem.type === 'text')
-                          .map((textContent: any) => textContent.text.value)
+                          .filter((c: any) => c.type === 'text')
+                          .map((c: any) => c.text.value)
                           .join('\n')
                   )
                   .join('\n');
-               console.log(`[INFO] [${requestId}] Assistant response(s):`, responseContent);
+               console.log(`[INFO] [${requestId}] Assistant response(s):`, responseContent.substring(0, 100) + '...');
           } else {
               console.warn(`[WARN] [${requestId}] Run ${run.id} completed but no assistant messages found for this run.`);
-              responseContent = "[The assistant completed the task but provided no text response.]";
+              responseContent = "I finished processing, but didn't generate a text response."; 
           }
       }
     } else {
-      // Handle failed, cancelled, expired states
       console.error(`[ERROR] [${requestId}] Run ${run.id} finished with status: ${run.status}`, run.last_error);
       responseContent = `The request could not be completed. Status: ${run.status}.`;
       if (run.last_error) {
           responseContent += ` Error: ${run.last_error.message}`;
       }
-       // Consider throwing an HTTP error status code here instead of 200 OK
-       // For now, returning error message in content
     }
 
-    // 6. Return Response to Frontend
-    const responsePayload = {
-      // role: "assistant", // Role is implicit in the message content structure
-      content: responseContent,
-      // agentType: "VideoProjectAssistant", // Can add if needed
-      thread_id: currentThreadId, // Return thread_id (especially if newly created)
-      run_id: run.id,
-      // handoffRequest: null, // Handoff logic needs rethinking with Assistants
-      // command: null, // Command logic needs rethinking
-      // Include any other relevant data for the frontend
-    };
-
-    return new Response(JSON.stringify(responsePayload), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: run.status === "completed" ? 200 : 500 // Return 500 for failed runs? Adjust as needed.
-    });
+    // Return successful response
+    return new Response(
+      JSON.stringify({
+        content: responseContent,
+        thread_id: currentThreadId, 
+        run_id: run.id, 
+      }),
+      {
+        status: 200,
+        headers: new Headers({ ...corsHeaders, "Content-Type": "application/json" }),
+      }
+    );
 
   } catch (error) {
     console.error(`[ERROR] [${requestId}] Error in multi-agent-chat handler: ${error.message}`, error.stack);
@@ -489,24 +705,4 @@ serve(async (req: Request) => {
       }
     );
   }
-}); // <-- Added missing closing brace for serve
-
-// --- Keep existing helper functions ---
-// Helper to extract user ID from JWT (keep existing)
-function extractUserIdFromJWT(token: string): string {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    const payload = JSON.parse(jsonPayload);
-    return payload.sub || "anonymous";
-  } catch (e) {
-    console.error("Error extracting user ID from JWT:", e);
-    return "anonymous";
-  }
-}
-
-// Remove unused helpers like processConversationHistory, getToolsForAgent, callOpenAIWithRetry, getAgentName
-// as they were specific to the Chat Completions implementation.
+}); // <-- Closing brace for serve

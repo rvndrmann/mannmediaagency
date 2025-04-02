@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Menu, MessageSquare } from "lucide-react";
+import { ChevronLeft, Menu, MessageSquare, PlusCircle } from "lucide-react"; // Added PlusCircle
 import { useNavigate } from 'react-router-dom';
 
 export interface CanvasHeaderProps {
@@ -13,6 +13,7 @@ export interface CanvasHeaderProps {
   showBackButton?: boolean;
   showMenuButton?: boolean;
   showChatButton?: boolean;
+  onCreateNewProject?: () => Promise<string>; // Add prop type
 }
 
 export const CanvasHeader = ({
@@ -23,7 +24,8 @@ export const CanvasHeader = ({
   onToggleScriptPanel,
   showBackButton = true,
   showMenuButton = true,
-  showChatButton = true
+  showChatButton = true,
+  onCreateNewProject // Destructure prop
 }: CanvasHeaderProps) => {
   const navigate = useNavigate();
   
@@ -61,6 +63,18 @@ export const CanvasHeader = ({
       </div>
       
       <div className="flex items-center space-x-2">
+        {/* Add New Project Button */}
+        {onCreateNewProject && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCreateNewProject}
+            className="px-3 h-9"
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            New Project
+          </Button>
+        )}
         {showChatButton && (
           <Button
             variant="outline"

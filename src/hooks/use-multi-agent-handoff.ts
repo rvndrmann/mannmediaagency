@@ -68,6 +68,7 @@ export function useMultiAgentHandoff() {
     setError(null);
     
     try {
+      console.log('[Handoff] Starting handoff:', { type, data }); // <-- Add log here
       const handoffId = createHandoffRequest(type, data);
       setActiveHandoffId(handoffId);
       

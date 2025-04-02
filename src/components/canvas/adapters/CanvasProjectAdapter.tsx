@@ -24,6 +24,7 @@ interface CanvasHeaderAdapterProps {
   onToggleDetailPanel: () => void;
   onToggleChatPanel: () => void;
   showChatButton?: boolean;
+  createNewProject: (title: string, description?: string) => Promise<string>; // Add prop type
 }
 
 // Adapter type for CanvasSidebar
@@ -87,7 +88,8 @@ export function CanvasHeaderAdapter({
   onToggleScriptPanel,
   onToggleDetailPanel,
   onToggleChatPanel,
-  showChatButton = false
+  showChatButton = false,
+  createNewProject // Destructure prop
 }: CanvasHeaderAdapterProps) {
   const title = project?.title || 'Untitled Project';
   
@@ -105,6 +107,7 @@ export function CanvasHeaderAdapter({
       onToggleDetailPanel={onToggleDetailPanel}
       onToggleChatPanel={onToggleChatPanel}
       showChatButton={showChatButton}
+      onCreateNewProject={createNewProject} // Pass prop down
     />
   );
 }

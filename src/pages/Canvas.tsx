@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom'; // Import useNavigate
 import { useAuth } from '@/hooks/use-auth';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 import { useCanvasAgent } from '@/hooks/use-canvas-agent';
@@ -20,6 +20,7 @@ import { CanvasProjectSelector } from '@/components/canvas/CanvasProjectSelector
 export default function Canvas() {
   const { user, loading: authLoading } = useAuth();
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate(); // Initialize useNavigate
   const [showScriptPanel, setShowScriptPanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(true);
   const [showChatPanel, setShowChatPanel] = useState(false);
@@ -106,9 +107,11 @@ export default function Canvas() {
   }, [updateScene]);
 
   const createNewProject = useCallback(async (title: string, description?: string): Promise<string> => {
+    console.log('[Canvas.tsx] createNewProject called with title:', title); // Added log
     try {
+      console.log('[Canvas.tsx] Calling createProject from useCanvasProjects hook...'); // Added log
       const result = await createProject(title, description);
-
+      console.log('[Canvas.tsx] createProject hook returned:', result); // Added log
       // Use a type assertion with a simpler condition TypeScript can understand
       if (result && typeof result === 'object') {
         const projectWithId = result as { id: string };
@@ -118,8 +121,9 @@ export default function Canvas() {
       }
       return "";
     } catch (error) {
-      console.error("Error creating project:", error);
-      toast.error("Failed to create project");
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      console.error("[Canvas.tsx] Error creating project:", errorObj); // Added log
+      toast.error(`Failed to create project: ${errorObj.message}`);
       return "";
     }
   }, [createProject]);
@@ -302,22 +306,20 @@ export default function Canvas() {
       return (
         <CanvasProjectSelector
           projects={projects}
-          onSelectProject={selectProject} // Use selectProject from useCanvasProjects
-          onCreateNew={() => { /* Navigate or set state to show create form */
-            // For now, creating a new project will likely navigate,
-            // but this callback could be used to show the empty state form inline
-            // We might need state like `showCreateForm` if we want inline switching.
-            // Let's start with the empty state component directly for the 0 project case.
-            // If needed, we can add state later.
-            console.log("Create New clicked from selector - showing empty state for now");
-            // To show the form inline, we'd need state:
-            // setShowCreateForm(true);
-            // And then render the empty state based on that state.
-            // For simplicity, let's assume clicking "Create New" on the selector
-            // might eventually navigate to a dedicated create page or modal.
-            // Or, we render the EmptyState here if a state flag is set.
-            // Let's render the empty state directly for the 0 project case first.
+          onSelectProject={selectProject}
+          onCreateNew={async () => {
+            try {
+              const newProjectId = await createNewProject("Untitled Project");
+              if (newProjectId) {
+                navigate(`/canvas/${newProjectId}`);
+              } else {
+                toast.error("Failed to get ID for the new project.");
+              }
+            } catch (error) {
+              console.error("Error during project creation flow:", error);
+            }
           }}
+          onDeleteProject={deleteProject} // Pass deleteProject down
         />
       );
     } else {
@@ -347,6 +349,7 @@ export default function Canvas() {
         <CanvasHeaderAdapter
           project={project}
           updateProject={updateProject}
+          createNewProject={createNewProject} // Pass createNewProject down
           onToggleScriptPanel={toggleScriptPanel}
           onToggleDetailPanel={toggleDetailPanel}
           onToggleChatPanel={toggleChatPanel}

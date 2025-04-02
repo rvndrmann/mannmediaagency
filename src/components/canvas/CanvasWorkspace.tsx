@@ -98,7 +98,7 @@ export function CanvasWorkspace({
           <TabsTrigger value="scenes">Scenes</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="script" className="flex-1 p-4 overflow-hidden">
+        <TabsContent value="script" className="flex-1 p-4">
           <ProjectScriptEditor 
             project={project}
             saveFullScript={saveFullScript}

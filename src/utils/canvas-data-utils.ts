@@ -18,7 +18,7 @@ export function normalizeProject(project: any): CanvasProject {
     updatedAt: project.updatedAt || project.updated_at || new Date().toISOString(),
     updated_at: project.updated_at || project.updatedAt || new Date().toISOString(),
     cover_image_url: project.cover_image_url || '',
-    scenes: project.scenes || []
+    scenes: (project.canvas_scenes || []).map(scene => normalizeScene(scene)) // Normalize fetched scenes
   };
 }
 

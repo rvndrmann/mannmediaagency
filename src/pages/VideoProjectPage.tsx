@@ -79,9 +79,43 @@ export function VideoProjectPage() {
 
   const handleSelectProject = (selectedProjectId: string) => {
     navigate(`/video-projects/${selectedProjectId}`);
-    setShowHistory(false);
+    setShowHistory(false); // Keep history open after selection? Maybe remove this line?
   };
-
+  
+  // Function to handle project deletion
+  const handleDeleteProject = async (idToDelete: string) => {
+    console.log(`Attempting to delete project: ${idToDelete}`);
+    try {
+      const result = await mcpService.callTool('delete_video_project', { projectId: idToDelete });
+      if (result.success) {
+        console.log(`Project ${idToDelete} deleted successfully.`);
+        // How to refresh the list in VideoProjectHistory?
+        // Option 1: Pass a 'refresh' callback down (complex prop drilling)
+        // Option 2: Add a key to VideoProjectHistory that changes on delete (forces remount/refetch)
+        // Option 3: Modify VideoProjectHistory to expose a refresh method (less ideal)
+        // Option 4: Use a state management library (if available)
+        // For now, let's just log success. Refresh needs more thought.
+        // Maybe navigate away if the deleted project is the current one?
+        if (projectId === idToDelete) {
+          navigate('/video-projects'); // Navigate back if current project deleted
+          setShowHistory(true); // Show history after deleting current project
+        } else {
+          // Need a way to tell VideoProjectHistory to reload...
+          // Let's try forcing a remount with a key for now
+          setProjectListKey(prev => prev + 1);
+        }
+      } else {
+        console.error(`Failed to delete project ${idToDelete}:`, result.error);
+        alert(`Failed to delete project: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error(`Error calling delete_video_project tool:`, error);
+      alert(`Error deleting project: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  
+  // Add state for forcing VideoProjectHistory remount
+  const [projectListKey, setProjectListKey] = useState(0);
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex justify-between items-center">
@@ -120,6 +154,8 @@ export function VideoProjectPage() {
           <VideoProjectHistory
             mcpService={mcpService}
             onSelectProject={handleSelectProject}
+            onDeleteProject={handleDeleteProject} // Pass delete handler down
+            key={projectListKey} // Add key to force remount on change
           />
         </div>
       )}

@@ -96,7 +96,8 @@ function App() {
           {/* Main routes */}
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Index />} />
-          <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
+          {/* Added optional projectId parameter */}
+          <Route path="/multi-agent-chat/:projectId?" element={<MultiAgentChat />} />
           <Route path="/canvas" element={<Canvas />} />
           <Route path="/canvas/:projectId" element={<Canvas />} />
           <Route path="/product-shoot" element={<ProductShot />} />
@@ -124,7 +125,7 @@ function App() {
           <Route path="/not-found" element={<NotFound />} />
           <Route path="*" element={<Navigate to="/not-found" replace />} />
         </Routes>
-        <Toaster position="top-right" />
+        <Toaster position="top-right" closeButton />
       </ProjectProvider>
     </MCPProvider>
   );

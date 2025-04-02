@@ -29,6 +29,24 @@
     --radius: 0.75rem;
   }
 
+  /* Custom styles for larger Sonner toasts */
+  [data-sonner-toast] {
+    padding: 1rem !important; /* Increase padding */
+    min-width: 400px !important; /* Ensure a minimum width */
+  }
+
+  [data-sonner-toast] [data-title] {
+     font-size: 1.1rem !important; /* Increase title font size */
+  }
+
+  [data-sonner-toast] [data-description] {
+     font-size: 0.95rem !important; /* Increase description font size */
+  }
+
+  [data-sonner-toast] [data-close-button] {
+      transform: scale(1.2); /* Make close button slightly larger */
+  }
+
   * {
     @apply border-border/10;
     scroll-behavior: smooth;

@@ -19,34 +19,45 @@ interface UseMultiAgentChatOptions {
   // onAgentSwitch?: (from: string, to: string) => void; // Remove agent switch callback
   projectId?: string;
   sessionId?: string; // Keep sessionId if used for other state management
+  sceneId?: string; // Add sceneId
 }
 
 export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
-  const { updateChatSession } = useChatSession();
+  const { sessions, updateChatSession } = useChatSession(); // Get sessions from context
   const projectContext = useProjectContext();
-  
-  // Initialize messages state directly from localStorage if available
+
+  // Initialize messages state: Prioritize session, then localStorage, then initial props
   const [messages, setMessages] = useState<Message[]>(() => {
-    // This function runs only on initial mount
-    console.log(`[Chat Init] Attempting load for projectId: ${options.projectId}`);
+    console.log(`[Chat Init] Initializing for projectId: ${options.projectId}, sessionId: ${options.sessionId}`);
+
+    // 1. Try loading from session context if sessionId is provided
+    if (options.sessionId && sessions[options.sessionId]) {
+      console.log(`[Chat Init] Found session ${options.sessionId}, loading ${sessions[options.sessionId].messages.length} messages from context.`);
+      return sessions[options.sessionId].messages;
+    } else if (options.sessionId) {
+       console.log(`[Chat Init] SessionId ${options.sessionId} provided but not found in context.`);
+    }
+
+    // 2. Try loading from localStorage if projectId is provided
     if (options.projectId) {
       const storageKey = `multiAgentChatHistory_${options.projectId}`;
       try {
         const storedMessages = localStorage.getItem(storageKey);
         if (storedMessages) {
-          console.log(`[Chat Init] Found ${JSON.parse(storedMessages).length} messages in localStorage for ${options.projectId}`);
+          console.log(`[Chat Init] Found ${JSON.parse(storedMessages).length} messages in localStorage for ${options.projectId}.`);
           return JSON.parse(storedMessages);
         } else {
-          console.log(`[Chat Init] No messages found in localStorage for ${options.projectId}`);
+          console.log(`[Chat Init] No messages found in localStorage for ${options.projectId}.`);
         }
       } catch (error) {
         console.error("Error reading initial messages from localStorage:", error);
       }
     } else {
-      console.log("[Chat Init] No projectId provided on initial mount.");
+      console.log("[Chat Init] No projectId provided for localStorage lookup.");
     }
-    // Fallback to initialMessages or empty array
-    console.log("[Chat Init] Falling back to initialMessages or empty array.");
+
+    // 3. Fallback to initialMessages prop or empty array
+    console.log("[Chat Init] Falling back to initialMessages prop or empty array.");
     return options.initialMessages || [];
   });
   
@@ -348,6 +359,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
           // Pass currentThreadId, projectId, attachments etc.
           thread_id: currentThreadId, // <-- Pass current thread ID
           projectId: options.projectId,
+          sceneId: options.sceneId, // <-- Include sceneId
           attachments,
           runId, // Keep for tracing
           groupId, // Keep for tracing
@@ -421,9 +433,10 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       isLoading,
       messages,
       options.projectId,
+      options.sceneId, // <-- Add sceneId dependency
       options.sessionId,
       updateChatSession,
-      currentThreadId // <-- Add dependency
+      currentThreadId
       // Remove dependencies no longer used: activeAgent, usePerformanceModel, processHandoff
   ]);
 

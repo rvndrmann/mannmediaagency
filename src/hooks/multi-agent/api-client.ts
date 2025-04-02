@@ -15,7 +15,8 @@ interface SendChatMessageParams {
   groupId: string; // Keep for logging/tracing if needed
   projectId?: string;
   contextData?: Record<string, any>; // Keep if sending extra context
-  thread_id?: string | null; // <-- Add thread_id
+  thread_id?: string | null;
+  sceneId?: string; // <-- Add sceneId
 }
 
 interface ChatMessageResponse {
@@ -32,18 +33,32 @@ interface ChatMessageResponse {
 export async function sendChatMessage(params: SendChatMessageParams): Promise<ChatMessageResponse> {
   try {
     // Prepare the body, explicitly including thread_id
-    const bodyPayload = {
+    const bodyPayload: any = { // Use 'any' temporarily or define a specific type
         input: params.input,
         projectId: params.projectId,
-        thread_id: params.thread_id, // Pass thread_id
+        thread_id: params.thread_id,
         // Include other relevant params needed by the edge function
-        // contextData: params.contextData, // Example
-        // attachments: params.attachments // Example
+        contextData: params.contextData,
+        attachments: params.attachments
     };
+    // Conditionally add sceneId if it exists
+    if (params.sceneId) {
+        bodyPayload.sceneId = params.sceneId;
+    }
+
+    // Get the current session token
+    const sessionResponse = await supabase.auth.getSession();
+    const accessToken = sessionResponse?.data?.session?.access_token;
+
+    if (!accessToken) {
+      throw new Error("User not authenticated.");
+    }
 
     const { data, error } = await supabase.functions.invoke<ChatMessageResponse>('multi-agent-chat', {
-      // Pass only necessary fields in the body
-      body: bodyPayload
+      body: bodyPayload,
+      headers: {
+        'Authorization': `Bearer ${accessToken}` // Manually set the Authorization header
+      }
     });
 
     if (error) {

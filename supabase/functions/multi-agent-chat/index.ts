@@ -1,21 +1,32 @@
 // Add Supabase client import
+// @ts-ignore Deno specific import
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // Add OpenAI import if not already present at the top
+// @ts-ignore Deno specific import
 import { OpenAI } from "https://deno.land/x/openai@v4.52.7/mod.ts"; // Use Deno specific import if available or stick to fetch
+// @ts-ignore Deno specific import
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "./cors.ts";
 // Assuming canvas-tools.ts might contain MCP interaction logic later
 // import { formatCanvasProjectInfo, getCanvasTools } from "./canvas-tools.ts";
 
+// @ts-ignore Deno specific API
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
+// @ts-ignore Deno specific API
 const VIDEO_PROJECT_ASSISTANT_ID = Deno.env.get("VIDEO_PROJECT_ASSISTANT_ID") || ""; // Project Manager/Orchestrator
+// @ts-ignore Deno specific API
 const SCRIPT_WRITER_ASSISTANT_ID = Deno.env.get("SCRIPT_WRITER_ASSISTANT_ID") || "";
+// @ts-ignore Deno specific API
 const IMAGE_PROMPT_GENERATOR_ASSISTANT_ID = Deno.env.get("IMAGE_PROMPT_GENERATOR_ASSISTANT_ID") || "";
+// @ts-ignore Deno specific API
 const SCENE_DESCRIBER_TEXT_ASSISTANT_ID = Deno.env.get("SCENE_DESCRIBER_TEXT_ASSISTANT_ID") || "";
+// @ts-ignore Deno specific API
 const SCENE_DESCRIBER_IMAGE_ASSISTANT_ID = Deno.env.get("SCENE_DESCRIBER_IMAGE_ASSISTANT_ID") || ""; // Vision Enabled
 
 // Add Supabase Env Vars
+// @ts-ignore Deno specific API
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+// @ts-ignore Deno specific API
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 if (!OPENAI_API_KEY) console.error("FATAL: OPENAI_API_KEY environment variable not set.");
@@ -751,7 +762,7 @@ serve(async (req: Request) => {
   try {
     // Get request body
     const requestData = await req.json();
-    const { input, projectId, thread_id } = requestData;
+    const { input, projectId, sceneId, thread_id } = requestData; // Extract sceneId
 
     console.log(`[DEBUG] [${requestId}] Extracted projectId from requestData: ${projectId}`);
 
@@ -785,7 +796,7 @@ serve(async (req: Request) => {
     // --- Orchestration Loop ---
     let currentAssistantId = VIDEO_PROJECT_ASSISTANT_ID; // Start with Project Manager
     let currentInput: string | any[] = input; // Initial user input
-    let runMetadata = { project_id: projectId, user_id: userId, request_id: requestId };
+    let runMetadata = { project_id: projectId, scene_id: sceneId, user_id: userId, request_id: requestId }; // Add sceneId to metadata
     let finalResponseContent: any = null;
     let loopCount = 0;
     const maxLoops = 10; // Prevent infinite loops

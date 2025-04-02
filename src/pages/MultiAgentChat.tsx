@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom"; // Import useNavigate and Link
+import { useNavigate, Link, useParams } from "react-router-dom"; // Import useParams
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,9 +23,22 @@ import { ProjectSelector } from "@/components/multi-agent/ProjectSelector";
 import { AttachmentButton } from "@/components/multi-agent/AttachmentButton";
 import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
 
-const MultiAgentChat = () => {
+// Define props interface
+interface MultiAgentChatProps {
+  sceneId?: string; // Make sceneId optional
+  // Add other props if needed, e.g., isEmbedded, compactMode, onBack, sessionId, onAgentCommand
+  // These seem to be used by the embedded version in CanvasChat.tsx
+  isEmbedded?: boolean;
+  compactMode?: boolean;
+  onBack?: () => void;
+  sessionId?: string;
+  onAgentCommand?: (command: any) => void;
+}
+
+const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Destructure sceneId from props
   const navigate = useNavigate(); // Initialize useNavigate
-  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
+  const { projectId: projectIdFromUrl } = useParams<{ projectId?: string }>(); // Get projectId from URL
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(projectIdFromUrl); // Initialize state from URL
   const [useSDK, setUseSDK] = useState<boolean>(true); // Enable SDK by default
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +71,8 @@ const MultiAgentChat = () => {
         createdAt: new Date().toISOString()
       }
     ],
-    projectId: selectedProjectId // Pass the selected project ID here
+    projectId: selectedProjectId, // Pass the selected project ID here
+    sceneId: sceneId // Pass the sceneId prop here
   });
   
   const { status, reconnectToMcp } = useMCPContext();
@@ -68,13 +82,19 @@ const MultiAgentChat = () => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
+        // Direct scroll attempt
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Delay scroll slightly to allow DOM updates
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 0); // 0ms delay often works, can increase slightly if needed (e.g., 50)
+
+    return () => clearTimeout(timer); // Cleanup timer on unmount or re-run
   }, [messages]);
 
   useEffect(() => {
@@ -106,14 +126,23 @@ const MultiAgentChat = () => {
   // Wrap handleProjectSelect in useCallback
   const handleProjectSelect = useCallback((projectId: string) => {
     setSelectedProjectId(projectId);
+    // Navigate to the URL with the new project ID, replacing the current history entry
+    navigate(`/multi-agent-chat/${projectId}`, { replace: true });
+    toast.success(`Selected project: ${projectId}`);
     // Optionally clear chat/thread when project changes?
     // clearChat(); // Example: Uncomment to clear chat on project change
-    toast.success(`Selected project: ${projectId}`);
-  }, []); // Empty dependency array means this function reference never changes
+  }, [navigate]); // Add navigate to dependency array
 
   const handleAttachmentAdd = (newAttachments: Attachment[]) => {
     addAttachments(newAttachments);
   };
+
+  // Effect to sync state if URL parameter changes externally
+  useEffect(() => {
+    if (projectIdFromUrl !== selectedProjectId) {
+      setSelectedProjectId(projectIdFromUrl);
+    }
+  }, [projectIdFromUrl, selectedProjectId]);
 
   return (
     <Layout>
@@ -274,18 +303,17 @@ const MultiAgentChat = () => {
           </div>
         </div>
 
-        {/* Chat Card - Adjusted for flex layout and height */}
-        <Card className="flex-1 flex flex-col overflow-hidden"> {/* flex-1 makes it take remaining space */}
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
-              <CardTitle>Chat</CardTitle>
-              {/* Removed Agent Selector Dropdown */}
-            </div>
-          </CardHeader>
-          {/* CardContent takes full height of parent Card */}
-          <CardContent className="flex-1 flex flex-col p-0">
+        {/* Simplified Chat Area Container */}
+        <div className="flex-1 flex flex-col overflow-hidden border rounded-lg relative"> {/* Add relative positioning */}
+          {/* Simplified Header */}
+          <div className="p-4 border-b">
+             <h3 className="font-semibold">Chat</h3>
+          </div>
+          {/* ScrollArea and Input directly inside the main flex container */}
             {/* ScrollArea takes available space, remove mb-4 */}
-            <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+            {/* Remove flex-1, add bottom padding to avoid overlap with absolute input */}
+            {/* Reduce bottom padding to better match input area height */}
+            <ScrollArea className="p-4 min-h-0 pb-[130px]" ref={scrollAreaRef}>
               <div className="space-y-4">
                 {messages.map((message) => (
                   <div 
@@ -352,7 +380,8 @@ const MultiAgentChat = () => {
             
             {/* Input Area - Add padding */}
             {/* Input Area - Add padding */}
-            <div className="p-4 border-t">
+            {/* Position input area absolutely at the bottom */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-card"> {/* Added bg-card */}
               {pendingAttachments.length > 0 && (
                 <div className="mb-2">
                   <AttachmentPreview
@@ -408,8 +437,8 @@ const MultiAgentChat = () => {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          {/* Removed the intermediate div wrapper */}
+        </div> {/* Close Simplified Chat Area Container */}
       </div>
     </Layout>
   );

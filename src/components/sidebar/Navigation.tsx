@@ -31,6 +31,7 @@ import { useSidebar } from "@/components/ui/sidebar/context";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { useProjectContext } from "@/hooks/multi-agent/project-context"; // Import project context hook
 import { Notification } from "@/types/custom-order";
 import { 
   BaseNavigationItem, 
@@ -47,6 +48,7 @@ export const Navigation = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
   const [customOrderNotifications, setCustomOrderNotifications] = useState<number>(0);
+  const { activeProject } = useProjectContext(); // Get active project ID from context
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -152,7 +154,8 @@ export const Navigation = () => {
     {
       name: "Multi-Agent Chat",
       subtext: "AI Collaboration",
-      to: "/multi-agent-chat",
+      // Dynamically set the 'to' link based on activeProject
+      to: activeProject ? `/multi-agent-chat/${activeProject}` : "/multi-agent-chat",
       icon: MessageSquare,
       current: location.pathname === "/multi-agent-chat",
     },

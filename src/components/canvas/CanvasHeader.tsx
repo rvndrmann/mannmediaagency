@@ -8,11 +8,12 @@ export interface CanvasHeaderProps {
   title?: string;
   onUpdateTitle?: (title: string) => Promise<any>;
   onToggleDetailPanel?: () => void;
-  onToggleChatPanel?: () => void;
+  // Removed onToggleChatPanel
   onToggleScriptPanel?: () => void;
   showBackButton?: boolean;
   showMenuButton?: boolean;
-  showChatButton?: boolean;
+  // Removed showChatButton
+  onNavigateToChat: () => void; // Add new prop
   onCreateNewProject?: () => Promise<string>; // Add prop type
 }
 
@@ -20,11 +21,12 @@ export const CanvasHeader = ({
   title = 'Untitled Project',
   onUpdateTitle,
   onToggleDetailPanel,
-  onToggleChatPanel,
+  // Removed onToggleChatPanel from destructuring
   onToggleScriptPanel,
   showBackButton = true,
   showMenuButton = true,
-  showChatButton = true,
+  // Removed showChatButton from destructuring
+  onNavigateToChat, // Destructure new prop
   onCreateNewProject // Destructure prop
 }: CanvasHeaderProps) => {
   const navigate = useNavigate();
@@ -75,17 +77,16 @@ export const CanvasHeader = ({
             New Project
           </Button>
         )}
-        {showChatButton && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleChatPanel}
-            className="px-3 h-9"
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            AI Assistant
-          </Button>
-        )}
+        {/* Changed AI Assistant button to navigate to Multi-Agent Chat */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onNavigateToChat} // Use the new navigation handler
+          className="px-3 h-9"
+        >
+          <MessageSquare className="h-4 w-4 mr-2" /> {/* Keep icon or change if desired */}
+          Multi-Agent Chat
+        </Button>
         
         {showMenuButton && (
           <Button 

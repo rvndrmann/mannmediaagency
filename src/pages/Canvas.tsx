@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button'; // Import Button
 import { ArrowLeft } from 'lucide-react'; // Import ArrowLeft icon
 import { useAuth } from '@/hooks/use-auth';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
-import { useCanvasAgent } from '@/hooks/use-canvas-agent';
+// Removed useCanvasAgent import as it's no longer needed for the removed chat panel
+// import { useCanvasAgent } from '@/hooks/use-canvas-agent';
 import {
   CanvasEmptyStateAdapter,
   CanvasHeaderAdapter,
@@ -15,7 +16,8 @@ import {
 } from '@/components/canvas/adapters/CanvasProjectAdapter.tsx';
 import { toast } from 'sonner';
 import { useProjectContext } from '@/hooks/multi-agent/project-context';
-import { CanvasChat } from '@/components/canvas/CanvasChat';
+// Removed CanvasChat import
+// import { CanvasChat } from '@/components/canvas/CanvasChat';
 import { CanvasScene } from '@/types/canvas'; // Removed SceneUpdateType as it's unused here
 import { CanvasProjectSelector } from '@/components/canvas/CanvasProjectSelector'; // Import the new selector
 
@@ -25,7 +27,8 @@ export default function Canvas() {
   const navigate = useNavigate(); // Initialize useNavigate
   const [showScriptPanel, setShowScriptPanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(true);
-  const [showChatPanel, setShowChatPanel] = useState(false);
+  // Removed showChatPanel state
+  // const [showChatPanel, setShowChatPanel] = useState(false);
   const { setActiveProject, setActiveScene } = useProjectContext();
 
   const {
@@ -47,23 +50,7 @@ export default function Canvas() {
     selectProject // Add selectProject here
   } = useCanvasProjects();
 
-  const {
-    generateSceneScript,
-    generateSceneDescription,
-    generateImagePrompt,
-    generateSceneImage,
-    generateSceneVideo,
-    isLoading: isAgentLoading,
-    messages,
-    addUserMessage,
-    addAgentMessage,
-    addSystemMessage,
-    activeAgent
-  } = useCanvasAgent({
-    projectId: projectId || '',
-    sceneId: selectedSceneId,
-    updateScene
-  });
+  // Removed useCanvasAgent hook initialization
 
   const addScene = useCallback(async (): Promise<void> => {
     if (!project) return;
@@ -165,32 +152,12 @@ export default function Canvas() {
   // REMOVED useEffect that called setActiveScene based on selectedSceneId changes
   // Context is now updated directly in CanvasSidebar onClick
 
-  const agentProps = {
-    isLoading: isAgentLoading,
-    messages,
-    generateSceneScript,
-    generateSceneDescription,
-    generateImagePrompt,
-    generateSceneImage,
-    generateSceneVideo,
-    addUserMessage,
-    addAgentMessage,
-    addSystemMessage,
-    activeAgent,
-    isMcpEnabled: true,
-    isMcpConnected: true,
-    toggleMcp: () => {},
-    isGeneratingDescription: false,
-    isGeneratingImagePrompt: false,
-    isGeneratingImage: false,
-    isGeneratingVideo: false,
-    isGeneratingScript: false,
-    isGenerating: isAgentLoading
-  };
+  // Removed agentProps definition
 
   const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
   const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
-  const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
+  // Removed toggleChatPanel function
+  // const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
 
   // Developer mode - hidden feature to enable mock data
   const [devModeClickCount, setDevModeClickCount] = useState(0);
@@ -362,8 +329,17 @@ export default function Canvas() {
           createNewProject={createNewProject}
           onToggleScriptPanel={toggleScriptPanel}
           onToggleDetailPanel={toggleDetailPanel}
-          onToggleChatPanel={toggleChatPanel}
-          showChatButton={true}
+          // Removed chat panel toggle props
+          // onToggleChatPanel={toggleChatPanel}
+          // showChatButton={true} // We'll handle the button directly or modify adapter
+          // Add a prop for navigating to the main chat instead
+          onNavigateToChat={() => {
+            if (project?.id) {
+              navigate(`/multi-agent-chat/${project.id}`);
+            } else {
+              toast.error("Please select a project first.");
+            }
+          }}
         />
 
         <div className="flex flex-1 overflow-hidden"> {/* Reverted background */}
@@ -390,7 +366,8 @@ export default function Canvas() {
               saveFullScript={saveFullScript}
               createNewProject={createNewProject}
               updateProjectTitle={updateProjectTitle}
-              agent={agentProps}
+              // Removed agent prop
+              // agent={agentProps}
             />
           </main>
 
@@ -415,16 +392,7 @@ export default function Canvas() {
             />
           )}
 
-          {showChatPanel && (
-            <div className="w-80 bg-[#111827] text-white">
-              <CanvasChat
-                projectId={project?.id}
-                sceneId={selectedSceneId}
-                onClose={() => setShowChatPanel(false)}
-                updateScene={updateScene}
-              />
-            </div>
-          )}
+          {/* Removed CanvasChat panel rendering */}
         </div>
       </div>
     );

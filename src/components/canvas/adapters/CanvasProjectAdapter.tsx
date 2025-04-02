@@ -22,8 +22,10 @@ interface CanvasHeaderAdapterProps {
   updateProject: (projectId: string, data: any) => Promise<any>;
   onToggleScriptPanel: () => void;
   onToggleDetailPanel: () => void;
-  onToggleChatPanel: () => void;
-  showChatButton?: boolean;
+  // Removed chat panel props
+  // onToggleChatPanel: () => void;
+  // showChatButton?: boolean;
+  onNavigateToChat: () => void; // Add new prop for navigation
   createNewProject: (title: string, description?: string) => Promise<string>; // Add prop type
 }
 
@@ -87,8 +89,10 @@ export function CanvasHeaderAdapter({
   updateProject, 
   onToggleScriptPanel,
   onToggleDetailPanel,
-  onToggleChatPanel,
-  showChatButton = false,
+  // Removed chat panel props from destructuring
+  // onToggleChatPanel,
+  // showChatButton = false,
+  onNavigateToChat, // Destructure new prop
   createNewProject // Destructure prop
 }: CanvasHeaderAdapterProps) {
   const title = project?.title || 'Untitled Project';
@@ -105,9 +109,12 @@ export function CanvasHeaderAdapter({
       onUpdateTitle={handleUpdateTitle}
       onToggleScriptPanel={onToggleScriptPanel}
       onToggleDetailPanel={onToggleDetailPanel}
-      onToggleChatPanel={onToggleChatPanel}
-      showChatButton={showChatButton}
-      onCreateNewProject={createNewProject} // Pass prop down
+      // Removed chat panel props passed down
+      // onToggleChatPanel={onToggleChatPanel}
+      // showChatButton={showChatButton}
+      onNavigateToChat={onNavigateToChat} // Pass new prop down
+      // Pass a wrapper function that calls the original createNewProject with default args
+      onCreateNewProject={() => createNewProject("Untitled Project")}
     />
   );
 }

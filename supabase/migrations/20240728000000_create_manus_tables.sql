@@ -30,23 +30,27 @@ ALTER TABLE public.manus_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.manus_action_history ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for manus_sessions
-CREATE POLICY "Users can view their own sessions" 
+DROP POLICY IF EXISTS "Users can view their own sessions" ON public.manus_sessions;
+CREATE POLICY "Users can view their own sessions"
   ON public.manus_sessions 
   FOR SELECT 
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can create their own sessions" 
+DROP POLICY IF EXISTS "Users can create their own sessions" ON public.manus_sessions;
+CREATE POLICY "Users can create their own sessions"
   ON public.manus_sessions 
   FOR INSERT 
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own sessions" 
+DROP POLICY IF EXISTS "Users can update their own sessions" ON public.manus_sessions;
+CREATE POLICY "Users can update their own sessions"
   ON public.manus_sessions 
   FOR UPDATE 
   USING (auth.uid() = user_id);
 
 -- Create policies for manus_action_history
-CREATE POLICY "Users can view their own action history" 
+DROP POLICY IF EXISTS "Users can view their own action history" ON public.manus_action_history;
+CREATE POLICY "Users can view their own action history"
   ON public.manus_action_history 
   FOR SELECT 
   USING (
@@ -56,7 +60,8 @@ CREATE POLICY "Users can view their own action history"
     )
   );
 
-CREATE POLICY "Users can insert action history for their sessions" 
+DROP POLICY IF EXISTS "Users can insert action history for their sessions" ON public.manus_action_history;
+CREATE POLICY "Users can insert action history for their sessions"
   ON public.manus_action_history 
   FOR INSERT 
   WITH CHECK (
@@ -66,7 +71,8 @@ CREATE POLICY "Users can insert action history for their sessions"
     )
   );
 
-CREATE POLICY "Users can update their own action history" 
+DROP POLICY IF EXISTS "Users can update their own action history" ON public.manus_action_history;
+CREATE POLICY "Users can update their own action history"
   ON public.manus_action_history 
   FOR UPDATE 
   USING (
@@ -77,6 +83,10 @@ CREATE POLICY "Users can update their own action history"
   );
 
 -- Add triggers to update timestamps
+-- Drop the trigger if it already exists (for idempotency)
+DROP TRIGGER IF EXISTS set_manus_sessions_updated_at ON public.manus_sessions;
+
+-- Create the trigger
 CREATE TRIGGER set_manus_sessions_updated_at
 BEFORE UPDATE ON public.manus_sessions
 FOR EACH ROW

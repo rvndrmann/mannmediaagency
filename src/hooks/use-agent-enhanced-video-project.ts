@@ -114,15 +114,20 @@ export function useAgentEnhancedVideoProject({
   const addScene = useCallback(async (projectId: string, name: string, description?: string): Promise<VideoScene> => {
     setLoading(true);
     setError(null);
+    console.log(`[useAgentEnhancedVideoProject] addScene called:`, { projectId, name, description, currentScenes: project?.scenes?.length });
     try {
+      const order = project?.scenes?.length || 0;
+      console.log(`[useAgentEnhancedVideoProject] Calling mcpService.callTool('add_scene') with order: ${order}`);
       const result = await mcpService.callTool('add_scene', {
         projectId,
         name,
         description,
-        order: project?.scenes?.length || 0
+        order: order
       });
+      console.log(`[useAgentEnhancedVideoProject] mcpService.callTool('add_scene') result:`, result);
+
       if (!result.success || !result.data.scene) {
-        throw new Error(result.error || 'Failed to add scene');
+        throw new Error(result.error || 'Failed to add scene or scene data missing from response');
       }
       // Update the project with the new scene
       if (project) {
@@ -130,15 +135,19 @@ export function useAgentEnhancedVideoProject({
           ? [...project.scenes, result.data.scene]
           : [result.data.scene];
         
+        console.log(`[useAgentEnhancedVideoProject] Updating project state with new scenes:`, updatedScenes);
         setProject({
           ...project,
           scenes: updatedScenes
         });
+      } else {
+        console.warn(`[useAgentEnhancedVideoProject] Project state was null when trying to add scene. Cannot update state.`);
       }
       
       return result.data.scene;
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
+      const error = err instanceof Error ? err : new Error(String(err ?? 'Unknown error in addScene'));
+      console.error(`[useAgentEnhancedVideoProject] Error in addScene:`, error);
       setError(error);
       throw error;
     } finally {

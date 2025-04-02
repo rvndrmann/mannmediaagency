@@ -34,6 +34,7 @@ interface CanvasSidebarAdapterProps {
   createScene: (data: any) => Promise<any>;
   deleteScene: (sceneId: string) => Promise<void>;
   loading: boolean;
+  setActiveScene: (sceneId: string | null) => void; // Add prop type
 }
 
 // Adapter type for CanvasWorkspace
@@ -114,7 +115,8 @@ export function CanvasSidebarAdapter({
   setSelectedSceneId,
   createScene,
   deleteScene,
-  loading
+  loading,
+  setActiveScene // Destructure prop
 }: CanvasSidebarAdapterProps) {
   const addScene = async () => {
     if (project) {
@@ -138,6 +140,7 @@ export function CanvasSidebarAdapter({
       deleteScene={deleteScene}
       loading={loading}
       collapsed={false}
+      setActiveScene={setActiveScene} // Pass prop down
     />
   );
 }

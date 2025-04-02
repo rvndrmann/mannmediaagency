@@ -10,8 +10,42 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        console.log("Auth callback initiated");
+        
+        // Clear any existing auth data
+        localStorage.removeItem('auth_confirmed');
+        
+        // Get the URL hash parameters
+        const hashParams = window.location.hash ? new URLSearchParams(window.location.hash.substring(1)) : null;
+        const queryParams = new URLSearchParams(window.location.search);
+        
+        console.log("Hash params present:", !!hashParams && hashParams.has('access_token'));
+        console.log("Query params present:", queryParams.has('code'));
+        
+        // PKCE flow detection (preferred method in Supabase v2)
+        if (queryParams.has('code')) {
+          console.log("PKCE flow detected with code parameter");
+          
+          // With PKCE, Supabase should handle the exchange automatically
+          // Just need to get the session after the callback
+          
+          // First, ensure any existing corrupted sessions are cleared
+          try {
+            await supabase.auth.signOut({ scope: 'local' });
+            console.log("Local session cleared for clean state");
+          } catch (signOutErr) {
+            console.warn("Error during local signout:", signOutErr);
+            // Continue anyway
+          }
+        }
+        
         // Get the current session
+        console.log("Requesting session from Supabase...");
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        console.log("Session check result:", {
+          hasSession: !!session,
+          sessionError: sessionError ? sessionError.message : null
+        });
 
         if (sessionError) {
           console.error("Failed to get session:", sessionError);
@@ -21,27 +55,83 @@ const AuthCallback = () => {
         // If we have a session, we're good to go
         if (session?.user) {
           console.log("Authentication successful for:", session.user.email);
-          toast.success("Successfully logged in!");
-          navigate("/", { replace: true });
+          console.log("User ID:", session.user.id);
+          console.log("Session expires at:", new Date(session.expires_at * 1000).toISOString());
+          
+          // Store additional confirmation in localStorage for debugging
+          localStorage.setItem('auth_confirmed', 'true');
+          localStorage.setItem('user_email', session.user.email || 'unknown');
+          localStorage.setItem('auth_timestamp', new Date().toISOString());
+          
+          // Force a refresh before redirecting to ensure the session is available to other components
+          window.location.href = "/canvas";
           return;
         }
 
-        // If no session, check for access token in URL
-        const params = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = params.get('access_token');
-        
-        if (!accessToken) {
-          console.error("No access token found");
-          throw new Error("Authentication failed. Please try again.");
+        // If no session but we have an access token in hash params, try to exchange it
+        if (hashParams) {
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          
+          console.log("URL contains tokens:", {
+            hasAccessToken: !!accessToken,
+            hasRefreshToken: !!refreshToken
+          });
+          
+          if (accessToken) {
+            // Try to set the session manually if we have an access token
+            console.log("Attempting to set session with access token");
+            try {
+              const { data, error } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || ''
+              });
+              
+              console.log("Manual session set result:", {
+                success: !!data.session,
+                error: error ? error.message : null
+              });
+              
+              if (data.session) {
+                console.log("Session successfully established");
+                localStorage.setItem('auth_confirmed', 'true');
+                localStorage.setItem('user_email', data.session.user.email || 'unknown');
+                localStorage.setItem('auth_timestamp', new Date().toISOString());
+                
+                // Force a refresh before redirecting to ensure the session is available to other components
+                window.location.href = "/canvas";
+                return;
+              }
+              
+              if (error) throw error;
+            } catch (err) {
+              console.error("Error setting session:", err);
+            }
+          }
         }
 
-        // At this point, we should have either gotten a session or found an access token
-        // If we get here without either, something went wrong
+        // If we're here and have no session but we do have a code, it might be a Supabase handling issue
+        if (queryParams.has('code')) {
+          console.log("No session established but code parameter exists - retrying with force refresh");
+          
+          // Try to force a refresh of the page to see if Supabase can complete the PKCE flow
+          toast.info("Completing authentication...");
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+          return;
+        }
+
+        // If we get here, either there was no hash params or setting the session failed
+        console.error("No valid session could be established");
         throw new Error("Authentication failed. Please try again.");
       } catch (error: any) {
         console.error("Auth callback error:", error);
         toast.error(error.message || "Authentication failed");
-        navigate("/auth/login", { replace: true });
+        // Wait a moment before redirecting to ensure logs are visible
+        setTimeout(() => {
+          navigate("/auth/login", { replace: true });
+        }, 2000);
       }
     };
 

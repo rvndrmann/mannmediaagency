@@ -255,8 +255,8 @@ export function SceneDetailPanel({
       </div>
       
       {!collapsed && (
-        <div className="p-4 overflow-y-auto">
-          <div className="mb-4">
+        <div className="p-6 overflow-y-auto"> {/* Increased padding */}
+          <div className="mb-6"> {/* Increased bottom margin */}
             <Label htmlFor="image-prompt" className="mb-2 block">Image Prompt</Label>
             <Textarea 
               id="image-prompt"
@@ -273,7 +273,7 @@ export function SceneDetailPanel({
             </Button>
           </div>
           
-          <div className="space-y-1">
+          <div className="space-y-4"> {/* Increased vertical spacing */}
             <FileUploadItem
               title="Scene Image"
               icon={ImageIcon}

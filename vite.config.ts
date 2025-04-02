@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    // Add headers to allow 'unsafe-eval' for development ONLY
+    // WARNING: Do not use 'unsafe-eval' in production!
+    headers: mode === 'development' ? {
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.gpteng.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://via.placeholder.com; connect-src 'self' http://localhost:3000 ws://localhost:8080 https://*.supabase.co wss://*.supabase.co"
+    } : undefined,
   },
   plugins: [
     react(),

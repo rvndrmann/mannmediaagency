@@ -18,21 +18,24 @@ CREATE INDEX IF NOT EXISTS idx_product_shot_history_visibility ON public.product
 -- Create RLS policies for product_shot_history table
 
 -- Allow users to view their own shots
-CREATE POLICY IF NOT EXISTS "Users can view their own product shots" 
+DROP POLICY IF EXISTS "Users can view their own product shots" ON public.product_shot_history;
+CREATE POLICY "Users can view their own product shots"
 ON public.product_shot_history 
 FOR SELECT 
 TO authenticated 
 USING (user_id = auth.uid());
 
 -- Allow users to create their own shots
-CREATE POLICY IF NOT EXISTS "Users can create their own product shots" 
+DROP POLICY IF EXISTS "Users can create their own product shots" ON public.product_shot_history;
+CREATE POLICY "Users can create their own product shots"
 ON public.product_shot_history 
 FOR INSERT 
 TO authenticated 
 WITH CHECK (user_id = auth.uid());
 
 -- Allow users to update their own shots
-CREATE POLICY IF NOT EXISTS "Users can update their own product shots" 
+DROP POLICY IF EXISTS "Users can update their own product shots" ON public.product_shot_history;
+CREATE POLICY "Users can update their own product shots"
 ON public.product_shot_history 
 FOR UPDATE 
 TO authenticated 
@@ -40,7 +43,8 @@ USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
 -- Allow users to delete their own shots
-CREATE POLICY IF NOT EXISTS "Users can delete their own product shots" 
+DROP POLICY IF EXISTS "Users can delete their own product shots" ON public.product_shot_history;
+CREATE POLICY "Users can delete their own product shots"
 ON public.product_shot_history 
 FOR DELETE 
 TO authenticated 
@@ -50,7 +54,8 @@ USING (user_id = auth.uid());
 ALTER TABLE public.product_shot_history ENABLE ROW LEVEL SECURITY;
 
 -- Allow anyone to see public shots
-CREATE POLICY IF NOT EXISTS "Anyone can view public product shots" 
+DROP POLICY IF EXISTS "Anyone can view public product shots" ON public.product_shot_history;
+CREATE POLICY "Anyone can view public product shots"
 ON public.product_shot_history 
 FOR SELECT 
 TO authenticated 

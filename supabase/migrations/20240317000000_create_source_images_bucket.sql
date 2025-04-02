@@ -1,6 +1,7 @@
 
 
 -- Allow authenticated users to upload files to the bucket
+DROP POLICY IF EXISTS "Allow authenticated users to upload files" ON storage.objects;
 CREATE POLICY "Allow authenticated users to upload files"
 ON storage.objects
 FOR INSERT
@@ -11,6 +12,7 @@ WITH CHECK (
 );
 
 -- Allow authenticated users to read files from the bucket
+DROP POLICY IF EXISTS "Allow authenticated users to read files" ON storage.objects;
 CREATE POLICY "Allow authenticated users to read files"
 ON storage.objects
 FOR SELECT

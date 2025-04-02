@@ -47,6 +47,7 @@ export function CanvasWorkspace({
     }
   }, [selectedSceneId]);
 
+
   const handleCreateNewProject = async () => {
     await createNewProject("Untitled Project");
   };
@@ -107,11 +108,12 @@ export function CanvasWorkspace({
         </TabsContent>
         
         <TabsContent value="scenes" className="flex-1 p-0 overflow-hidden flex">
-          <div className="w-64 border-r flex flex-col">
+          {/* Restoring original structure */}
+          <div className="flex flex-col"> {/* Removed w-64 and border-r */}
             <div className="p-4 border-b flex items-center justify-between">
               <h3 className="font-medium">Scenes</h3>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={addScene}
               >
@@ -122,26 +124,26 @@ export function CanvasWorkspace({
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-2">
                 {project.scenes && project.scenes.map((scene) => (
-                  <div 
+                  <div
                     key={scene.id}
                     className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                      scene.id === selectedSceneId 
-                        ? 'bg-primary text-primary-foreground' 
+                      scene.id === selectedSceneId
+                        ? 'bg-primary text-primary-foreground'
                         : 'hover:bg-muted'
                     }`}
                     onClick={() => setSelectedSceneId(scene.id)}
                   >
                     <div className="font-medium">{scene.title}</div>
                     <div className="text-xs truncate">
-                      {scene.voiceOverText 
+                      {scene.voiceOverText
                         ? scene.voiceOverText.substring(0, 60) + (scene.voiceOverText.length > 60 ? '...' : '')
                         : 'No content'}
                     </div>
                     <div className="flex justify-between items-center mt-2 text-xs">
                       <span>{scene.imagePrompt ? '✓ Image prompt' : '✗ No image prompt'}</span>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className={`h-6 w-6 ${scene.id === selectedSceneId ? 'text-primary-foreground' : 'text-muted-foreground'}`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -160,8 +162,8 @@ export function CanvasWorkspace({
                   </div>
                 ))}
                 
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={addScene}
                 >
@@ -174,27 +176,23 @@ export function CanvasWorkspace({
             </ScrollArea>
           </div>
           
-          <div className="flex-1 overflow-hidden flex">
+          {/* Main content area for Scene Editor and Detail Panel */}
+          {/* Main content area for Scene Editor */}
+          {/* Main content area for Scene Editor and Detail Panel */}
+          {/* Main content area for Scene Editor */}
+          <div className="flex-1 overflow-hidden flex p-4 gap-4"> {/* Restoring gap */}
             {selectedScene ? (
-              <div className="flex-1 overflow-auto">
-                <SceneEditor 
+              <div className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-900 rounded-md shadow"> {/* Restoring flex-1 */}
+                <SceneEditor
                   scene={selectedScene}
                   onUpdate={updateScene}
                 />
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <div className="flex-1 flex items-center justify-center text-muted-foreground"> {/* Restoring flex-1 */}
                 Select a scene to edit
               </div>
             )}
-            
-            <SceneDetailPanel 
-              scene={selectedScene}
-              projectId={project.id}
-              updateScene={updateScene}
-              collapsed={detailPanelCollapsed}
-              setCollapsed={setDetailPanelCollapsed}
-            />
           </div>
         </TabsContent>
       </Tabs>

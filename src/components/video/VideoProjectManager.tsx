@@ -54,6 +54,7 @@ export function VideoProjectManager({ mcpService, agentSDK, projectId }: VideoPr
 
   const handleAddScene = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[VideoProjectManager] handleAddScene triggered!'); // <-- ADD THIS LINE
     if (!project) return;
 
     try {

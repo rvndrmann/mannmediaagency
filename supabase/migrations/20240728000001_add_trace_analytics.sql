@@ -1,4 +1,3 @@
-
 -- Add RLS policy to agent_interactions table if not already exists
 DO $$
 BEGIN

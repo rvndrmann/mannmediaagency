@@ -32,6 +32,7 @@ interface CanvasSidebarProps {
   deleteScene: (id: string) => Promise<void>;
   collapsed: boolean;
   loading?: boolean; // Added loading prop
+  setActiveScene: (sceneId: string | null) => void; // Add prop type
 }
 
 export function CanvasSidebar({
@@ -42,6 +43,7 @@ export function CanvasSidebar({
   deleteScene,
   collapsed,
   loading = false, // Default value for loading
+  setActiveScene, // Destructure prop
 }: CanvasSidebarProps) {
   const handleAddScene = async () => {
     await addScene();
@@ -148,7 +150,10 @@ export function CanvasSidebar({
                   ? "bg-primary/10 text-primary"
                   : "hover:bg-slate-200 dark:hover:bg-slate-800"
               )}
-              onClick={() => setSelectedSceneId(scene.id)}
+              onClick={() => {
+                setSelectedSceneId(scene.id); // Set local state
+                setActiveScene(scene.id); // Set context state
+              }}
             >
               <div className="flex items-center">
                 {selectedSceneId === scene.id ? (

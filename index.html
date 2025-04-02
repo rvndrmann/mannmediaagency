@@ -17,5 +17,42 @@
     <div id="root"></div>
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Developer Tools: Only loaded when hostname is localhost -->
+    <script>
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        // Load the mock data enabler script in development
+        const devScript = document.createElement('script');
+        devScript.src = '/mockdata-enabler.js';
+        devScript.async = true;
+        document.body.appendChild(devScript);
+        
+        // Add a hidden button in the corner for enabling mock data
+        const devButton = document.createElement('button');
+        devButton.innerHTML = '🔧';
+        devButton.title = 'Developer Tools';
+        devButton.style.position = 'fixed';
+        devButton.style.bottom = '10px';
+        devButton.style.right = '10px';
+        devButton.style.zIndex = '9999';
+        devButton.style.borderRadius = '50%';
+        devButton.style.width = '30px';
+        devButton.style.height = '30px';
+        devButton.style.background = '#7c3aed';
+        devButton.style.color = 'white';
+        devButton.style.border = 'none';
+        devButton.style.opacity = '0.6';
+        devButton.style.cursor = 'pointer';
+        devButton.onclick = function() {
+          const mockEnabled = localStorage.getItem('use_mock_data') === 'true';
+          if (mockEnabled) {
+            if (window.disableMockData) window.disableMockData();
+          } else {
+            if (window.enableMockData) window.enableMockData();
+          }
+        };
+        document.body.appendChild(devButton);
+      }
+    </script>
   </body>
 </html>

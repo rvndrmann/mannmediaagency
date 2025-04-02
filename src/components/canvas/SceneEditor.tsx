@@ -66,7 +66,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     };
     
     loadSceneData();
-  }, [scene]);
+  }, [scene?.id]); // Depend on scene ID, not the whole object
   
   useEffect(() => {
     setIsGenerating(isProcessing);
@@ -258,7 +258,7 @@ Format the prompt to get the best results from an AI image generator.`;
         </Alert>
       )}
       
-      <div className="space-y-6">
+      <div className="space-y-8"> {/* Increased vertical spacing */}
         <SceneContentForm
           label="Scene Script"
           value={script}

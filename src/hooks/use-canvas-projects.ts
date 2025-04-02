@@ -35,22 +35,85 @@ export function useCanvasProjects() {
     try {
       setLoading(true);
       
-      // Get current user
-      const { data: userData } = await supabase.auth.getUser();
+      // Check if we have a confirmed auth in localStorage
+      const authConfirmed = localStorage.getItem('auth_confirmed') === 'true';
+      const userEmail = localStorage.getItem('user_email');
+      const authTimestamp = localStorage.getItem('auth_timestamp');
       
-      if (!userData?.user) {
-        console.warn("No authenticated user found");
+      console.log('Canvas projects auth check from localStorage:', {
+        authConfirmed,
+        userEmail,
+        authTimestamp: authTimestamp ? new Date(authTimestamp).toLocaleString() : null
+      });
+      
+      // First try to get session (more reliable than getUser)
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Session error in useCanvasProjects:", sessionError);
+        // Continue anyway to try getUser as fallback
+      }
+      
+      let currentUser = sessionData?.session?.user;
+      
+      // If no session, try getUser as fallback
+      if (!currentUser) {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        console.log('Canvas projects auth check from getUser:', {
+          hasUser: !!userData?.user,
+          userError: userError ? userError.message : null
+        });
+        
+        if (userError) {
+          console.error("Error fetching user in useCanvasProjects:", userError);
+          
+          // If we have auth confirmation in localStorage but API calls are failing,
+          // continue but with an error message
+          if (!authConfirmed) {
+            setError("Authentication error");
+            setProjects([]);
+            return;
+          }
+          
+          // If we have auth confirmation, we'll try to continue with userId from localStorage
+          console.warn("Continuing with limited functionality due to auth API errors");
+        }
+        
+        currentUser = userData?.user;
+      }
+      
+      // If we still don't have a user, check if we're in development mode to load sample data
+      if (!currentUser) {
+        // For development: optionally load mock data if in development
+        const isDevMode = process.env.NODE_ENV === 'development';
+        
+        if (isDevMode && localStorage.getItem('use_mock_data') === 'true') {
+          console.log("Loading mock project data for development");
+          setProjects(getMockProjects());
+          return;
+        }
+        
+        console.warn("No authenticated user found in useCanvasProjects");
         setProjects([]);
         return;
       }
       
+      // We have a user, fetch their projects
+      console.log("Fetching projects for user:", currentUser.id);
+      
       const { data, error } = await supabase
         .from('canvas_projects')
         .select('*')
-        .eq('user_id', userData.user.id)
+        .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Database error fetching projects:", error);
+        throw error;
+      }
+      
+      console.log(`Found ${data?.length || 0} projects for user ${currentUser.id}`);
       
       // Properly normalize the data from snake_case to camelCase
       const normalizedProjects = (data || []).map((p: any): CanvasProject => ({
@@ -78,6 +141,42 @@ export function useCanvasProjects() {
       setLoading(false);
     }
   }, []);
+
+  // Mock projects for development/testing purposes
+  const getMockProjects = (): CanvasProject[] => {
+    return [
+      {
+        id: "mock-1",
+        title: "Sample Project 1",
+        description: "This is a sample project for testing",
+        userId: "mock-user",
+        user_id: "mock-user",
+        fullScript: "This is a sample script for Project 1",
+        full_script: "This is a sample script for Project 1",
+        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        cover_image_url: "",
+        scenes: []
+      },
+      {
+        id: "mock-2",
+        title: "Sample Project 2",
+        description: "Another sample project for testing",
+        userId: "mock-user",
+        user_id: "mock-user",
+        fullScript: "This is a sample script for Project 2",
+        full_script: "This is a sample script for Project 2",
+        createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        updatedAt: new Date(Date.now() - 86400000).toISOString(),
+        updated_at: new Date(Date.now() - 86400000).toISOString(),
+        cover_image_url: "",
+        scenes: []
+      }
+    ];
+  };
 
   // Delete a project
   const deleteProject = useCallback(async (id: string): Promise<boolean> => {

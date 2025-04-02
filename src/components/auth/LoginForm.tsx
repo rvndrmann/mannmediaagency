@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,30 @@ const LoginForm = () => {
   const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Debug function to check session state
+  const checkAuthState = async () => {
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log('Current session check:', {
+        hasSession: !!sessionData?.session,
+        sessionError: sessionError ? sessionError.message : null
+      });
+
+      const { data, error } = await supabase.auth.getUser();
+      console.log('Current user check:', {
+        hasUser: !!data?.user,
+        error: error ? error.message : null
+      });
+    } catch (err) {
+      console.error('Error checking auth state:', err);
+    }
+  };
+
+  // Check auth state on component mount
+  useEffect(() => {
+    checkAuthState();
+  }, []);
+
   const handleGoogleLogin = async () => {
     try {
       toast.info("For Google login, please use Chrome or Google browser. Login doesn't work in Instagram in-app browser.", {
@@ -21,7 +45,12 @@ const LoginForm = () => {
       });
       
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
+      console.log('Starting Google OAuth login flow...');
+      
+      // Clear any existing session before login
+      await supabase.auth.signOut();
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -32,8 +61,13 @@ const LoginForm = () => {
         },
       });
 
+      console.log('OAuth sign-in result:', { success: !!data, error: error?.message });
+      
       if (error) {
+        console.error('Google login error:', error);
         toast.error(error.message);
+      } else {
+        console.log('OAuth flow started successfully');
       }
     } catch (error) {
       toast.error("Failed to connect to Google. Please try again.");

@@ -14,18 +14,20 @@ CREATE TABLE IF NOT EXISTS public.agent_interactions (
 ALTER TABLE public.agent_interactions ENABLE ROW LEVEL SECURITY;
 
 -- Only allow users to see their own interactions
-CREATE POLICY "Users can view their own agent interactions" 
+DROP POLICY IF EXISTS "Users can view their own agent interactions" ON public.agent_interactions;
+CREATE POLICY "Users can view their own agent interactions"
   ON public.agent_interactions 
   FOR SELECT 
   USING (auth.uid() = user_id);
 
 -- Only allow users to insert their own interactions
-CREATE POLICY "Users can create their own agent interactions" 
+DROP POLICY IF EXISTS "Users can create their own agent interactions" ON public.agent_interactions;
+CREATE POLICY "Users can create their own agent interactions"
   ON public.agent_interactions 
   FOR INSERT 
   WITH CHECK (auth.uid() = user_id);
 
 -- Add indexes for performance
-CREATE INDEX agent_interactions_user_id_idx ON public.agent_interactions (user_id);
-CREATE INDEX agent_interactions_agent_type_idx ON public.agent_interactions (agent_type);
-CREATE INDEX agent_interactions_timestamp_idx ON public.agent_interactions (timestamp);
+CREATE INDEX IF NOT EXISTS agent_interactions_user_id_idx ON public.agent_interactions (user_id);
+CREATE INDEX IF NOT EXISTS agent_interactions_agent_type_idx ON public.agent_interactions (agent_type);
+CREATE INDEX IF NOT EXISTS agent_interactions_timestamp_idx ON public.agent_interactions (timestamp);

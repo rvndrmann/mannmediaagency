@@ -1,0 +1,3 @@
+-- This migration file is deprecated and no longer needed as the task_submissions table has been removed from the design.
+-- The associated table and its RLS policies should be removed manually from the database if they were previously applied.
+-- Applying this migration using 'supabase db push' will have no effect on the database schema.

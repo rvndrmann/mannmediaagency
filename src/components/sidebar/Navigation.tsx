@@ -22,7 +22,8 @@ import {
   Film,
   Layout,
   MessageSquare,
-  BarChartBig
+  BarChartBig,
+  ClipboardList // Added icon for Admin Tasks
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -232,6 +233,14 @@ export const Navigation = () => {
     adminOnly: true,
   };
 
+  const adminTasksItem: NavigationItem = {
+    name: "Admin Tasks",
+    subtext: "Manage Admin Tasks",
+    to: "/admin/tasks",
+    icon: ClipboardList, // Use the imported icon
+    adminOnly: true,
+  };
+
   const integrationsItem: IntegrationsNavigationItem = {
     name: "Integrations",
     icon: Settings,
@@ -242,7 +251,7 @@ export const Navigation = () => {
   const mainNavigation: NavigationItem[] = isLoadingAdmin
     ? combinedNavigation
     : isAdmin
-      ? [...combinedNavigation, adminItem, integrationsItem]
+      ? [...combinedNavigation, adminItem, adminTasksItem, integrationsItem] // Add adminTasksItem here
       : [...combinedNavigation, integrationsItem];
 
   const legalNavigation: BaseNavigationItem[] = [

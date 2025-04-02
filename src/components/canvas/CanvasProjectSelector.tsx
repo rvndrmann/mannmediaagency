@@ -1,7 +1,8 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { CanvasProject } from '@/types/canvas';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react'; // Import Trash icon
+import { Trash2, ArrowLeft } from 'lucide-react'; // Import Trash icon and ArrowLeft
 interface CanvasProjectSelectorProps {
   projects: CanvasProject[];
   onSelectProject: (projectId: string) => void;
@@ -9,9 +10,20 @@ interface CanvasProjectSelectorProps {
   onDeleteProject: (projectId: string) => Promise<boolean>; // Add delete prop
 }
 
-export function CanvasProjectSelector({ projects, onSelectProject, onCreateNew, onDeleteProject }: CanvasProjectSelectorProps) { // Destructure delete prop
+export function CanvasProjectSelector({ projects, onSelectProject, onCreateNew, onDeleteProject }: CanvasProjectSelectorProps) {
+  const navigate = useNavigate(); // Initialize useNavigate
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-gray-900 relative"> {/* Added relative positioning */}
+      {/* Back Button - Positioned top-left */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => navigate(-1)}
+        className="absolute top-4 left-4" // Position the button
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" /> Back
+      </Button>
       <div className="w-full max-w-2xl bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Select a Project</h2>

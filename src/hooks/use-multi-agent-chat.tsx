@@ -25,9 +25,30 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const { updateChatSession } = useChatSession();
   const projectContext = useProjectContext();
   
-  const [messages, setMessages] = useState<Message[]>(
-    options.initialMessages || []
-  );
+  // Initialize messages state directly from localStorage if available
+  const [messages, setMessages] = useState<Message[]>(() => {
+    // This function runs only on initial mount
+    console.log(`[Chat Init] Attempting load for projectId: ${options.projectId}`);
+    if (options.projectId) {
+      const storageKey = `multiAgentChatHistory_${options.projectId}`;
+      try {
+        const storedMessages = localStorage.getItem(storageKey);
+        if (storedMessages) {
+          console.log(`[Chat Init] Found ${JSON.parse(storedMessages).length} messages in localStorage for ${options.projectId}`);
+          return JSON.parse(storedMessages);
+        } else {
+          console.log(`[Chat Init] No messages found in localStorage for ${options.projectId}`);
+        }
+      } catch (error) {
+        console.error("Error reading initial messages from localStorage:", error);
+      }
+    } else {
+      console.log("[Chat Init] No projectId provided on initial mount.");
+    }
+    // Fallback to initialMessages or empty array
+    console.log("[Chat Init] Falling back to initialMessages or empty array.");
+    return options.initialMessages || [];
+  });
   
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -55,21 +76,96 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const processingRef = useRef<boolean>(false);
   const processingTimeoutRef = useRef<number | null>(null);
   const submissionIdRef = useRef<string | null>(null);
+  const previousProjectIdRef = useRef<string | undefined>(options.projectId); // Initialize ref here
 
-  // Simplify project context handling - backend uses projectId now
+  // Effect to handle PROJECT ID CHANGES after initial load
+  // Effect to handle PROJECT ID CHANGES after initial load (Removed duplicate comment)
   useEffect(() => {
-    if (options.projectId) {
+    // This effect now only handles updating context or resetting state when projectId changes.
+    // Initial loading is done in useState.
+    console.log(`[Project Change Effect] Running for projectId: ${options.projectId}`);
+    
+    // Use the ref declared outside the effect
+    
+    if (options.projectId && options.projectId !== previousProjectIdRef.current) {
+      console.log(`[Project Change Effect] Project ID changed from ${previousProjectIdRef.current} to ${options.projectId}. Reloading state.`);
+      // Project ID has actually changed, load state for the new project
+      const storageKey = `multiAgentChatHistory_${options.projectId}`;
+      let loadedMessages: Message[] | null = null;
+      try {
+        const storedMessages = localStorage.getItem(storageKey);
+        if (storedMessages) {
+          loadedMessages = JSON.parse(storedMessages);
+          console.log(`[Project Change Effect] Loaded ${loadedMessages?.length} messages for new project ${options.projectId}`);
+        } else {
+           console.log(`[Project Change Effect] No stored messages for new project ${options.projectId}`);
+        }
+      } catch (error) {
+        console.error("Error reading messages from localStorage on project change:", error);
+      }
+      // Set messages for the new project, falling back to initial/empty
+      setMessages(loadedMessages || options.initialMessages || []);
+      setCurrentThreadId(null); // Reset thread ID when project changes
+
+      // Update project context
       projectContext.setActiveProject(options.projectId);
-      // Fetch details if needed for UI, but don't add system message here
       const fetchProject = async () => {
         await projectContext.fetchProjectDetails(options.projectId || '');
       };
       fetchProject();
-      // Reset thread if project changes? Or handle in backend? For now, just set active project.
-      // Consider resetting thread ID if project changes significantly mid-conversation
-      // setCurrentThreadId(null); // Example: Reset thread on project change
+
+    } else if (!options.projectId && previousProjectIdRef.current) {
+       console.log(`[Project Change Effect] Project ID removed (was ${previousProjectIdRef.current}). Clearing state.`);
+       // Project ID was removed, clear messages
+       setMessages(options.initialMessages || []);
+       setCurrentThreadId(null);
+    } else {
+       // Project ID is the same or still undefined, do nothing related to message state loading here.
+       // We still might need to update the project context if other details changed,
+       // but let's keep it simple for now unless needed.
+       // projectContext.setActiveProject(options.projectId); // Potentially redundant if ID hasn't changed
     }
-  }, [options.projectId, projectContext]);
+
+    // Update the ref *after* the comparison
+    previousProjectIdRef.current = options.projectId;
+
+    // Dependencies: Only run when projectId actually changes.
+    // Assuming initialMessages and projectContext are stable or memoized upstream.
+  }, [options.projectId, options.initialMessages, projectContext]);
+
+  // Effect to save messages to localStorage whenever they change
+  useEffect(() => {
+    // Guard against saving/removing if projectId is not set
+    if (!options.projectId) {
+      console.log("[Chat Save Effect] No projectId, skipping localStorage update.");
+      return;
+    }
+
+    const storageKey = `multiAgentChatHistory_${options.projectId}`;
+    
+    if (messages.length > 0) { // Save if messages exist
+      console.log(`[Chat Save Effect] Saving ${messages.length} messages for projectId: ${options.projectId}`);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(messages));
+      } catch (error) {
+        console.error("Error saving messages to localStorage:", error);
+        toast.error("Could not save chat history.");
+      }
+    } else { // Remove if messages array is empty
+      console.log(`[Chat Save Effect] Removing messages from localStorage for projectId: ${options.projectId}`);
+      try {
+        // Check if item exists before removing to avoid unnecessary operations
+        if (localStorage.getItem(storageKey)) {
+          localStorage.removeItem(storageKey);
+          console.log(`[Chat Save Effect] Successfully removed item for ${options.projectId}`);
+        } else {
+           console.log(`[Chat Save Effect] No item found to remove for ${options.projectId}`);
+        }
+      } catch (error) {
+        console.error("Error removing messages from localStorage:", error);
+      }
+    }
+  }, [messages, options.projectId]); // Dependencies remain the same
 
   // Keep user credits fetch logic
   useEffect(() => {
@@ -109,8 +205,18 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const clearChat = () => {
     // Preserve any system context messages if needed, otherwise clear all
     // const systemMessages = messages.filter(msg => msg.role === 'system' && msg.type === 'context');
-    setMessages([]); // Clear all messages
+    setMessages([]); // Clear state messages - this triggers the save effect which removes from localStorage
     setCurrentThreadId(null); // Reset thread ID on clear
+    
+    // Explicitly clear localStorage as well (belt-and-suspenders)
+    if (options.projectId) {
+      const storageKey = `multiAgentChatHistory_${options.projectId}`;
+      try {
+        localStorage.removeItem(storageKey);
+      } catch (error) {
+        console.error("Error clearing messages from localStorage:", error);
+      }
+    }
   };
   
   const addAttachments = (newAttachments: any[]) => {

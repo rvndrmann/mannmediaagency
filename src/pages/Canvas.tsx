@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button'; // Import Button
+import { ArrowLeft } from 'lucide-react'; // Import ArrowLeft icon
 import { useAuth } from '@/hooks/use-auth';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
 import { useCanvasAgent } from '@/hooks/use-canvas-agent';
@@ -146,7 +148,9 @@ export default function Canvas() {
 
   useEffect(() => {
     if (routeProjectId) {
-      fetchProject();
+      // Use selectProject instead of fetchProject to ensure internal state is set correctly
+      console.log(`[Canvas Effect] Route project ID detected: ${routeProjectId}. Calling selectProject.`);
+      selectProject(routeProjectId);
     }
   }, [routeProjectId, fetchProject]);
 
@@ -345,11 +349,17 @@ export default function Canvas() {
   // If we have project data (either from URL fetch or selection)
   if (project) {
     return (
-      <div className="flex flex-col h-screen"> {/* Reverted background */}
+      <div className="flex flex-col h-screen">
+        {/* Add Back button before the header */}
+        <div className="p-2 border-b bg-background"> {/* Simple container for the back button */}
+           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+             <ArrowLeft className="mr-2 h-4 w-4" /> Back
+           </Button>
+        </div>
         <CanvasHeaderAdapter
           project={project}
           updateProject={updateProject}
-          createNewProject={createNewProject} // Pass createNewProject down
+          createNewProject={createNewProject}
           onToggleScriptPanel={toggleScriptPanel}
           onToggleDetailPanel={toggleDetailPanel}
           onToggleChatPanel={toggleChatPanel}

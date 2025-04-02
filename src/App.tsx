@@ -1,5 +1,4 @@
-
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom"; // Removed useLocation
 import { Toaster } from "sonner";
 import MultiAgentChat from "./pages/MultiAgentChat";
 import { VideoProjectPage } from "./pages/VideoProjectPage";
@@ -18,6 +17,76 @@ import "./hooks/multi-agent/init"; // Import to auto-initialize the multi-agent 
 import LoginForm from "./components/auth/LoginForm";
 import SignupForm from "./components/auth/SignupForm";
 import AuthCallback from "./components/auth/AuthCallback";
+import Admin from "./pages/Admin"; // Import existing Admin page
+import AdminTaskManagement from "./pages/AdminTaskManagement"; // Import the new Admin Task page
+// import WorkerTasks from "./pages/WorkerTasks"; // Removed import
+import { useAuth } from "./hooks/use-auth"; // Import useAuth hook
+import { supabase } from "./integrations/supabase/client"; // Import supabase client
+import { useEffect, useState } from "react"; // Import React hooks
+import { Button } from "./components/ui/button"; // For potential access denied message
+
+// Helper component for protected admin routes
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading: authLoading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) {
+        // If no user is logged in after auth check, they are not admin
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+      // Only proceed if we have a user object
+      try {
+        setLoading(true); // Ensure loading state is true while checking
+        const { data, error } = await supabase.rpc('check_is_admin');
+        if (error) {
+          console.error("Error checking admin status:", error);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(!!data); // Set admin status based on RPC result
+        }
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+        setIsAdmin(false); // Assume not admin on error
+      } finally {
+        setLoading(false); // Set loading to false after check completes
+      }
+    };
+
+    // Only run the check when auth loading is finished
+    if (!authLoading) {
+      checkAdminStatus();
+    }
+  }, [user, authLoading]); // Dependencies: user object and auth loading state
+
+  // Show loading indicator while auth or admin check is in progress
+  if (authLoading || loading) {
+    // Optional: Add a more sophisticated loading spinner here
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  // If loading is finished and user is not admin (or not logged in), show access denied
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+        <p className="mb-8">You don't have permission to access this page.</p>
+        <Button onClick={() => navigate("/")}>Return to Home</Button>
+      </div>
+    );
+  }
+
+  // If loading is finished and user is admin, render the protected content
+  return <>{children}</>;
+};
+// ProtectedRoute component removed as it's no longer used for this feature.
+// If needed elsewhere, it can be kept or moved to a separate file.
+
 
 function App() {
   return (
@@ -38,7 +107,14 @@ function App() {
           <Route path="/custom-orders" element={<CustomOrders />} />
           <Route path="/video-projects" element={<VideoProjectPage />} />
           <Route path="/video-projects/:projectId" element={<VideoProjectPage />} />
-          
+
+          {/* Admin routes */}
+          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+          <Route path="/admin/tasks" element={<AdminRoute><AdminTaskManagement /></AdminRoute>} />
+{/* Worker routes (Removed) */}
+{/* <Route path="/worker/tasks" element={<ProtectedRoute><WorkerTasks /></ProtectedRoute>} /> */}
+
+
           {/* Auth routes */}
           <Route path="/auth/login" element={<LoginForm />} />
           <Route path="/auth/signup" element={<SignupForm />} />

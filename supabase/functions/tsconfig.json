@@ -12,9 +12,11 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true, // Allow importing .ts files
     "noEmit": true, // Supabase CLI handles emitting
+    // Add Deno types for local development environment
+    "types": ["https://deno.land/x/deno/cli/types/dts/index.d.ts"],
     // Settings for JSX if used (adjust if not needed)
-    "jsx": "react-jsx", 
-    "jsxImportSource": "npm:react" 
+    "jsx": "react-jsx",
+    "jsxImportSource": "npm:react"
   },
   // Define the scope of this configuration
   "include": ["./**/*.ts"],

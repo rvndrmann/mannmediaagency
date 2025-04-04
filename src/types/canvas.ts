@@ -87,10 +87,11 @@ export interface CanvasScene {
   // Added field for Bria V2 request ID
   bria_v2_request_id?: string; // Database column name
   briaV2RequestId?: string; // Normalized name for frontend use (optional, depends on data fetching)
-
-  // Added field for Fal AI TTS voiceover
-  voiceover_audio_url?: string | null; // Database column name
-  voiceoverAudioUrl?: string | null; // Normalized name for frontend use
+// Added field for Fal AI TTS voiceover
+voiceover_audio_url?: string | null; // Database column name
+voiceoverAudioUrl?: string | null; // Normalized name for frontend use
+fal_tts_request_id?: string; // Database column name for TTS request ID
+falTtsRequestId?: string; // Normalized name for frontend use
 }
 
 export type WorkflowStage = 
@@ -140,7 +141,9 @@ export type SceneUpdateType =
   | 'voiceOverText'
   | 'sceneImageV1' // Type for updating Scene Image V1 URL
   | 'sceneImageV2' // Type for updating Scene Image V2 URL
-  | 'bria_v2_request_id'; // Type for updating Bria V2 request ID
+  | 'bria_v2_request_id' // Type for updating Bria V2 request ID
+  | 'fal_tts_request_id' // Type for updating Fal TTS request ID
+  | 'voiceoverAudioUrl'; // Type for updating generated voiceover URL
 
 export interface SceneData {
   id?: string;
@@ -188,4 +191,28 @@ export interface SceneData {
   scene_image_v1_url?: string;
   sceneImageV2Url?: string;
   scene_image_v2_url?: string;
+}
+
+// --- Admin Update Types ---
+
+// Represents the structure of a record in the admin_scene_updates table
+export interface AdminSceneUpdate {
+  id: string; // uuid
+  scene_id: string; // uuid, FK to canvas_scenes
+  admin_user_id: string; // uuid, FK to auth.users
+  update_type: 'script' | 'voiceover' | 'image_prompt' | 'description' | 'image_url' | 'video_url' | 'other'; // TEXT
+  update_content?: string | null; // TEXT
+  created_at: string; // TIMESTAMPTZ
+  updated_at: string; // TIMESTAMPTZ
+}
+
+// Represents the payload received from Supabase Realtime for INSERT events
+// on the admin_scene_updates table.
+export interface AdminSceneUpdatePayload {
+  type: 'INSERT'; // We are specifically listening for INSERTs
+  table: 'admin_scene_updates';
+  schema: 'public';
+  record: null; // For INSERT, 'record' is null
+  old_record: null; // For INSERT, 'old_record' is null
+  new: AdminSceneUpdate; // The newly inserted record
 }

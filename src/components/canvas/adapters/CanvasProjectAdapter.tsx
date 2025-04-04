@@ -64,7 +64,7 @@ interface CanvasDetailPanelAdapterProps {
   scene: CanvasScene | null;
   project: CanvasProject | null; // Add project prop
   projectId: string;
-  updateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: SceneUpdateType | 'fal_tts_request_id' | 'voiceoverAudioUrl', value: string | null) => Promise<void>;
   // updateProject prop removed
   collapsed?: boolean; // Made optional
   setCollapsed?: (collapsed: boolean) => void; // Made optional

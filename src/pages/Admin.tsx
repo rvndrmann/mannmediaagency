@@ -13,6 +13,7 @@ import { AdminUsersList } from "@/components/admin/AdminUsersList";
 import { AdminUsageStats } from "@/components/admin/AdminUsageStats";
 import { CustomOrderLinks } from "@/components/admin/CustomOrderLinks";
 import { AIToolsOverview } from "@/components/admin/AIToolsOverview";
+import { AdminCanvasIntervention } from "@/components/admin/AdminCanvasIntervention"; // Import the new component
 import { toast } from "sonner";
 
 const Admin = () => {
@@ -110,12 +111,13 @@ const Admin = () => {
 
         <div className="container mx-auto py-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-5 w-full max-w-[750px] mx-auto mb-6">
+            <TabsList className="grid grid-cols-6 w-full max-w-[900px] mx-auto mb-6"> {/* Updated grid-cols and max-w */}
               <TabsTrigger value="orders">Custom Orders</TabsTrigger>
               <TabsTrigger value="links">Order Links</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="stats">Usage Stats</TabsTrigger>
               <TabsTrigger value="ai-tools">AI Tools</TabsTrigger>
+              <TabsTrigger value="canvas-updates">Canvas Updates</TabsTrigger> {/* Added new tab trigger */}
             </TabsList>
             
             <TabsContent value="orders" className="mt-6">
@@ -136,6 +138,10 @@ const Admin = () => {
             
             <TabsContent value="ai-tools" className="mt-6">
               <AIToolsOverview key={isRefreshing ? 'refresh-ai-tools' : 'ai-tools'} />
+            </TabsContent>
+            
+            <TabsContent value="canvas-updates" className="mt-6"> {/* Added new tab content */}
+              <AdminCanvasIntervention key={isRefreshing ? 'refresh-canvas' : 'canvas'} />
             </TabsContent>
           </Tabs>
         </div>

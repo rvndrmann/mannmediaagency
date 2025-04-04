@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { sendChatMessage } from "@/hooks/multi-agent/api-client"; // Already updated
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
+import { useContext } from 'react'; // <--- Add useContext import
+import { useCanvasMcpContext } from '@/contexts/CanvasMcpContext'; // <--- Import CORRECT hook
 
 // Remove AgentType export if no longer needed
 // export type { AgentType } from "@/hooks/multi-agent/runner/types";
@@ -25,6 +27,7 @@ interface UseMultiAgentChatOptions {
 export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const { sessions, updateChatSession } = useChatSession(); // Get sessions from context
   const projectContext = useProjectContext();
+  const canvasAgent = useCanvasMcpContext(); // <-- Use the CORRECT hook
 
   // Initialize messages state: Prioritize session, then localStorage, then initial props
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -268,29 +271,140 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   // --- Update handleSendMessage ---
   const handleSendMessage = useCallback(async (messageText: string, attachments: any[] = []) => {
     if (!messageText.trim() && attachments.length === 0) return;
-    
+
+    // --- NLU for Scene Modification ---
+    const sceneUpdateRegex = /^(?:change|update|set)\s+(?:the\s+)?(script|voiceover|image prompt|description)\s*(?:for|in|on)\s+(?:scene\s+(\d+)|the\s+(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\s+scene)?\s*(?:to|as)\s+['"]?(.+)['"]?$/i;
+    const sceneUpdateCurrentRegex = /^(?:change|update|set)\s+(?:the\s+)?(script|voiceover|image prompt|description)\s*(?:to|as)\s+['"]?(.+)['"]?$/i;
+
+    const sceneWordToNum: { [key: string]: number } = {
+      first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10
+    };
+
+    let match = messageText.match(sceneUpdateRegex);
+    let isCurrentSceneUpdate = false;
+    if (!match) {
+        match = messageText.match(sceneUpdateCurrentRegex);
+        isCurrentSceneUpdate = !!match;
+    }
+
+    if (match && canvasAgent) {
+      const field = match[1].toLowerCase();
+      let sceneIndex: number | null = null;
+      let content: string = '';
+
+      if (isCurrentSceneUpdate) {
+          content = match[2];
+          // Use current scene ID from options if available
+          if (options.sceneId && projectContext.projectDetails && projectContext.projectDetails.scenes) { // <-- Check both projectDetails and scenes
+              const currentSceneIndex = projectContext.projectDetails.scenes.findIndex(s => s.id === options.sceneId);
+              if (currentSceneIndex !== -1) {
+                  sceneIndex = currentSceneIndex; // 0-based index
+              } else {
+                  console.warn(`Current sceneId ${options.sceneId} not found in project scenes.`);
+                  // sceneIndex remains null if not found
+              }
+          } else if (projectContext.projectDetails && projectContext.projectDetails.scenes && projectContext.projectDetails.scenes.length > 0) { // <-- Check both projectDetails and scenes
+              // Fallback to first scene if no sceneId provided but scenes exist
+              sceneIndex = 0;
+              console.warn(`No current sceneId provided, defaulting to first scene (index 0).`);
+          }
+          // If neither condition is met (e.g., no projectDetails), sceneIndex remains null
+      } else {
+          const sceneNumStr = match[2];
+          const sceneOrdinalStr = match[3];
+          content = match[4];
+
+          if (sceneNumStr) {
+              sceneIndex = parseInt(sceneNumStr, 10) - 1; // Convert to 0-based index
+          } else if (sceneOrdinalStr) {
+              sceneIndex = sceneWordToNum[sceneOrdinalStr.toLowerCase()] - 1; // Convert to 0-based index
+          }
+      }
+
+      // Ensure projectDetails, scenes exist, and sceneIndex is valid before proceeding
+      if (sceneIndex !== null && sceneIndex >= 0 &&
+          projectContext.projectDetails && projectContext.projectDetails.scenes &&
+          sceneIndex < projectContext.projectDetails.scenes.length) {
+        const targetScene = projectContext.projectDetails.scenes[sceneIndex]; // Now safe to access
+        const targetSceneId = targetScene.id;
+        let updateFunction: ((sceneId: string, value: string) => Promise<void>) | undefined;
+        let fieldNameForDisplay = field;
+
+        switch (field) {
+          case 'script':
+            updateFunction = canvasAgent.updateSceneScript;
+            break;
+          case 'voiceover':
+            updateFunction = canvasAgent.updateSceneVoiceover;
+            break;
+          case 'image prompt':
+            updateFunction = canvasAgent.updateSceneImagePrompt;
+            fieldNameForDisplay = 'image prompt';
+            break;
+          case 'description':
+            updateFunction = canvasAgent.updateSceneDescription;
+            break;
+        }
+
+        if (updateFunction) {
+          console.log(`NLU Match: Updating ${field} for scene ${sceneIndex + 1} (ID: ${targetSceneId})`);
+          setIsLoading(true); // Show loading indicator
+          try {
+            await updateFunction(targetSceneId, content);
+            const confirmationMessage: Message = {
+              id: uuidv4(),
+              role: 'assistant', // Use standard role
+              content: `Okay, I've updated the ${fieldNameForDisplay} for scene ${sceneIndex + 1}.`,
+              createdAt: new Date().toISOString(),
+              // Removed invalid type: 'confirmation'
+            };
+            setMessages(prev => [...prev, confirmationMessage]);
+            toast.success(`Updated ${fieldNameForDisplay} for scene ${sceneIndex + 1}.`);
+          } catch (error) {
+            console.error(`Error updating ${field} via NLU:`, error);
+            toast.error(`Failed to update ${fieldNameForDisplay}.`);
+            const errorMessage: Message = {
+              id: uuidv4(),
+              role: 'system',
+              content: `Sorry, I couldn't update the ${fieldNameForDisplay} for scene ${sceneIndex + 1}. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              createdAt: new Date().toISOString(),
+              type: 'error',
+            };
+            setMessages(prev => [...prev, errorMessage]);
+          } finally {
+            setIsLoading(false); // Hide loading indicator
+          }
+          return; // Stop processing, don't send to backend AI
+        }
+      } else {
+          console.log("NLU Match, but scene index is invalid or project/scenes data is missing.");
+          // Optionally add a message indicating the scene wasn't found, or let it fall through to the AI
+      }
+    }
+    // --- End NLU ---
+
     if (isLoading || processingRef.current) {
       console.log("Already processing a request - preventing duplicate send");
       return;
     }
-    
+
     // Generate a unique message ID and submission ID
     const messageId = uuidv4();
     const submissionId = uuidv4();
-    
+
     // Check for very recent submissions to prevent double-clicks
     const now = Date.now();
     if (now - lastSubmissionTimeRef.current < 1000) {
       console.log("Preventing duplicate submission - too soon after last submission");
       return;
     }
-    
+
     // Clear any pending timeout
     if (processingTimeoutRef.current) {
       window.clearTimeout(processingTimeoutRef.current);
       processingTimeoutRef.current = null;
     }
-    
+
     // Set a timeout to reset processing state if something goes wrong
     processingTimeoutRef.current = window.setTimeout(() => {
       if (processingRef.current && submissionIdRef.current === submissionId) {
@@ -298,10 +412,10 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         processingRef.current = false;
         setIsLoading(false);
         submissionIdRef.current = null;
-        
+
         // Add error message
         const timeoutErrorId = uuidv4();
-        
+
         setMessages(prev => [
           ...prev,
           {
@@ -313,16 +427,16 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
             status: 'error'
           }
         ]);
-        
+
         toast.error("Request timed out. Please try again.");
       }
     }, 240000) as unknown as number; // 4 minute safety timeout (longer than backend polling)
-    
+
     // Update tracking refs
     lastSubmissionTimeRef.current = now;
     processingRef.current = true;
     submissionIdRef.current = submissionId;
-    
+
     try {
       setIsLoading(true);
       
@@ -433,10 +547,12 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       isLoading,
       messages,
       options.projectId,
-      options.sceneId, // <-- Add sceneId dependency
+      options.sceneId,
       options.sessionId,
       updateChatSession,
-      currentThreadId
+      currentThreadId,
+      canvasAgent, // <-- Add canvasAgent dependency
+      projectContext.projectDetails // <-- Use CORRECT dependency
       // Remove dependencies no longer used: activeAgent, usePerformanceModel, processHandoff
   ]);
 

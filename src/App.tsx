@@ -4,6 +4,7 @@ import MultiAgentChat from "./pages/MultiAgentChat";
 import { VideoProjectPage } from "./pages/VideoProjectPage";
 import Index from "./pages/Index";
 import { MCPProvider } from "./contexts/MCPContext";
+import { CanvasMcpProvider } from "./contexts/CanvasMcpContext"; // Added import
 import Canvas from "./pages/Canvas";
 import ProductShot from "./pages/ProductShot";
 import ProductShootV2 from "./pages/ProductShootV2";
@@ -97,7 +98,7 @@ function App() {
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Index />} />
           {/* Added optional projectId parameter */}
-          <Route path="/multi-agent-chat/:projectId?" element={<MultiAgentChat />} />
+          <Route path="/multi-agent-chat/:projectId?" element={<CanvasMcpProvider><MultiAgentChat /></CanvasMcpProvider>} />
           <Route path="/canvas" element={<Canvas />} />
           <Route path="/canvas/:projectId" element={<Canvas />} />
           <Route path="/product-shoot" element={<ProductShot />} />

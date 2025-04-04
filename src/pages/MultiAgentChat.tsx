@@ -6,14 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Bot, Send, User, Zap, Trash2, Hammer, BarChartBig, Paperclip, ArrowLeft, LayoutGrid, ExternalLink } from "lucide-react"; // Add ArrowLeft, LayoutGrid, ExternalLink
+import { Bot, Send, User, Zap, Trash2, Hammer, BarChartBig, Paperclip, ArrowLeft, LayoutGrid, ExternalLink, Edit3, Info } from "lucide-react"; // Add ArrowLeft, LayoutGrid, ExternalLink, Edit3, Info
 import { useMCPContext } from "@/contexts/MCPContext";
 import { MCPServerService } from "@/services/mcpService";
 import { v4 as uuidv4 } from "uuid";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
+import { useCanvasAgent } from "@/hooks/use-canvas-agent"; // Import useCanvasAgent
 import { toast } from "sonner";
 import { Message, Attachment } from "@/types/message";
-import { AgentType } from "@/hooks/multi-agent/runner/types";
+// AgentType might not be needed anymore if ChatMessage handles labels
+// import { AgentType } from "@/hooks/multi-agent/runner/types";
+import { ChatMessage } from "@/components/chat/ChatMessage"; // Import ChatMessage
 import { 
   Tooltip, 
   TooltipContent, 
@@ -23,6 +26,7 @@ import {
 import { ProjectSelector } from "@/components/multi-agent/ProjectSelector";
 import { AttachmentButton } from "@/components/multi-agent/AttachmentButton";
 import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
+import { CanvasMcpProvider } from "@/contexts/CanvasMcpContext"; // <-- Import CanvasMcpProvider
 
 // Define props interface
 interface MultiAgentChatProps {
@@ -82,6 +86,12 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
   const { status, reconnectToMcp } = useMCPContext();
   const connectionStatus = status; // Use the status from the context
 
+  // Instantiate useCanvasAgent to get modification functions
+  const canvasAgent = useCanvasAgent({
+    projectId: selectedProjectId,
+    // sceneId: sceneId, // sceneId from props might be for a specific context, agent handles its own scene focus? Check useCanvasAgent usage. Let's assume it's not needed here for now.
+    // updateScene function is likely handled internally or via MCP now, check useCanvasAgent implementation if needed.
+  });
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
@@ -164,18 +174,7 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
     }
   };
   
-  const getAgentName = (agentType: AgentType): string => {
-    switch (agentType) {
-      case "main": return "Main Assistant";
-      case "script": return "Script Writer";
-      case "image": return "Image Generator";
-      case "tool": return "Tool Specialist";
-      case "scene": return "Scene Creator";
-      case "data": return "Data Agent";
-      default: return "Assistant";
-    }
-  };
-
+  // Removed unused getAgentName function as ChatMessage handles agent labels now
   // Wrap handleProjectSelect in useCallback
   const handleProjectSelect = useCallback((projectId: string) => {
     setSelectedProjectId(projectId);
@@ -197,9 +196,56 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
     }
   }, [projectIdFromUrl, selectedProjectId]);
 
+  // --- Scene Edit Handlers ---
+  const handleEditSceneScript = useCallback((sceneId: string) => {
+    const newScript = prompt(`Enter new script for Scene ${sceneId}:`);
+    if (newScript !== null) { // Check if user cancelled prompt
+      canvasAgent.updateSceneScript(sceneId, newScript)
+        .then(success => {
+          if (success) toast.success(`Script for scene ${sceneId} update requested.`);
+          // No need to add message here, useCanvasAgent adds system message on success/failure
+        })
+        .catch(err => toast.error(`Failed to update script: ${err.message}`));
+    }
+  }, [canvasAgent]);
+
+  const handleEditSceneVoiceover = useCallback((sceneId: string) => {
+    const newVoiceover = prompt(`Enter new voiceover text for Scene ${sceneId}:`);
+    if (newVoiceover !== null) {
+      canvasAgent.updateSceneVoiceover(sceneId, newVoiceover)
+        .then(success => {
+          if (success) toast.success(`Voiceover for scene ${sceneId} update requested.`);
+        })
+        .catch(err => toast.error(`Failed to update voiceover: ${err.message}`));
+    }
+  }, [canvasAgent]);
+
+  const handleEditSceneImagePrompt = useCallback((sceneId: string) => {
+    const newPrompt = prompt(`Enter new image prompt for Scene ${sceneId}:`);
+    if (newPrompt !== null) {
+      canvasAgent.updateSceneImagePrompt(sceneId, newPrompt)
+        .then(success => {
+          if (success) toast.success(`Image prompt for scene ${sceneId} update requested.`);
+        })
+        .catch(err => toast.error(`Failed to update image prompt: ${err.message}`));
+    }
+  }, [canvasAgent]);
+
+  const handleEditSceneDescription = useCallback((sceneId: string) => {
+    const newDescription = prompt(`Enter new description for Scene ${sceneId}:`);
+    if (newDescription !== null) {
+      canvasAgent.updateSceneDescription(sceneId, newDescription)
+        .then(success => {
+          if (success) toast.success(`Description for scene ${sceneId} update requested.`);
+        })
+        .catch(err => toast.error(`Failed to update description: ${err.message}`));
+    }
+  }, [canvasAgent]);
+
   return (
     <>
-    <Layout>
+    <CanvasMcpProvider projectId={selectedProjectId}>
+      <Layout>
       {/* Adjusted container for better height management */}
       <div className="container mx-auto p-4 flex flex-col h-[calc(100vh-80px)]">
         <div className="flex items-center justify-between mb-4"> {/* Flex container for title and buttons */}
@@ -369,50 +415,19 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
           {/* Reduce bottom padding to better match input area height */}
           <ScrollArea className="p-4 min-h-0 pb-[130px]" ref={scrollAreaRef}>
             <div className="space-y-4">
+              {/* Use ChatMessage component for rendering */}
               {messages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={`flex ${
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  <div 
-                    className={`max-w-[80%] p-3 rounded-lg ${
-                      message.role === 'user' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : message.role === 'system'
-                        ? 'bg-muted' 
-                        : 'bg-secondary'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      {message.role === 'user' ? (
-                        <User className="h-4 w-4" />
-                      ) : (
-                        <Bot className="h-4 w-4" />
-                      )}
-                      <span className="text-xs opacity-70">
-                        {message.role === 'user' ? 'You' : 
-                        message.role === 'system' ? 'System' : 'Assistant'}
-                        {/* Simplified agent name display */}
-                      </span>
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    
-                    {message.attachments && message.attachments.length > 0 && (
-                      <div className="mt-2">
-                        <AttachmentPreview 
-                          attachments={message.attachments} 
-                          isRemovable={false}
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="text-xs opacity-50 mt-1 text-right">
-                      {new Date(message.createdAt).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
+                 <ChatMessage
+                   key={message.id}
+                   message={message}
+                   showAgentLabel={true} // Show agent names like "Script Writer"
+                   // Pass the edit handlers
+                   onEditSceneScript={handleEditSceneScript}
+                   onEditSceneVoiceover={handleEditSceneVoiceover}
+                   onEditSceneImagePrompt={handleEditSceneImagePrompt}
+                   onEditSceneDescription={handleEditSceneDescription}
+                   // Add other props like compact if needed based on context
+                 />
               ))}
               {isLoading && (
                 <div className="flex justify-start">
@@ -494,7 +509,8 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
         {/* Removed the intermediate div wrapper */}
         </div>{/* Close Simplified Chat Area Container */}
       </div>
-    </Layout>
+      </Layout>
+    </CanvasMcpProvider>
     </>
   );
 };

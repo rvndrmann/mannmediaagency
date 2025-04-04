@@ -24,7 +24,7 @@ interface CanvasDetailPanelProps {
   scene: CanvasScene | null;
   projectId: string;
   project: CanvasProject | null;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2' | 'bria_v2_request_id', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2' | 'bria_v2_request_id' | 'fal_tts_request_id' | 'voiceoverAudioUrl', value: string | null) => Promise<void>;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 }
@@ -52,7 +52,11 @@ export function CanvasDetailPanel({
   const [isRechecking, setIsRechecking] = useState(false); // State for manual recheck loading
   const [isGeneratingVideoV1, setIsGeneratingVideoV1] = useState(false); // Loading state for Video V1
   const [isGeneratingVideoV2, setIsGeneratingVideoV2] = useState(false); // Loading state for Video V2
-  const [isGeneratingVoiceOver, setIsGeneratingVoiceOver] = useState(false); // Loading state for Auto Voice Over
+  const [isGeneratingVoiceOver, setIsGeneratingVoiceOver] = useState(false); // Loading state for Auto Voice Over generation/polling
+  const [ttsPollingIntervalId, setTtsPollingIntervalId] = useState<NodeJS.Timeout | null>(null); // State for TTS interval ID
+  const [ttsPollingRequestId, setTtsPollingRequestId] = useState<string | null>(null); // State for TTS request ID being polled
+  const [ttsPollingStartTime, setTtsPollingStartTime] = useState<number | null>(null); // State for TTS polling start time
+  const [isRecheckingVoiceOver, setIsRecheckingVoiceOver] = useState(false); // State for manual TTS recheck loading
 
   const {
     isProcessing, // Renamed from agentIsProcessing
@@ -445,23 +449,27 @@ export function CanvasDetailPanel({
     }
   };
 
-  // Cleanup polling interval on unmount or scene change
-   useEffect(() => {
-     const currentIntervalId = pollingIntervalId; // Capture interval ID at the time effect runs
-     return () => {
-       if (currentIntervalId) {
-         console.log(`%c[useEffect Cleanup - Scene Change/Unmount] Clearing interval ID: ${currentIntervalId}`, 'color: brown');
-         clearInterval(currentIntervalId);
-         // Reset polling state associated with the *cleared* interval
-         // Avoid resetting if a *new* poll has already started for a different scene
-         // This check might need refinement depending on exact component lifecycle interaction
-         // setPollingIntervalId(null); // Let the next effect handle setting it if needed
-         // setPollingRequestId(null);
-         // setPollingStartTime(null);
-         // setIsGeneratingV2(false);
-       }
-     };
-   }, [scene?.id]); // Depend only on scene.id for this cleanup
+  // Cleanup Bria polling interval on unmount or scene change
+  useEffect(() => {
+    const currentBriaIntervalId = pollingIntervalId; // Capture Bria interval ID
+    return () => {
+      if (currentBriaIntervalId) {
+        console.log(`%c[useEffect Cleanup - Bria] Clearing interval ID: ${currentBriaIntervalId}`, 'color: brown');
+        clearInterval(currentBriaIntervalId);
+      }
+    };
+  }, [scene?.id]); // Depend only on scene.id for Bria cleanup
+
+  // Cleanup TTS polling interval on unmount or scene change
+  useEffect(() => {
+    const currentTtsIntervalId = ttsPollingIntervalId; // Capture TTS interval ID
+    return () => {
+      if (currentTtsIntervalId) {
+        console.log(`%c[useEffect Cleanup - TTS] Clearing interval ID: ${currentTtsIntervalId}`, 'color: brown');
+        clearInterval(currentTtsIntervalId);
+      }
+    };
+  }, [scene?.id]); // Depend only on scene.id for TTS cleanup
 
 
  // Manual Recheck Function
@@ -1034,7 +1042,7 @@ export function CanvasDetailPanel({
               {/* Uploader for adding new videos */}
               <VideoUploader
                 // projectId={projectId} // Removed as VideoUploader doesn't accept this prop
-                sceneId={scene?.id} // Keep sceneId if VideoUploader needs it
+                // sceneId={scene?.id} // Removed as VideoUploader doesn't accept this prop
                 bucketName="canvas-assets" // Keep bucketName
                 label="Add New Video" // Change label for clarity
                 // Pass a function to add, not replace. Remove props related to single URL display/removal.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react"; // Added useCallback
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -9,6 +9,7 @@ import { GalleryPanel } from "@/components/image-to-video/GalleryPanel";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
+import { useFalImageToVideo } from "@/hooks/useFalImageToVideo"; // Import the new hook
 
 interface SupabaseVideoJob {
   id: string;
@@ -42,6 +43,15 @@ const ImageToVideo = () => {
   const [aspectRatio, setAspectRatio] = useState<string>("9:16");
   const [messages, setMessages] = useState<Message[]>([]);
   const [activePanel, setActivePanel] = useState<'input' | 'gallery'>('input');
+  const {
+    submitJob: submitFalJob,
+    isLoading: isSubmitting, // Renamed to avoid conflict
+    isPolling,
+    error: falError,
+    status: falStatus,
+    videoUrl: falVideoUrl,
+    requestId: falRequestId,
+  } = useFalImageToVideo();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -144,7 +154,8 @@ const ImageToVideo = () => {
     console.log("Selected image from history:", imageUrl);
   };
 
-  const handleGenerate = async () => {
+  // Wrap handleGenerate in useCallback
+  const handleGenerate = useCallback(async () => {
     if ((!selectedFile && !selectedImageUrl) || !prompt.trim()) {
       toast.error("Please provide both an image and a prompt");
       return;
@@ -189,50 +200,29 @@ const ImageToVideo = () => {
         throw new Error("Failed to get public URL for the image");
       }
 
-      console.log("Starting video generation with URL:", publicUrl);
-      
-      const { data: jobData, error: jobError } = await supabase
-        .from('video_generation_jobs')
-        .insert({
-          prompt: prompt.trim(),
-          source_image_url: publicUrl,
-          duration: "5",
-          aspect_ratio: aspectRatio,
-          status: 'in_queue',
-          user_id: session.user.id,
-          file_name: selectedFile?.name || 'image.jpg',
-          content_type: selectedFile?.type || 'image/jpeg',
-        })
-        .select()
-        .single();
+      console.log("Starting Fal AI video generation with URL:", publicUrl);
 
-      if (jobError) {
-        throw jobError;
-      }
-
-      console.log("Created job record:", jobData);
-
-      const response = await supabase.functions.invoke('generate-video-from-image', {
-        body: {
-          job_id: jobData.id,
-          prompt: prompt.trim(),
-          image_url: publicUrl,
-          duration: "5",
-          aspect_ratio: aspectRatio,
-        },
+      // Call the new hook's submit function
+      await submitFalJob(prompt.trim(), publicUrl, {
+          // Pass optional params - ensure types match hook definition
+          duration: 5, // Example: Hardcoding 5s duration, adjust as needed
+          aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1", // Cast aspectRatio
+          // negative_prompt: "...", // Add if needed
+          // cfg_scale: 0.5, // Add if needed
       });
 
-      console.log("Video generation response:", response);
+      // Note: The hook now handles the initial "submission successful" toast.
+      // We might want to clear the form immediately after submission is accepted.
+      // The hook's internal polling will handle status updates and final result toast.
 
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
+      // Optional: Clear form after successful submission initiation
+      // clearSelectedFile();
+      // setPrompt("");
 
-      await refetchVideos();
-      
-      toast.info("Video generation in progress. You can check the status in the gallery.", {
-        duration: 5000,
-      });
+      // We removed the direct DB insert and the old function call.
+      // We also removed the refetchVideos() call here, as the hook doesn't update the DB directly.
+      // The real-time subscription on the table remains, but won't be triggered by this flow
+      // unless we add logic to update the DB when the Fal job completes.
 
       clearSelectedFile();
       setPrompt("");
@@ -249,9 +239,10 @@ const ImageToVideo = () => {
         } : undefined
       });
     } finally {
-      setIsGenerating(false);
+      // setIsGenerating(false); // Loading state is now managed by the hook (isSubmitting, isPolling)
     }
-  };
+  // Add dependencies for useCallback
+  }, [selectedFile, selectedImageUrl, prompt, session, navigate, aspectRatio, submitFalJob]);
 
   if (!session) {
     return null;
@@ -277,11 +268,16 @@ const ImageToVideo = () => {
           onClearFile={clearSelectedFile}
           onSelectFromHistory={handleSelectFromHistory}
           onGenerate={handleGenerate}
-          isGenerating={isGenerating}
+          // Combine submission and polling states for overall "generating" status
+          isGenerating={isSubmitting || isPolling}
           creditsRemaining={userCredits?.credits_remaining}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
           messages={messages}
+          // Pass Fal AI status info down to InputPanel
+          falStatus={falStatus}
+          falError={falError}
+          falVideoUrl={falVideoUrl}
         />
         <GalleryPanel
           isMobile={isMobile}

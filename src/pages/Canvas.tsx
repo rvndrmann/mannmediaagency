@@ -1,86 +1,65 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button'; // Import Button
-import { ArrowLeft } from 'lucide-react'; // Import ArrowLeft icon
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
-import { useCanvas } from '@/hooks/use-canvas'; // Import useCanvas
-// Removed useCanvasAgent import as it's no longer needed for the removed chat panel
-// import { useCanvasAgent } from '@/hooks/use-canvas-agent';
+import { useCanvas } from '@/hooks/use-canvas';
 import {
   CanvasEmptyStateAdapter,
   CanvasHeaderAdapter,
-  CanvasWorkspaceAdapter,
-  CanvasDetailPanelAdapter,
-  CanvasScriptPanelAdapter
+  CanvasWorkspaceAdapter, // Keep for Scene List/Selection
+  CanvasDetailPanelAdapter // Keep for Scene Details
+  // Removed CanvasScriptPanelAdapter as it's no longer directly used in this layout
 } from '@/components/canvas/adapters/CanvasProjectAdapter.tsx';
 import { toast } from 'sonner';
 import { useProjectContext } from '@/hooks/multi-agent/project-context';
-// Removed CanvasChat import
-// import { CanvasChat } from '@/components/canvas/CanvasChat';
-import { CanvasScene } from '@/types/canvas'; // Removed SceneUpdateType as it's unused here
-import { CanvasProjectSelector } from '@/components/canvas/CanvasProjectSelector'; // Import the new selector
+import { CanvasScene } from '@/types/canvas';
+import { CanvasProjectSelector } from '@/components/canvas/CanvasProjectSelector';
+// Removed Tabs imports
 
 export default function Canvas() {
   const { user, loading: authLoading } = useAuth();
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate(); // Initialize useNavigate
-  const [showScriptPanel, setShowScriptPanel] = useState(false);
-  const [showDetailPanel, setShowDetailPanel] = useState(true);
-  // Removed showChatPanel state
-  // const [showChatPanel, setShowChatPanel] = useState(false);
+  const navigate = useNavigate();
   const { setActiveProject, setActiveScene } = useProjectContext();
 
-  // Use useCanvasProjects primarily for the projects list and project actions
   const {
     projects,
-    loading: projectsLoading, // Rename loading to avoid conflict
-    createProject: createProjectAction, // Rename actions to avoid conflict
+    loading: projectsLoading,
+    createProject: createProjectAction,
     updateProject: updateProjectAction,
     deleteProject: deleteProjectAction,
     selectProject,
-    fetchProjects // Fetch the list of projects
+    fetchProjects
   } = useCanvasProjects();
 
-  // Use useCanvas for the currently selected project's data and scene actions
   const {
-    project, // Get the active project state from useCanvas
-    scenes,
+    project,
+    scenes, // Keep scenes if CanvasWorkspaceAdapter needs it directly (it might)
     selectedScene,
     selectedSceneId,
-    setSelectedSceneId,
-    loading: canvasLoading, // Rename loading
-    fetchProject, // Keep fetchProject for refresh
-    addScene, // Use addScene as returned by the hook (returns Promise<CanvasScene | null>)
+    setSelectedSceneId, // Crucial for linking list selection to detail panel
+    loading: canvasLoading,
+    fetchProject,
+    addScene,
     updateScene,
-    deleteScene, // Returns Promise<boolean>
-    divideScriptToScenes, // Returns Promise<boolean>, takes script string
+    deleteScene,
+    divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,
     updateMainImageUrl
-  } = useCanvas(routeProjectId); // Pass routeProjectId directly to useCanvas
+  } = useCanvas(routeProjectId);
 
-  // Combine loading states
   const loading = authLoading || projectsLoading || canvasLoading;
 
-  // Removed useCanvasAgent hook initialization
-
-  // addScene is now directly available from useCanvas
-
-  // saveFullScript is now directly available from useCanvas
-
-  // divideScriptToScenes is now directly available from useCanvas
-
-  // Use createProjectAction from useCanvasProjects
   const createNewProject = useCallback(async (title: string, description?: string): Promise<string> => {
     console.log('[Canvas.tsx] createNewProject called with title:', title);
     try {
       const result = await createProjectAction(title, description);
-      // createProjectAction returns Promise<string> (the ID) or throws error
-      if (result) { // Check if result is truthy (non-empty string)
+      if (result) {
          return result;
       }
-      // If result is empty string or error was caught, handle below
       console.error("[Canvas.tsx] createProjectAction did not return a valid project ID");
       toast.error("Failed to get ID for the new project.");
       return "";
@@ -92,89 +71,57 @@ export default function Canvas() {
     }
   }, [createProjectAction]);
 
-  // updateProjectTitle is now directly available from useCanvas
+  const handleDeleteScene = deleteScene; // Assuming adapter expects Promise<boolean>
 
-  // deleteScene is now directly available from useCanvas
-  // Wrap deleteScene to match Promise<void> if needed by adapter (check adapter props)
-  // Assuming CanvasWorkspaceAdapter expects Promise<boolean> based on previous fix
-  const handleDeleteScene = deleteScene;
-
-  // useEffect to fetch projects list on mount (if needed, or handled within hook)
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
-  // selectProject is called by the ProjectSelector, which sets the projectId in useCanvasProjects
-  // useCanvas hook is initialized with routeProjectId, so it fetches the correct project initially.
-  // No extra effect needed here to link routeProjectId to useCanvas projectId.
-
-  // Effect to update the global context when the project from useCanvas loads/changes
    useEffect(() => {
      if (project?.id) {
        setActiveProject(project.id);
      }
    }, [project, setActiveProject]);
 
-  // REMOVED useEffect that called setActiveScene based on selectedSceneId changes
-  // Context is now updated directly in CanvasSidebar onClick
+   // Update context when selected scene changes locally
+   useEffect(() => {
+     setActiveScene(selectedSceneId);
+   }, [selectedSceneId, setActiveScene]);
 
-  // Removed agentProps definition
 
-  const toggleScriptPanel = () => setShowScriptPanel(!showScriptPanel);
-  const toggleDetailPanel = () => setShowDetailPanel(!showDetailPanel);
-  // Removed toggleChatPanel function
-  // const toggleChatPanel = () => setShowChatPanel(!showChatPanel);
-
-  // Developer mode - hidden feature to enable mock data
+  // Developer mode logic (unchanged)
   const [devModeClickCount, setDevModeClickCount] = useState(0);
   const activateDevMode = useCallback(() => {
     setDevModeClickCount(prev => {
       const newCount = prev + 1;
       console.log(`Developer mode click: ${newCount}/5`);
-
-      // After 5 quick clicks, enable mock data mode
       if (newCount >= 5) {
         import('../utils/dev-mode-helpers').then(({ enableMockDataMode }) => {
           const enabled = enableMockDataMode();
           if (enabled) {
             toast.success("Developer mode enabled with mock data", {
               description: "The app will now show sample projects without authentication",
-              action: {
-                label: "Reload",
-                onClick: () => window.location.reload()
-              }
+              action: { label: "Reload", onClick: () => window.location.reload() }
             });
           }
         });
-        return 0; // Reset counter
+        return 0;
       }
-
-      // Reset counter after 3 seconds of inactivity
       setTimeout(() => setDevModeClickCount(0), 3000);
       return newCount;
     });
   }, []);
 
-  // Check local storage for debug info
+  // Local storage debug info (unchanged)
   useEffect(() => {
     const authConfirmed = localStorage.getItem('auth_confirmed');
     const userEmail = localStorage.getItem('user_email');
     const authTimestamp = localStorage.getItem('auth_timestamp');
-
-    console.log('Local auth debug info:', {
-      authConfirmed,
-      userEmail,
-      authTimestamp,
-      currentAuthStatus: user ? 'authenticated' : 'unauthenticated',
-      authLoading
-    });
-
-    if (!user && !authLoading) {
-      console.log('User not authenticated');
-    }
+    console.log('Local auth debug info:', { authConfirmed, userEmail, authTimestamp, currentAuthStatus: user ? 'authenticated' : 'unauthenticated', authLoading });
+    if (!user && !authLoading) console.log('User not authenticated');
   }, [user, authLoading]);
 
-  // If there's a session restoration in progress, show a loading indicator
+  // Auth loading state (unchanged)
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -186,30 +133,20 @@ export default function Canvas() {
     );
   }
 
-  // --- Authentication Check ---
+  // Authentication check (unchanged)
   if (!user) {
-    // Redirect to login if not authenticated
-    console.log('Redirecting to login page - no user detected');
-
-    // Try to manually clear any invalid auth state
     localStorage.removeItem('supabase.auth.token');
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="text-center mb-6">
-          <h2
-            className="text-2xl font-bold mb-2 cursor-default"
-            onClick={activateDevMode} // Hidden dev mode trigger
-          >
+          <h2 className="text-2xl font-bold mb-2 cursor-default" onClick={activateDevMode}>
             Please sign in to view your projects
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
             You need to be signed in to create and manage video projects.
           </p>
-          {/* Small hidden indicator for dev clicks */}
           {devModeClickCount > 0 && (
-            <div className="mt-2 text-xs text-gray-400">
-              Developer mode: {devModeClickCount}/5 clicks
-            </div>
+            <div className="mt-2 text-xs text-gray-400">Developer mode: {devModeClickCount}/5 clicks</div>
           )}
         </div>
         <button
@@ -222,24 +159,9 @@ export default function Canvas() {
     );
   }
 
-  // --- Project Loading Check ---
-  // Use combined loading state
-  if (loading && !project) { // Show loading if combined state is true AND project data isn't loaded yet
-     return (
-       <div className="flex items-center justify-center h-screen">
-         <div className="text-center">
-           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-           <p className="text-lg">Loading...</p> {/* Generic loading message */}
-         </div>
-       </div>
-     );
-  }
-
-  // --- Project Selection / Empty State Logic ---
-  // --- Project Selection / Empty State Logic ---
-  // If no project ID in URL/route, show selector or empty state
+  // Project list loading state (unchanged)
   if (!routeProjectId) {
-     if (projectsLoading) { // Still loading the list? Show loader
+     if (projectsLoading) {
        return (
          <div className="flex items-center justify-center h-screen">
            <div className="text-center">
@@ -249,30 +171,25 @@ export default function Canvas() {
          </div>
        );
      } else if (projects.length > 0) {
-       // Projects list loaded, show selector
        return (
          <CanvasProjectSelector
            projects={projects}
-           onSelectProject={(id) => navigate(`/canvas/${id}`)} // Navigate on select
+           onSelectProject={(id) => navigate(`/canvas/${id}`)}
            onCreateNew={async () => {
              try {
                const newProjectId = await createNewProject("Untitled Project");
-               if (newProjectId) {
-                 navigate(`/canvas/${newProjectId}`);
-               }
+               if (newProjectId) navigate(`/canvas/${newProjectId}`);
              } catch (error) { /* Handled in createNewProject */ }
            }}
-           onDeleteProject={deleteProjectAction} // Use renamed action
+           onDeleteProject={deleteProjectAction}
          />
        );
      } else {
-       // No projects exist, show empty state
        return <CanvasEmptyStateAdapter createProject={createNewProject} />;
      }
   }
 
-  // --- Loading Specific Project Check ---
-  // If we have a routeProjectId but the project from useCanvas isn't loaded yet
+  // Specific project loading state (unchanged)
   if (routeProjectId && !project && canvasLoading) {
      return (
        <div className="flex items-center justify-center h-screen">
@@ -284,27 +201,21 @@ export default function Canvas() {
      );
   }
 
-  // --- Render Main Canvas UI ---
-  // If we have project data (either from URL fetch or selection)
+  // --- Render Main Canvas UI (Modified) ---
   if (project) {
     return (
-      <div className="flex flex-col h-screen">
-        {/* Add Back button before the header */}
-        <div className="p-2 border-b bg-background"> {/* Simple container for the back button */}
+      <div className="flex flex-col h-screen bg-background">
+        {/* Back button */}
+        <div className="p-2 border-b flex-shrink-0 bg-background"> {/* Ensure bg matches */}
            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
              <ArrowLeft className="mr-2 h-4 w-4" /> Back
            </Button>
         </div>
+        {/* Header */}
         <CanvasHeaderAdapter
-          project={project} // Pass project from useCanvas
+          project={project}
           updateProject={updateProjectAction}
           createNewProject={createNewProject}
-          onToggleScriptPanel={toggleScriptPanel}
-          onToggleDetailPanel={toggleDetailPanel}
-          // Removed chat panel toggle props
-          // onToggleChatPanel={toggleChatPanel}
-          // showChatButton={true} // We'll handle the button directly or modify adapter
-          // Add a prop for navigating to the main chat instead
           onNavigateToChat={() => {
             if (project?.id) {
               navigate(`/multi-agent-chat/${project.id}`);
@@ -314,67 +225,66 @@ export default function Canvas() {
           }}
         />
 
-        <main className="flex-1 overflow-hidden flex flex-col"> {/* Reverted background */}
-          <CanvasWorkspaceAdapter
-            project={project}
-            selectedScene={selectedScene}
-            selectedSceneId={selectedSceneId}
-            setSelectedSceneId={setSelectedSceneId}
-            mainImageUrl={project?.main_product_image_url} // Pass mainImageUrl
-            // Wrap addScene which returns Promise<CanvasScene | null> to match Promise<void>
-            addScene={async () => { await addScene(); }}
-            updateScene={updateScene}
-            deleteScene={handleDeleteScene} // Pass boolean promise directly as fixed in adapter
-            // Wrap divideScriptToScenes (boolean promise) to match void promise
-            // NOTE: Parameter type mismatch still exists (string vs array) - requires deeper fix
-            divideScriptToScenes={async (/* sceneScripts: Array<{...}> */ script: string) => {
-              console.warn("DivideScriptToScenes called via adapter with potentially incorrect parameter type");
-              await divideScriptToScenes(script); // Using the hook's function signature for now
-            }}
-            // Wrap saveFullScript (boolean promise) to match void promise
-            saveFullScript={async (script: string) => { await saveFullScript(script); }}
-            createNewProject={createNewProject}
-            // Wrap updateProjectTitle (boolean promise) to match void promise
-            updateProjectTitle={async (title: string) => { await updateProjectTitle(title); }}
-            updateMainImageUrl={updateMainImageUrl}
-            updateProject={updateProjectAction}
-            // Removed agent prop
-          />
+        {/* Main content area - Side-by-side layout */}
+        <main className="flex flex-1 overflow-hidden border-t"> {/* Added border-t */}
+
+          {/* Left Panel: Scene List (using CanvasWorkspaceAdapter) */}
+          {/* Using w-1/3, adjust as needed. Added flex structure for scrolling */}
+          <div className="w-1/3 border-r flex flex-col overflow-hidden">
+             {/* Optional Header for Scene List */}
+             {/* <div className="p-3 border-b flex-shrink-0">
+               <h3 className="font-medium text-sm">Scenes</h3>
+             </div> */}
+             <div className="flex-1 overflow-y-auto"> {/* Scrollable container */}
+               {/* CanvasWorkspaceAdapter is assumed to render the scene list and handle selection */}
+               <CanvasWorkspaceAdapter
+                 project={project}
+                 // scenes={scenes} // Removed: Adapter likely gets scenes from project prop or context
+                 selectedScene={selectedScene} // Pass selected scene for highlighting
+                 selectedSceneId={selectedSceneId} // Pass selected ID
+                 setSelectedSceneId={setSelectedSceneId} // Pass the setter to handle clicks
+                 mainImageUrl={project?.main_product_image_url}
+                 // Pass necessary actions for scene management within the list
+                 addScene={async () => { await addScene(); }}
+                 updateScene={updateScene}
+                 deleteScene={handleDeleteScene}
+                 // Re-adding props required by CanvasWorkspaceAdapterProps, even if UI is different
+                 // Wrap functions to match expected void promises if necessary (based on original code)
+                 divideScriptToScenes={async (script: string) => { await divideScriptToScenes(script); }}
+                 saveFullScript={async (script: string) => { await saveFullScript(script); }}
+                 createNewProject={createNewProject}
+                 updateProjectTitle={async (title: string) => { await updateProjectTitle(title); }}
+                 updateMainImageUrl={updateMainImageUrl}
+                 updateProject={updateProjectAction} // Pass the project update action
+               />
+             </div>
+          </div>
+
+          {/* Right Panel: Scene Details / Media */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-muted/30"> {/* Added bg color */}
+            {selectedScene ? (
+              // Render SceneDetailPanel when a scene is selected
+              // CanvasDetailPanelAdapter internally handles its scrolling now
+              <CanvasDetailPanelAdapter
+                scene={selectedScene}
+                project={project}
+                projectId={project?.id || ''}
+                updateScene={updateScene} // Pass updateScene for editing within the panel
+              />
+            ) : (
+              // Placeholder when no scene is selected
+              <div className="flex items-center justify-center h-full text-muted-foreground p-4 text-center">
+                <p>Select a scene from the list to view details and edit assets.</p>
+              </div>
+            )}
+          </div>
+
         </main>
-
-        {showDetailPanel && (
-          <CanvasDetailPanelAdapter
-            scene={selectedScene}
-            project={project} // Pass project from useCanvas
-            projectId={project?.id || ''}
-            updateScene={updateScene}
-            // updateProject prop removed from CanvasDetailPanelAdapter
-            collapsed={false}
-            setCollapsed={() => setShowDetailPanel(false)}
-          />
-        )}
-
-        {showScriptPanel && (
-          <CanvasScriptPanelAdapter
-            project={project}
-            projectId={project?.id || ''}
-            onUpdateScene={updateScene}
-            onClose={() => setShowScriptPanel(false)}
-            // Wrap saveFullScript (boolean promise) to match void promise
-            saveFullScript={async (script: string) => { await saveFullScript(script); }}
-            // Wrap divideScriptToScenes (boolean promise) to match void promise
-            // NOTE: Parameter type mismatch still exists (string vs array) - requires deeper fix
-             divideScriptToScenes={async (/* sceneScripts: Array<{...}> */ script: string) => {
-              console.warn("DivideScriptToScenes called via adapter with potentially incorrect parameter type");
-              await divideScriptToScenes(script); // Using the hook's function signature for now
-            }}
-          />
-        )}
       </div>
     );
   }
 
-  // Fallback case (should ideally not be reached if logic above is correct)
+  // Fallback case (unchanged)
   return (
     <div className="flex items-center justify-center h-screen">
       <p>Something went wrong. Please try refreshing the page.</p>

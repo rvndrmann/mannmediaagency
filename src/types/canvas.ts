@@ -87,6 +87,10 @@ export interface CanvasScene {
   // Added field for Bria V2 request ID
   bria_v2_request_id?: string; // Database column name
   briaV2RequestId?: string; // Normalized name for frontend use (optional, depends on data fetching)
+
+  // Added field for Fal AI TTS voiceover
+  voiceover_audio_url?: string | null; // Database column name
+  voiceoverAudioUrl?: string | null; // Normalized name for frontend use
 }
 
 export type WorkflowStage = 
@@ -178,4 +182,10 @@ export interface SceneData {
   background_music_url?: string;
   
   duration?: number;
+
+  // Add missing scene image fields
+  sceneImageV1Url?: string;
+  scene_image_v1_url?: string;
+  sceneImageV2Url?: string;
+  scene_image_v2_url?: string;
 }

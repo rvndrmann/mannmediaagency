@@ -29,7 +29,7 @@ export class CanvasService {
     try {
       const { data, error } = await supabase
         .from('canvas_projects')
-        .select('*, canvas_scenes(*)') // Fetch related scenes too
+        .select('*, canvas_scenes(*)') // Fetch related scenes too (Reverted to check if explicit select caused issues)
         .eq('id', projectId)
         .single();
         

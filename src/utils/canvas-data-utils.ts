@@ -64,7 +64,10 @@ export function normalizeScene(scene: any): CanvasScene {
     video: scene.video || scene.videoUrl || scene.video_url || '',
     voiceOver: scene.voiceOver || scene.voiceOverUrl || scene.voice_over_url || '',
     backgroundMusic: scene.backgroundMusic || scene.backgroundMusicUrl || scene.background_music_url || '',
-    productImage: scene.productImage || scene.productImageUrl || scene.product_image_url || ''
+    productImage: scene.productImage || scene.productImageUrl || scene.product_image_url || '',
+    // Add normalization for voiceover audio URL
+    voiceover_audio_url: scene.voiceover_audio_url || scene.voiceoverAudioUrl || null,
+    voiceoverAudioUrl: scene.voiceoverAudioUrl || scene.voiceover_audio_url || null
   };
 }
 

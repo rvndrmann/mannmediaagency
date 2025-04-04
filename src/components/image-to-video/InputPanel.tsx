@@ -35,6 +35,10 @@ interface InputPanelProps {
   aspectRatio: string;
   onAspectRatioChange: (value: string) => void;
   messages: any[];
+  // Add props for Fal AI status
+  falStatus?: string | null;
+  falError?: string | null;
+  falVideoUrl?: string | null;
 }
 
 export function InputPanel({
@@ -51,6 +55,10 @@ export function InputPanel({
   aspectRatio,
   onAspectRatioChange,
   messages,
+  // Destructure new props
+  falStatus,
+  falError,
+  falVideoUrl,
 }: InputPanelProps) {
   // Ensure messages are properly formatted
   const formattedMessages = ensureGlobalMessages(messages);
@@ -132,6 +140,21 @@ export function InputPanel({
           </div>
         </div>
       </ScrollArea>
+
+      {/* Display Fal AI Status/Error/Result */}
+      {(falStatus || falError || falVideoUrl) && (
+        <div className="px-6 py-3 border-t border-gray-800 text-sm text-gray-300">
+          {falError ? (
+            <p className="text-red-400">Error: {falError}</p>
+          ) : falVideoUrl ? (
+            <p className="text-green-400">Video Ready! Check Gallery.</p> // Or add a direct link/preview later
+          ) : falStatus === 'COMPLETED' ? (
+            <p className="text-green-400">Processing Complete. Video should appear soon.</p>
+          ) : falStatus ? (
+            <p>Status: {falStatus}</p>
+          ) : null}
+        </div>
+      )}
 
       <div className="fixed md:sticky bottom-[6rem] md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-50">
         <Button

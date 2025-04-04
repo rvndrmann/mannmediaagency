@@ -20,8 +20,8 @@ interface CanvasEmptyStateAdapterProps {
 interface CanvasHeaderAdapterProps {
   project: CanvasProject | null;
   updateProject: (projectId: string, data: any) => Promise<any>;
-  onToggleScriptPanel: () => void;
-  onToggleDetailPanel: () => void;
+  onToggleScriptPanel?: () => void; // Made optional
+  onToggleDetailPanel?: () => void; // Made optional
   // Removed chat panel props
   // onToggleChatPanel: () => void;
   // showChatButton?: boolean;
@@ -66,8 +66,8 @@ interface CanvasDetailPanelAdapterProps {
   projectId: string;
   updateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
   // updateProject prop removed
-  collapsed: boolean;
-  setCollapsed: (collapsed: boolean) => void;
+  collapsed?: boolean; // Made optional
+  setCollapsed?: (collapsed: boolean) => void; // Made optional
 }
 
 // Adapter type for CanvasScriptPanel
@@ -75,7 +75,7 @@ interface CanvasScriptPanelAdapterProps {
   project: CanvasProject | null;
   projectId: string;
   onUpdateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
-  onClose: () => void;
+  onClose?: () => void; // Made optional
   saveFullScript: (script: string) => Promise<void>;
   divideScriptToScenes: (script: string) => Promise<void>; // Expect string input
 }
@@ -112,8 +112,9 @@ export function CanvasHeaderAdapter({
     <CanvasHeader 
       title={title}
       onUpdateTitle={handleUpdateTitle}
-      onToggleScriptPanel={onToggleScriptPanel}
-      onToggleDetailPanel={onToggleDetailPanel}
+      // Pass toggle functions only if they exist, otherwise pass no-op
+      onToggleScriptPanel={onToggleScriptPanel || (() => {})}
+      onToggleDetailPanel={onToggleDetailPanel || (() => {})}
       // Removed chat panel props passed down
       // onToggleChatPanel={onToggleChatPanel}
       // showChatButton={showChatButton}
@@ -214,8 +215,9 @@ export function CanvasDetailPanelAdapter({
       projectId={projectId}
       updateScene={updateScene}
       // updateProject prop removed
-      collapsed={collapsed}
-      setCollapsed={setCollapsed}
+      // Pass collapsed state (defaulting to false) and setCollapsed (defaulting to no-op)
+      collapsed={collapsed ?? false}
+      setCollapsed={setCollapsed || (() => {})}
     />
   );
 }
@@ -233,7 +235,8 @@ export function CanvasScriptPanelAdapter({
       project={project}
       projectId={projectId}
       onUpdateScene={onUpdateScene}
-      onClose={onClose}
+      // Pass onClose only if it exists, otherwise pass no-op
+      onClose={onClose || (() => {})}
       saveFullScript={saveFullScript}
       // TODO: Fix type mismatch between hook (string) and panel (array)
       divideScriptToScenes={async (sceneScripts) => {

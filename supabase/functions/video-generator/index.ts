@@ -44,7 +44,7 @@ serve(async (req) => {
     const payload: VideoJobPayload = await req.json()
     console.log("Received video job payload:", JSON.stringify(payload, null, 2));
 
-    if (payload.type !== 'INSERT' || payload.table !== 'video_generation_jobs' || payload.record.status !== 'pending') {
+    if (payload.type !== 'INSERT' || payload.table !== 'agent_video_generation_jobs' || payload.record.status !== 'pending') {
        console.log(`Ignoring event: type=${payload.type}, table=${payload.table}, status=${payload.record.status}`);
        return new Response(JSON.stringify({ message: 'Ignoring event, not a new pending video job' }), {
          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -80,17 +80,17 @@ serve(async (req) => {
     // 1. Update job status to 'submitting' (optional)
     console.log(`Updating job ${dbJobId} status to submitting...`);
     await supabaseClient
-      .from('video_generation_jobs')
+      .from('agent_video_generation_jobs')
       .update({ status: 'submitting', updated_at: new Date().toISOString() })
       .eq('id', dbJobId);
 
     // 2. Submit to fal.ai queue
     console.log(`Submitting job ${dbJobId} to fal.ai model ${falModelId}...`);
-    const webhookUrl = Deno.env.get('FAL_RESULT_WEBHOOK_URL'); // Use the same webhook handler? Needs logic there.
+    // const webhookUrl = Deno.env.get('FAL_RESULT_WEBHOOK_URL'); // Webhook is no longer used for polling
     
     const falResponse = await fal.queue.submit(falModelId, {
-        input: falInput,
-        ...(webhookUrl && { webhookUrl: `${webhookUrl}?type=video&jobId=${dbJobId}` }) // Pass type=video
+        input: falInput
+        // Webhook parameter removed to enable polling
     });
 
     const falRequestId = falResponse?.request_id;
@@ -103,7 +103,7 @@ serve(async (req) => {
     // 3. Update job status to 'queued' and store fal_request_id
     console.log(`Updating job ${dbJobId} status to queued with fal_request_id ${falRequestId}...`);
     const { error: finalUpdateError } = await supabaseClient
-      .from('video_generation_jobs')
+      .from('agent_video_generation_jobs')
       .update({ 
           status: 'queued', 
           fal_request_id: falRequestId, 
@@ -136,7 +136,7 @@ serve(async (req) => {
                 Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? ''
              )
              await supabaseClient
-                .from('video_generation_jobs')
+                .from('agent_video_generation_jobs')
                 .update({ status: 'failed', error_message: error.message, updated_at: new Date().toISOString() })
                 .eq('id', dbJobId);
         } catch (updateErr) {

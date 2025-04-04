@@ -1,15 +1,14 @@
 
 import { CanvasScene } from "@/types/canvas";
 import { cn } from "@/lib/utils";
-import { FileText, MoreVertical, Trash2, Edit } from "lucide-react";
+import { FileText, MoreVertical, Trash2, Edit } from "lucide-react"; // Removed Mic icon
 import { Button } from "@/components/ui/button";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-
 export interface SceneCardProps {
   scene: CanvasScene;
   isSelected: boolean;
@@ -18,11 +17,17 @@ export interface SceneCardProps {
 }
 
 export function SceneCard({ scene, isSelected, onSelect, onDelete }: SceneCardProps) {
+  // Supabase client is imported directly now, no hook needed here
+  
+  // --- Voiceover Generation Logic Removed ---
+
   // Format a short preview of the content
   const getContentPreview = (content?: string) => {
     if (!content) return "No content";
     return content.length > 40 ? content.substring(0, 40) + "..." : content;
   };
+
+  // Audio player removed, handled in SceneDetailPanel now
   
   return (
     <div 
@@ -38,6 +43,8 @@ export function SceneCard({ scene, isSelected, onSelect, onDelete }: SceneCardPr
         <FileText className="h-4 w-4 shrink-0" />
         <span className="font-medium truncate">{scene.title || `Scene ${scene.order || ''}`}</span>
       </div>
+
+      {/* Audio player removed */}
       
       <p className="text-xs opacity-80 truncate">
         {getContentPreview(scene.voiceOverText || scene.script)}
@@ -85,6 +92,7 @@ export function SceneCard({ scene, isSelected, onSelect, onDelete }: SceneCardPr
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </DropdownMenuItem>
+            {/* Generate Voiceover option removed */}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

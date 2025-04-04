@@ -119,27 +119,35 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
             table: 'video_generation_jobs'
           },
           (payload) => {
+            console.log('[useMediaUpdates] Received video job update payload:', payload); // Log received payload
             // For each updated job, check if it matches any of our pending tool commands
             const { new: newData } = payload;
             const typedData = newData as VideoGenerationPayload;
+            console.log('[useMediaUpdates] Parsed video job data:', typedData); // Log parsed data
             
-            if (!typedData || !typedData.user_id) return;
+            if (!typedData || !typedData.user_id) {
+              console.log('[useMediaUpdates] Skipping update: No typedData or user_id');
+              return;
+            }
 
             // Process each message with video commands
             videoMessagesWithCommands.forEach(({ message, index }) => {
               // Check if this job update matches our command's requestId
               const requestId = message.command?.parameters?.requestId;
+              console.log(`[useMediaUpdates] Comparing message requestId (${requestId}) with job request_id (${typedData.request_id})`); // Log IDs being compared
               if (requestId && requestId === typedData.request_id) {
+                console.log('[useMediaUpdates] Match found! Processing update...'); // Log match found
                 // Update message based on job status
                 if (typedData.status === 'completed' && typedData.result_url) {
                   // Update the message content with the generated video
                   const videoUrl = typedData.result_url;
                   const updatedContent = `${message.content}\n\n<video controls src="${videoUrl}" style="max-width: 100%; border-radius: 8px;"></video>`;
+                  console.log('[useMediaUpdates] Updating message with video URL:', videoUrl); // Log video URL update
                   
                   // Find and update the task status
-                  const updatedTasks = message.tasks ? message.tasks.map(task => 
+                  const updatedTasks = message.tasks ? message.tasks.map(task =>
                     task.name.includes('video') || task.name.includes('conversion')
-                      ? { ...task, status: 'completed' as const } 
+                      ? { ...task, status: 'completed' as const }
                       : task
                   ) : undefined;
                   
@@ -150,11 +158,12 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
                 } else if (typedData.status === 'failed') {
                   // Update with failure message
                   const updatedContent = `${message.content}\n\nⓧ Video generation failed. Please try again.`;
+                  console.log('[useMediaUpdates] Updating message with failure status.'); // Log failure update
                   
                   // Find and update the task status
-                  const updatedTasks = message.tasks ? message.tasks.map(task => 
+                  const updatedTasks = message.tasks ? message.tasks.map(task =>
                     task.name.includes('video') || task.name.includes('conversion')
-                      ? { ...task, status: 'error' as const, details: 'Video generation failed' } 
+                      ? { ...task, status: 'error' as const, details: 'Video generation failed' }
                       : task
                   ) : undefined;
                   

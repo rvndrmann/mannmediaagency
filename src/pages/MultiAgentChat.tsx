@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Bot, Send, User, Zap, Trash2, Hammer, BarChartBig, Paperclip, ArrowLeft, LayoutGrid, ExternalLink } from "lucide-react"; // Add ArrowLeft, LayoutGrid, ExternalLink
 import { useMCPContext } from "@/contexts/MCPContext";
+import { MCPServerService } from "@/services/mcpService";
 import { v4 as uuidv4 } from "uuid";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { toast } from "sonner";
@@ -36,8 +37,11 @@ interface MultiAgentChatProps {
 }
 
 const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Destructure sceneId from props
+  console.log("MultiAgentChat component rendering");
   const navigate = useNavigate(); // Initialize useNavigate
+  console.log("useNavigate initialized");
   const { projectId: projectIdFromUrl } = useParams<{ projectId?: string }>(); // Get projectId from URL
+  console.log("useParams initialized", projectIdFromUrl);
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(projectIdFromUrl); // Initialize state from URL
   const [useSDK, setUseSDK] = useState<boolean>(true); // Enable SDK by default
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -104,6 +108,55 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
     }
   }, [connectionStatus, reconnectToMcp]);
 
+  useEffect(() => {
+    if (selectedProjectId) {
+      const mcpService = new MCPServerService(typeof process !== 'undefined' ? process.env.REACT_APP_MCP_URL || "" : "", selectedProjectId);
+
+      const handleMCPMessage = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'scene_update' && data.sceneId && data.field && data.value) {
+            // Handle scene update message
+            toast.success(`Scene ${data.sceneId} updated: ${data.field}`);
+            // You might want to dispatch an action or call a function to update the scene in the Canvas component
+            // For example: updateScene(data.sceneId, data.field, data.value);
+          }
+        } catch (error) {
+          console.error("Error parsing MCP message:", error);
+        }
+      };
+
+      const connectToMCPStream = async () => {
+        try {
+          await mcpService.connect();
+          // Assuming the MCP server sends SSE events
+          const eventSource = new EventSource(`${process.env.REACT_APP_MCP_URL}/stream?projectId=${selectedProjectId}`);
+
+          eventSource.onmessage = handleMCPMessage;
+          eventSource.onerror = (error) => {
+            console.error("SSE error:", error);
+            toast.error("Error connecting to MCP stream");
+          };
+
+          return () => {
+            eventSource.close();
+            mcpService.disconnect();
+          };
+        } catch (error) {
+          console.error("Error connecting to MCP:", error);
+          toast.error("Failed to connect to MCP");
+          return () => {};
+        }
+      };
+
+      let cleanup = connectToMCPStream();
+
+      return () => {
+        cleanup.then(cleanupFn => cleanupFn());
+      };
+    }
+  }, [selectedProjectId]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -145,6 +198,7 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
   }, [projectIdFromUrl, selectedProjectId]);
 
   return (
+    <>
     <Layout>
       {/* Adjusted container for better height management */}
       <div className="container mx-auto p-4 flex flex-col h-[calc(100vh-80px)]">
@@ -310,138 +364,140 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
              <h3 className="font-semibold">Chat</h3>
           </div>
           {/* ScrollArea and Input directly inside the main flex container */}
-            {/* ScrollArea takes available space, remove mb-4 */}
-            {/* Remove flex-1, add bottom padding to avoid overlap with absolute input */}
-            {/* Reduce bottom padding to better match input area height */}
-            <ScrollArea className="p-4 min-h-0 pb-[130px]" ref={scrollAreaRef}>
-              <div className="space-y-4">
-                {messages.map((message) => (
+          {/* ScrollArea takes available space, remove mb-4 */}
+          {/* Remove flex-1, add bottom padding to avoid overlap with absolute input */}
+          {/* Reduce bottom padding to better match input area height */}
+          <ScrollArea className="p-4 min-h-0 pb-[130px]" ref={scrollAreaRef}>
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div 
+                  key={message.id} 
+                  className={`flex ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
                   <div 
-                    key={message.id} 
-                    className={`flex ${
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
+                    className={`max-w-[80%] p-3 rounded-lg ${
+                      message.role === 'user' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : message.role === 'system'
+                        ? 'bg-muted' 
+                        : 'bg-secondary'
                     }`}
                   >
-                    <div 
-                      className={`max-w-[80%] p-3 rounded-lg ${
-                        message.role === 'user' 
-                          ? 'bg-primary text-primary-foreground' 
-                          : message.role === 'system'
-                          ? 'bg-muted' 
-                          : 'bg-secondary'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        {message.role === 'user' ? (
-                          <User className="h-4 w-4" />
-                        ) : (
-                          <Bot className="h-4 w-4" />
-                        )}
-                        <span className="text-xs opacity-70">
-                          {message.role === 'user' ? 'You' : 
-                          message.role === 'system' ? 'System' : 'Assistant'}
-                          {/* Simplified agent name display */}
-                        </span>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      
-                      {message.attachments && message.attachments.length > 0 && (
-                        <div className="mt-2">
-                          <AttachmentPreview 
-                            attachments={message.attachments} 
-                            isRemovable={false}
-                          />
-                        </div>
-                      )}
-                      
-                      <div className="text-xs opacity-50 mt-1 text-right">
-                        {new Date(message.createdAt).toLocaleTimeString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-secondary p-3 rounded-lg">
-                      <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      {message.role === 'user' ? (
+                        <User className="h-4 w-4" />
+                      ) : (
                         <Bot className="h-4 w-4" />
-                        <div className="flex items-center space-x-1">
-                          <div className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
-                          <div className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
-                          <div className="h-2 w-2 bg-current rounded-full animate-bounce" />
-                        </div>
+                      )}
+                      <span className="text-xs opacity-70">
+                        {message.role === 'user' ? 'You' : 
+                        message.role === 'system' ? 'System' : 'Assistant'}
+                        {/* Simplified agent name display */}
+                      </span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    
+                    {message.attachments && message.attachments.length > 0 && (
+                      <div className="mt-2">
+                        <AttachmentPreview 
+                          attachments={message.attachments} 
+                          isRemovable={false}
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="text-xs opacity-50 mt-1 text-right">
+                      {new Date(message.createdAt).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-secondary p-3 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Bot className="h-4 w-4" />
+                      <div className="flex items-center space-x-1">
+                        <div className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <div className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <div className="h-2 w-2 bg-current rounded-full animate-bounce" />
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </ScrollArea>
-            {/* Removed duplicate closing tag */}
-            
-            {/* Input Area - Add padding */}
-            {/* Input Area - Add padding */}
-            {/* Position input area absolutely at the bottom */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-card"> {/* Added bg-card */}
-              {pendingAttachments.length > 0 && (
-                <div className="mb-2">
-                  <AttachmentPreview
-                    attachments={pendingAttachments}
-                    onRemove={removeAttachment}
-                    isRemovable={true}
-                  />
                 </div>
               )}
-              {/* Moved Separator back outside the input div */}
-              <Separator className="my-2" />
-              {/* Input and Buttons */}
-              <div className="relative">
-                <Input
-                  placeholder="Type your message..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="pr-24" // Keep padding for buttons
-                  disabled={isLoading}
+            </div>
+          </ScrollArea>
+          {/* Removed duplicate closing tag */}
+          
+          {/* Input Area - Add padding */}
+          {/* Input Area - Add padding */}
+          {/* Position input area absolutely at the bottom */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-card"> {/* Added bg-card */}
+            {pendingAttachments.length > 0 && (
+              <div className="mb-2">
+                <AttachmentPreview
+                  attachments={pendingAttachments}
+                  onRemove={removeAttachment}
+                  isRemovable={true}
                 />
-                <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex space-x-1"> {/* Center buttons vertically */}
-                  <AttachmentButton
-                    onAttach={handleAttachmentAdd}
-                    isDisabled={isLoading}
-                    size="icon"
-                    variant="ghost"
-                  />
-                  <Button
-                    size="icon"
-                    className="h-8 w-8" // Consistent button size
-                    onClick={() => handleSubmit()}
-                    disabled={input.trim() === "" && pendingAttachments.length === 0 || isLoading}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
-            
-              {/* Footer Info */}
-              <div className="mt-2 text-[10px] text-gray-500 flex justify-between items-center">
+            )}
+            {/* Moved Separator back outside the input div */}
+            <Separator className="my-2" />
+            {/* Input and Buttons */}
+            <div className="relative">
+              <Input
+                placeholder="Type your message..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="pr-24" // Keep padding for buttons
+                disabled={isLoading}
+              />
+              <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex space-x-1"> {/* Center buttons vertically */}
+                <AttachmentButton
+                  onAttach={handleAttachmentAdd}
+                  isDisabled={isLoading}
+                  size="icon"
+                  variant="ghost"
+                />
+                <Button
+                  size="icon"
+                  className="h-8 w-8" // Consistent button size
+                  onClick={() => handleSubmit()}
+                  disabled={input.trim() === "" && pendingAttachments.length === 0 || isLoading}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          
+            {/* Footer Info */}
+            <div className="mt-2 text-[10px] text-gray-500 flex justify-between items-center">
+              <div>
+                Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Keep SDK Toggle Display if needed */}
                 <div>
-                  Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
+                  SDK: {useSDK ? "Enabled" : "Disabled"}
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Keep SDK Toggle Display if needed */}
-                  <div>
-                    SDK: {useSDK ? "Enabled" : "Disabled"}
-                  </div>
-                  <div>
-                    Tracing: {tracingEnabled ? "Enabled" : "Disabled"}
-                  </div>
+                <div>
+                  Tracing: {tracingEnabled ? "Enabled" : "Disabled"}
                 </div>
               </div>
             </div>
-          {/* Removed the intermediate div wrapper */}
-        </div> {/* Close Simplified Chat Area Container */}
+          </div>
+        {/* Removed the intermediate div wrapper */}
+        </div>{/* Close Simplified Chat Area Container */}
       </div>
     </Layout>
+    </>
   );
 };
 
+console.log("MultiAgentChat component defined");
 export default MultiAgentChat;

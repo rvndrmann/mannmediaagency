@@ -345,7 +345,7 @@ const AdminTaskManagement: React.FC = () => {
                   {task.result_text && (
                     <div className="mb-3 mt-3 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
                       <p className="text-sm font-medium mb-1">Result Text/Notes:</p>
-                      <p className="text-sm whitespace-pre-wrap">{task.result_text}</p>
+                      <p className="text-sm whitespace-pre-wrap text-foreground">{task.result_text}</p>
                     </div>
                   )}
 

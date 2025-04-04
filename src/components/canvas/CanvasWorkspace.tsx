@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PlusCircle } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth"; // Import useAuth
 import { ProjectScriptEditor } from "./ProjectScriptEditor";
 import { SceneEditor } from "./SceneEditor";
 import { SceneDetailPanel } from "./SceneDetailPanel";
@@ -14,14 +15,17 @@ interface CanvasWorkspaceProps {
   selectedScene: CanvasScene | null;
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string | null) => void;
+  mainImageUrl?: string | null; // Add mainImageUrl prop
   addScene: () => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
-  updateScene: (id: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'voiceOverText', value: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
+  updateScene: (id: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'voiceOverText' | 'sceneImageV2', value: string) => Promise<void>;
+  divideScriptToScenes: (script: string) => Promise<void>; // Expect string input
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;
-  agent?: any; // Added agent prop
+  updateProject: (projectId: string, data: Partial<CanvasProject>) => Promise<void>;
+  updateMainImageUrl: (imageUrl: string) => Promise<boolean>; // Add updateMainImageUrl prop
+  agent?: any;
 }
 
 export function CanvasWorkspace({
@@ -29,6 +33,7 @@ export function CanvasWorkspace({
   selectedScene,
   selectedSceneId,
   setSelectedSceneId,
+  mainImageUrl, // Destructure prop
   addScene,
   deleteScene,
   updateScene,
@@ -36,10 +41,13 @@ export function CanvasWorkspace({
   saveFullScript,
   createNewProject,
   updateProjectTitle,
-  agent // Added agent parameter
+  updateProject,
+  updateMainImageUrl,
+  agent
 }: CanvasWorkspaceProps) {
   const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("script");
+  const { isAdmin } = useAuth(); // Get admin status
   
   useEffect(() => {
     if (selectedSceneId) {
@@ -101,9 +109,14 @@ export function CanvasWorkspace({
         <TabsContent value="script" className="flex-1 p-4">
           <ProjectScriptEditor 
             project={project}
+            // Use mainImageUrl prop in the key
+            key={project.id + (mainImageUrl || '')}
+            mainImageUrl={mainImageUrl}
             saveFullScript={saveFullScript}
             divideScriptToScenes={divideScriptToScenes}
             updateProjectTitle={updateProjectTitle}
+            updateProject={updateProject}
+            // updateMainImageUrl is handled by updateProject, no need to pass separately here
           />
         </TabsContent>
         
@@ -123,7 +136,7 @@ export function CanvasWorkspace({
             
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-2">
-                {project.scenes && project.scenes.map((scene) => (
+                {project.scenes && project.scenes.map((scene, index) => ( // Add index here
                   <div
                     key={scene.id}
                     className={`p-3 border rounded-md cursor-pointer transition-colors ${
@@ -133,7 +146,8 @@ export function CanvasWorkspace({
                     }`}
                     onClick={() => setSelectedSceneId(scene.id)}
                   >
-                    <div className="font-medium">{scene.title}</div>
+                    {/* Display scene number (index + 1) */}
+                    <div className="font-medium">{`${index + 1}. ${scene.title || 'Untitled Scene'}`}</div>
                     <div className="text-xs truncate">
                       {scene.voiceOverText
                         ? scene.voiceOverText.substring(0, 60) + (scene.voiceOverText.length > 60 ? '...' : '')
@@ -145,10 +159,10 @@ export function CanvasWorkspace({
                         variant="ghost"
                         size="icon"
                         className={`h-6 w-6 ${scene.id === selectedSceneId ? 'text-primary-foreground' : 'text-muted-foreground'}`}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           if (confirm('Are you sure you want to delete this scene?')) {
-                            deleteScene(scene.id);
+                            await deleteScene(scene.id);
                           }
                         }}
                       >
@@ -162,10 +176,13 @@ export function CanvasWorkspace({
                   </div>
                 ))}
                 
+                {/* Conditionally disable Add Scene button for non-admins */}
                 <Button
                   variant="outline"
                   className="w-full justify-start"
                   onClick={addScene}
+                  disabled={!isAdmin}
+                  title={!isAdmin ? "Scene creation is managed by the agent via chat." : "Add a new scene"}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
                     <path d="M12 5v14M5 12h14"></path>
@@ -182,7 +199,7 @@ export function CanvasWorkspace({
           {/* Main content area for Scene Editor */}
           <div className="flex-1 overflow-hidden flex p-4 gap-4"> {/* Restoring gap */}
             {selectedScene ? (
-              <div className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-900 rounded-md shadow"> {/* Restoring flex-1 */}
+              <div className="flex-1 overflow-auto bg-background dark:bg-secondary rounded-md shadow"> {/* Restoring flex-1 */}
                 <SceneEditor
                   scene={selectedScene}
                   onUpdate={updateScene}

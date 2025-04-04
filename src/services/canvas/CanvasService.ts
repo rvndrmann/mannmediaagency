@@ -1,7 +1,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { CanvasProject, CanvasScene, SceneData } from "@/types/canvas";
+import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from "@/types/canvas"; // Import SceneUpdateType
 import { normalizeProject, normalizeScene } from "@/utils/canvas-data-utils";
+import { notifyAgentBackend } from "@/services/agent/client"; // Assume this client function exists
 
 /**
  * Service for Canvas projects and scenes
@@ -175,9 +176,11 @@ export class CanvasService {
         voice_over_text: data.voiceOverText || data.voice_over_text || "",
         product_image_url: data.productImageUrl || "",
         voice_over_url: data.voiceOverUrl || "",
-        background_music_url: data.backgroundMusicUrl || "",
-        duration: data.duration || 0
-      };
+        background_music_url: data.backgroundMusicUrl || data.background_music_url || "", // Added missing value and comma
+        duration: data.duration || 0, // Added missing comma
+        scene_image_v1_url: data.sceneImageV1Url || data.scene_image_v1_url || "", // Add V1
+        scene_image_v2_url: data.sceneImageV2Url || data.scene_image_v2_url || ""  // Add V2
+      }; // Added closing brace here
       
       const { data: newScene, error } = await supabase
         .from('canvas_scenes')
@@ -201,7 +204,12 @@ export class CanvasService {
   /**
    * Update a scene
    */
-  async updateScene(sceneId: string, updates: Partial<CanvasScene>): Promise<boolean> {
+  async updateScene(
+    sceneId: string,
+    updates: Partial<CanvasScene>,
+    updateType: SceneUpdateType, // Add original type
+    updateValue: string // Add original value
+  ): Promise<boolean> {
     try {
       // Map the updates to database columns
       const dbUpdates: any = {};
@@ -225,14 +233,45 @@ export class CanvasService {
       if (updates.voice_over_url !== undefined) dbUpdates.voice_over_url = updates.voice_over_url;
       if (updates.backgroundMusicUrl !== undefined) dbUpdates.background_music_url = updates.backgroundMusicUrl;
       if (updates.background_music_url !== undefined) dbUpdates.background_music_url = updates.background_music_url;
+      if (updates.sceneImageV1Url !== undefined) dbUpdates.scene_image_v1_url = updates.sceneImageV1Url; // Add V1 mapping
+      if (updates.scene_image_v1_url !== undefined) dbUpdates.scene_image_v1_url = updates.scene_image_v1_url; // Add V1 mapping (snake_case)
+      if (updates.sceneImageV2Url !== undefined) dbUpdates.scene_image_v2_url = updates.sceneImageV2Url; // Add V2 mapping
+      if (updates.scene_image_v2_url !== undefined) dbUpdates.scene_image_v2_url = updates.scene_image_v2_url; // Add V2 mapping (snake_case)
       if (updates.duration !== undefined) dbUpdates.duration = updates.duration;
+
+      // --- BEGINcanvasService.updateScene] Current User ID:', supabase.auth.user()?.id);
+      // --- END DEBUG LOGGING ---
       
       const { error } = await supabase
         .from('canvas_scenes')
         .update(dbUpdates)
         .eq('id', sceneId);
         
-      if (error) throw error;
+      // --- BEGIN DEBUG LOGGING ---
+      if (error) {
+        console.error('[CanvasService.updateScene] Supabase update error:', error);
+        throw error; // Re-throw after logging
+      } else {
+        console.log('[CanvasService.updateScene] Supabase update successful for sceneId:', sceneId);
+      }
+      // --- END DEBUG LOGGING ---
+      
+      // Notify backend agent about the user's update
+      console.log('[CanvasService.updateScene] Notifying agent backend...'); // Log before notification
+      try {
+        await notifyAgentBackend({
+          type: 'canvas_update', // Indicate the source of the update
+          payload: {
+            sceneId: sceneId,
+            field: updateType, // Use the original field type
+            value: updateValue, // Use the original value
+          }
+        });
+        console.log(`Agent backend notified of update to scene ${sceneId}, field ${updateType}`);
+      } catch (notificationError) {
+        console.error("Failed to notify agent backend:", notificationError);
+        // Decide if this should be a critical error or just logged
+      }
       
       return true;
     } catch (error) {

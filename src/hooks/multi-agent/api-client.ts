@@ -61,6 +61,7 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Ch
       }
     });
 
+    // Log the raw result from the invoke call IMMEDIATELY
     if (error) {
       // Handle Supabase function invocation error
       throw new Error(`Supabase function error: ${error.message}`);
@@ -72,7 +73,7 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Ch
 
     // Ensure the response has the expected fields
     if (!data.content || !data.thread_id || !data.run_id) {
-        console.error("Incomplete response received from edge function:", data);
+        console.error("Incomplete response received from edge function:", data); // Keep original error log
         throw new Error("Incomplete response received from Supabase function.");
     }
 

@@ -22,6 +22,7 @@ export interface CanvasProject {
   productImage?: string;
   cover_image_url?: string;
   final_video_url?: string;
+  main_product_image_url?: string; // Added for main project image
 }
 
 export interface CanvasScene {
@@ -41,7 +42,10 @@ export interface CanvasScene {
   image?: string;
   imageUrl?: string;
   image_url?: string;
-  
+  sceneImageV1Url?: string; // Added for Scene Image V1
+  scene_image_v1_url?: string; // Added for Scene Image V1 (DB)
+  sceneImageV2Url?: string; // Added for Scene Image V2
+  scene_image_v2_url?: string; // Added for Scene Image V2 (DB)
   video?: string;
   videoUrl?: string;
   video_url?: string;
@@ -79,6 +83,10 @@ export interface CanvasScene {
   voice_over_url?: string;
   
   duration?: number;
+
+  // Added field for Bria V2 request ID
+  bria_v2_request_id?: string; // Database column name
+  briaV2RequestId?: string; // Normalized name for frontend use (optional, depends on data fetching)
 }
 
 export type WorkflowStage = 
@@ -119,13 +127,16 @@ export type SceneUpdateType =
   | 'script' 
   | 'imagePrompt' 
   | 'description' 
-  | 'image' 
+  | 'image'
   | 'imageUrl'
-  | 'productImage' 
-  | 'video' 
-  | 'voiceOver' 
-  | 'backgroundMusic' 
-  | 'voiceOverText';
+  | 'productImage'
+  | 'video'
+  | 'voiceOver'
+  | 'backgroundMusic'
+  | 'voiceOverText'
+  | 'sceneImageV1' // Type for updating Scene Image V1 URL
+  | 'sceneImageV2' // Type for updating Scene Image V2 URL
+  | 'bria_v2_request_id'; // Type for updating Bria V2 request ID
 
 export interface SceneData {
   id?: string;

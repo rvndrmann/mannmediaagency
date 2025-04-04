@@ -201,8 +201,9 @@ async function get_scene_image_url_tool(projectId: string, sceneId: string): Pro
 
 
 async function save_scene_description_tool(projectId: string, sceneId: string, description: string): Promise<string> {
-  console.log(`[TOOL] Executing save_scene_description for project: ${projectId}, scene: ${sceneId}`);
+  console.log(`[TOOL DEBUG] save_scene_description_tool: Received projectId="${projectId}", sceneId="${sceneId}", description="${description?.substring(0, 50)}..."`); // Log inputs
   if (!description) {
+      console.warn(`[TOOL WARN] save_scene_description_tool: No description provided.`);
       return JSON.stringify({ error: "No description provided to save." });
   }
   try {
@@ -214,11 +215,15 @@ async function save_scene_description_tool(projectId: string, sceneId: string, d
       .select('id, description') // Select to confirm update
       .single();
 
+    console.log(`[TOOL DEBUG] save_scene_description_tool: Raw Supabase response - Error: ${JSON.stringify(error)}, Data: ${JSON.stringify(data)}`); // Log raw response
     if (error) {
-      console.error(`[TOOL ERROR] Supabase error updating description for scene ${sceneId}:`, error);
+      console.error(`[TOOL ERROR] Supabase error updating description for scene ${sceneId}:`, JSON.stringify(error, null, 2)); // Log detailed error
       return JSON.stringify({ error: `Failed to update scene description: ${error.message}` });
     }
-    if (!data) return JSON.stringify({ error: "Scene not found or description update failed." });
+    if (!data) {
+       console.warn(`[TOOL WARN] save_scene_description_tool: Scene not found or description update failed (No data returned). ProjectId: ${projectId}, SceneId: ${sceneId}`);
+       return JSON.stringify({ error: "Scene not found or description update failed." });
+    }
 
     console.log(`[TOOL] Scene description updated successfully for scene ${sceneId}`);
     return JSON.stringify({ success: true, message: "Scene description updated successfully." });
@@ -231,6 +236,7 @@ async function save_scene_description_tool(projectId: string, sceneId: string, d
 // Tool to trigger product shoot, poll status, and save result as a scene
 async function trigger_product_shoot_tool(
     projectId: string,
+    userId: string, // <-- Add userId parameter
     prompt: string,
     referenceImageUrl?: string,
     aspectRatio?: string,
@@ -338,25 +344,30 @@ async function trigger_product_shoot_tool(
 
 
         // 4. Save the result as a new scene in canvas_scenes
-        console.log(`[TOOL] Saving completed product shot as a new scene for project ${projectId}`);
+        console.log(`[TOOL] Saving completed product shot as a new scene for project ${projectId} by user ${userId}`);
         const { data: sceneData, error: sceneError } = await supabaseAdmin
             .from('canvas_scenes')
             .insert({
                 project_id: projectId,
-                image_prompt: prompt, // Save the original prompt
+                user_id: userId,
+                image_prompt: prompt,
                 image_url: resultUrl,
-                title: `Scene - ${prompt.substring(0, 30)}...`, // Auto-generate title
+                title: `Scene - ${prompt.substring(0, 30)}...`,
+                scene_order: 0, // Ensure this is present
+                script: '', // <-- Add default empty script
+                duration: 0, // <-- Add default duration 0
                 // Add other relevant fields if necessary, e.g., description
             })
             .select('id') // Select the ID of the newly created scene
             .single();
 
         if (sceneError) {
-            console.error(`[TOOL ERROR] Failed to insert new scene into canvas_scenes for project ${projectId}:`, sceneError);
+            // Log the detailed error object from Supabase
+            console.error(`[TOOL ERROR] Failed to insert new scene into canvas_scenes for project ${projectId}. Supabase error:`, JSON.stringify(sceneError, null, 2));
             // Don't throw error here, image was generated, just failed to save scene record
              return JSON.stringify({
                  success: true, // Image generated, but scene save failed
-                 message: `Product shot generated successfully, but failed to save as a scene: ${sceneError.message}`,
+                 message: `Product shot generated successfully, but failed to save as a scene. DB Error: ${sceneError.message}`, // Include DB error message
                  imageUrl: resultUrl,
                  sceneId: null // Indicate scene wasn't created
              });
@@ -518,31 +529,83 @@ async function processAssistantRun(
             console.log(`[INFO] [${requestId}] Message added successfully.`);
         }
 
-        // 2. Create Run
-        console.log(`[INFO] [${requestId}] Creating run on thread ${threadId} with assistant ${assistantId}`);
+        // 2. Create Run (with retry logic for active run errors)
+        console.log(`[INFO] [${requestId}] Attempting to create run on thread ${threadId} with assistant ${assistantId}`);
         const runPayload: any = {
             assistant_id: assistantId,
             metadata: runMetadata,
-            // TODO: Consider passing specific tools based on assistantId if needed
-            tools: toolsList // Pass full list for now
+            tools: toolsList
         };
-        // Add instructions override if needed, e.g., for specialized assistants
-        // runPayload.instructions = "Specific instructions for this run...";
-
         console.log(`[DEBUG] [${requestId}] Run creation payload:`, JSON.stringify(runPayload, null, 2));
 
-        const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}`, "OpenAI-Beta": "assistants=v2" },
-            body: JSON.stringify(runPayload),
-        });
-        if (!runResponse.ok) {
-             const errorData = await runResponse.json();
-             console.error(`[ERROR] [${requestId}] Failed to create run: ${JSON.stringify(errorData)}`);
-             throw new Error(`Failed to create run: ${errorData?.error?.message || 'Unknown error'}`);
+        let run: any = null; // Initialize run variable outside the loop
+        const maxRetries = 3;
+        let currentDelay = 5000; // Start with 5 seconds delay
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}`, "OpenAI-Beta": "assistants=v2" },
+                    body: JSON.stringify(runPayload),
+                });
+
+                if (runResponse.ok) {
+                    run = await runResponse.json();
+                    console.log(`[INFO] [${requestId}] Run created successfully on attempt ${attempt}: ${run.id}, Status: ${run.status}`);
+                    break; // Exit loop on success
+                }
+
+                // Handle non-OK responses specifically
+                let errorData: any = {};
+                let errorMessage = 'Unknown error during run creation';
+                let errorCode = null;
+                try {
+                    errorData = await runResponse.json();
+                    errorMessage = errorData?.error?.message || errorMessage;
+                    errorCode = errorData?.error?.code;
+                } catch (parseError) {
+                    console.error(`[ERROR] [${requestId}] Failed to parse error response from OpenAI run creation (Status: ${runResponse.status})`, parseError);
+                    errorMessage = `Failed to parse error response (Status: ${runResponse.status})`;
+                }
+
+
+                // Check for the specific "active run" error message or potential code
+                if (runResponse.status === 400 && (errorMessage.includes("already has an active run") || errorCode === 'thread_locked')) {
+                    console.warn(`[WARN] [${requestId}] Attempt ${attempt}: Detected active run on thread ${threadId}. Retrying after ${currentDelay / 1000}s...`);
+                    if (attempt < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, currentDelay));
+                        currentDelay *= 2; // Double the delay for next retry
+                        continue; // Go to next attempt
+                    } else {
+                        console.error(`[ERROR] [${requestId}] Failed to create run after ${maxRetries} attempts due to active run.`);
+                        throw new Error(`Failed to create run after ${maxRetries} attempts: Thread ${threadId} remained locked with an active run.`);
+                    }
+                } else {
+                    // Handle other non-OK responses
+                    console.error(`[ERROR] [${requestId}] Failed to create run (Attempt ${attempt}): Status ${runResponse.status}, ${JSON.stringify(errorData)}`);
+                    throw new Error(`Failed to create run: ${errorMessage}`);
+                }
+            } catch (error) { // Catch network errors or errors thrown from non-OK handling
+                 console.error(`[ERROR] [${requestId}] Exception during run creation attempt ${attempt}:`, error);
+                 if (attempt < maxRetries) {
+                     // Optional: Retry on generic network/fetch errors too? For now, only retry on specific "active run" error.
+                     // If we wanted to retry here:
+                     // console.warn(`[WARN] [${requestId}] Network or other error on attempt ${attempt}. Retrying after ${currentDelay / 1000}s...`);
+                     // await new Promise(resolve => setTimeout(resolve, currentDelay));
+                     // currentDelay *= 2;
+                     // continue;
+                 }
+                 // If it's the last attempt or not retrying this type of error, re-throw.
+                 throw error;
+            }
+        } // End retry loop
+
+        // Check if run was successfully created after the loop
+        if (!run) {
+             console.error(`[ERROR] [${requestId}] Could not create run after all retries.`);
+             throw new Error("Failed to create assistant run after multiple attempts.");
         }
-        let run = await runResponse.json();
-        console.log(`[INFO] [${requestId}] Run created: ${run.id}, Status: ${run.status}`);
 
         // 3. Poll Run Status and Handle Actions
         const terminalStates = ["completed", "failed", "cancelled", "expired", "requires_action"]; // Stop polling on requires_action too
@@ -640,6 +703,7 @@ async function processAssistantRun(
                         // The validation block (lines 614-626) should ensure currentToolProjectId is valid if needed.
                         // We will use non-null assertions (!) below based on that prior validation.
                             console.log(`[INFO] [${requestId}] Executing tool: ${functionName}`, args);
+                            console.log(`[TOOL DEBUG] Checking functionName before switch: "${functionName}"`); // <-- Add log here
                             try {
                             // Execute the appropriate tool function based on its name
                             // Use the potentially modified 'args' object and 'currentToolProjectId'
@@ -660,8 +724,10 @@ async function processAssistantRun(
                                     output = await get_project_product_image_url_tool(currentToolProjectId!); toolExecuted = true; break;
                                 case "trigger_product_shoot":
                                     { const shootArgs = args as TriggerShootArgs;
+                                      const currentUserId = run.metadata?.user_id; // Get userId from metadata
                                       if (!shootArgs.prompt) output = JSON.stringify({ error: `Missing prompt for trigger_product_shoot.` });
-                                      else { output = await trigger_product_shoot_tool( currentToolProjectId!, shootArgs.prompt, shootArgs.referenceImageUrl, shootArgs.aspectRatio, shootArgs.placementType, shootArgs.manualPlacement, shootArgs.generationType, shootArgs.optimizeDescription, shootArgs.fastMode, shootArgs.originalQuality ); toolExecuted = true; } break; }
+                                      else if (!currentUserId) output = JSON.stringify({ error: `Missing user ID context for trigger_product_shoot.` }); // Ensure check for userId
+                                      else { output = await trigger_product_shoot_tool( currentToolProjectId!, currentUserId, shootArgs.prompt, shootArgs.referenceImageUrl, shootArgs.aspectRatio, shootArgs.placementType, shootArgs.manualPlacement, shootArgs.generationType, shootArgs.optimizeDescription, shootArgs.fastMode, shootArgs.originalQuality ); toolExecuted = true; } break; } // Ensure userId is passed
                                 case "get_scene_image_url":
                                     { const sceneArgs = args as SceneArgs;
                                        if (!sceneArgs.sceneId) output = JSON.stringify({ error: `Missing sceneId for get_scene_image_url.` });
@@ -761,7 +827,7 @@ serve(async (req: Request) => {
 
   try {
     // Get request body
-    const requestData = await req.json();
+    const requestData = await req.json(); // Restore original declaration
     const { input, projectId, sceneId, thread_id } = requestData; // Extract sceneId
 
     console.log(`[DEBUG] [${requestId}] Extracted projectId from requestData: ${projectId}`);
@@ -800,6 +866,7 @@ serve(async (req: Request) => {
     let finalResponseContent: any = null;
     let loopCount = 0;
     const maxLoops = 10; // Prevent infinite loops
+    let lastSuccessfulRunId: string | null = null; // Variable to store the last successful run ID
 
     while (loopCount < maxLoops) {
         loopCount++;
@@ -942,6 +1009,7 @@ serve(async (req: Request) => {
                      // This was the Project Manager's final response
                      console.log(`[INFO] [${requestId}] Project Manager finished. Preparing final response.`);
                      finalResponseContent = assistantResponseContent;
+                     lastSuccessfulRunId = run.id; // Capture the last successful run ID
                      break; // Exit the orchestration loop
                  }
             } else {
@@ -969,17 +1037,23 @@ serve(async (req: Request) => {
     }
 
     // Return the final response from the Project Manager
-    return new Response(JSON.stringify({ response: finalResponseContent, thread_id: currentThreadId }), {
+    // Ensure the response structure matches what the frontend expects (content, thread_id, run_id)
+    return new Response(JSON.stringify({ content: finalResponseContent || "[No content provided]", thread_id: currentThreadId, run_id: lastSuccessfulRunId || 'unknown' }), { // Ensure content is never empty
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
 
   } catch (error) {
     console.error(`[FATAL] [${requestId}] Error in main handler:`, error);
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    const errorMessage = error instanceof Error ? error.message : "An unknown server error occurred.";
+    // Return a structure consistent with the expected success response, embedding the error in 'content'
+    return new Response(JSON.stringify({
+        content: `Error: ${errorMessage}`, // Embed error message here
+        thread_id: 'error', // Cannot reliably get thread_id here
+        run_id: 'error' // Indicate error state for run_id
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 500, // Keep 500 status to indicate server error
     });
   }
 });

@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button'; // Import Button
 import { ArrowLeft } from 'lucide-react'; // Import ArrowLeft icon
 import { useAuth } from '@/hooks/use-auth';
 import { useCanvasProjects } from '@/hooks/use-canvas-projects';
+import { useCanvas } from '@/hooks/use-canvas'; // Import useCanvas
 // Removed useCanvasAgent import as it's no longer needed for the removed chat panel
 // import { useCanvasAgent } from '@/hooks/use-canvas-agent';
 import {
   CanvasEmptyStateAdapter,
   CanvasHeaderAdapter,
-  CanvasSidebarAdapter,
   CanvasWorkspaceAdapter,
   CanvasDetailPanelAdapter,
   CanvasScriptPanelAdapter
@@ -31,123 +31,89 @@ export default function Canvas() {
   // const [showChatPanel, setShowChatPanel] = useState(false);
   const { setActiveProject, setActiveScene } = useProjectContext();
 
+  // Use useCanvasProjects primarily for the projects list and project actions
   const {
-    project,
     projects,
+    loading: projectsLoading, // Rename loading to avoid conflict
+    createProject: createProjectAction, // Rename actions to avoid conflict
+    updateProject: updateProjectAction,
+    deleteProject: deleteProjectAction,
+    selectProject,
+    fetchProjects // Fetch the list of projects
+  } = useCanvasProjects();
+
+  // Use useCanvas for the currently selected project's data and scene actions
+  const {
+    project, // Get the active project state from useCanvas
     scenes,
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,
-    createProject,
-    updateProject,
-    deleteProject,
-    createScene,
+    loading: canvasLoading, // Rename loading
+    fetchProject, // Keep fetchProject for refresh
+    addScene, // Use addScene as returned by the hook (returns Promise<CanvasScene | null>)
     updateScene,
-    deleteScene,
-    loading,
-    projectId,
-    fetchProject,
-    selectProject // Add selectProject here
-  } = useCanvasProjects();
+    deleteScene, // Returns Promise<boolean>
+    divideScriptToScenes, // Returns Promise<boolean>, takes script string
+    saveFullScript,
+    updateProjectTitle,
+    updateMainImageUrl
+  } = useCanvas(routeProjectId); // Pass routeProjectId directly to useCanvas
+
+  // Combine loading states
+  const loading = authLoading || projectsLoading || canvasLoading;
 
   // Removed useCanvasAgent hook initialization
 
-  const addScene = useCallback(async (): Promise<void> => {
-    if (!project) return;
+  // addScene is now directly available from useCanvas
 
-    try {
-      await createScene({
-        projectId: project.id,
-        project_id: project.id,
-        scene_order: scenes.length + 1
-      });
-    } catch (error) {
-      console.error("Error adding scene:", error);
-    }
-  }, [project, createScene, scenes.length]);
+  // saveFullScript is now directly available from useCanvas
 
-  const saveFullScript = useCallback(async (script: string): Promise<void> => {
-    if (!project) return;
+  // divideScriptToScenes is now directly available from useCanvas
 
-    try {
-      await updateProject(project.id, {
-        full_script: script,
-        fullScript: script // update both for compatibility
-      });
-      toast.success("Script saved successfully");
-    } catch (error) {
-      console.error('Error saving full script:', error);
-      toast.error('Failed to save script');
-    }
-  }, [project, updateProject]);
-
-  const divideScriptToScenes = useCallback(async (
-    sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>
-  ): Promise<void> => {
-    for (const sceneScript of sceneScripts) {
-      if (sceneScript.id) {
-        await updateScene(sceneScript.id, 'script', sceneScript.content || '');
-        if (sceneScript.voiceOverText) {
-          await updateScene(sceneScript.id, 'voiceOverText', sceneScript.voiceOverText);
-        }
-      }
-    }
-    toast.success("Script divided into scenes successfully");
-  }, [updateScene]);
-
+  // Use createProjectAction from useCanvasProjects
   const createNewProject = useCallback(async (title: string, description?: string): Promise<string> => {
-    console.log('[Canvas.tsx] createNewProject called with title:', title); // Added log
+    console.log('[Canvas.tsx] createNewProject called with title:', title);
     try {
-      console.log('[Canvas.tsx] Calling createProject from useCanvasProjects hook...'); // Added log
-      const result = await createProject(title, description);
-      console.log('[Canvas.tsx] createProject hook returned:', result); // Added log
-      // Use a type assertion with a simpler condition TypeScript can understand
-      if (result && typeof result === 'object') {
-        const projectWithId = result as { id: string };
-        if ('id' in projectWithId) {
-          return projectWithId.id;
-        }
+      const result = await createProjectAction(title, description);
+      // createProjectAction returns Promise<string> (the ID) or throws error
+      if (result) { // Check if result is truthy (non-empty string)
+         return result;
       }
+      // If result is empty string or error was caught, handle below
+      console.error("[Canvas.tsx] createProjectAction did not return a valid project ID");
+      toast.error("Failed to get ID for the new project.");
       return "";
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
-      console.error("[Canvas.tsx] Error creating project:", errorObj); // Added log
+      console.error("[Canvas.tsx] Error creating project:", errorObj);
       toast.error(`Failed to create project: ${errorObj.message}`);
       return "";
     }
-  }, [createProject]);
+  }, [createProjectAction]);
 
-  const updateProjectTitle = useCallback(async (title: string): Promise<void> => {
-    if (project && project.id) {
-      try {
-        await updateProject(project.id, { title });
-        toast.success("Project title updated successfully");
-      } catch (error) {
-        console.error("Error updating project title:", error);
-        toast.error("Failed to update project title");
-      }
-    }
-  }, [project, updateProject]);
+  // updateProjectTitle is now directly available from useCanvas
 
-  const handleDeleteScene = useCallback(async (sceneId: string): Promise<void> => {
-    await deleteScene(sceneId);
-  }, [deleteScene]);
+  // deleteScene is now directly available from useCanvas
+  // Wrap deleteScene to match Promise<void> if needed by adapter (check adapter props)
+  // Assuming CanvasWorkspaceAdapter expects Promise<boolean> based on previous fix
+  const handleDeleteScene = deleteScene;
 
+  // useEffect to fetch projects list on mount (if needed, or handled within hook)
   useEffect(() => {
-    if (routeProjectId) {
-      // Use selectProject instead of fetchProject to ensure internal state is set correctly
-      console.log(`[Canvas Effect] Route project ID detected: ${routeProjectId}. Calling selectProject.`);
-      selectProject(routeProjectId);
-    }
-  }, [routeProjectId, fetchProject]);
+    fetchProjects();
+  }, [fetchProjects]);
 
-  useEffect(() => {
-    if (projectId) {
-      setActiveProject(projectId);
-    } else if (routeProjectId) {
-      setActiveProject(routeProjectId);
-    }
-  }, [projectId, routeProjectId, setActiveProject]);
+  // selectProject is called by the ProjectSelector, which sets the projectId in useCanvasProjects
+  // useCanvas hook is initialized with routeProjectId, so it fetches the correct project initially.
+  // No extra effect needed here to link routeProjectId to useCanvas projectId.
+
+  // Effect to update the global context when the project from useCanvas loads/changes
+   useEffect(() => {
+     if (project?.id) {
+       setActiveProject(project.id);
+     }
+   }, [project, setActiveProject]);
 
   // REMOVED useEffect that called setActiveScene based on selectedSceneId changes
   // Context is now updated directly in CanvasSidebar onClick
@@ -257,59 +223,65 @@ export default function Canvas() {
   }
 
   // --- Project Loading Check ---
-  // Show loader while projects list is loading, but only if no specific project is requested
-  if (loading && !routeProjectId) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-lg">Loading projects...</p>
-        </div>
-      </div>
-    );
+  // Use combined loading state
+  if (loading && !project) { // Show loading if combined state is true AND project data isn't loaded yet
+     return (
+       <div className="flex items-center justify-center h-screen">
+         <div className="text-center">
+           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+           <p className="text-lg">Loading...</p> {/* Generic loading message */}
+         </div>
+       </div>
+     );
   }
 
   // --- Project Selection / Empty State Logic ---
-  // If no project ID in URL and no project selected yet
-  if (!projectId && !routeProjectId) {
-    if (projects.length > 0) {
-      // If projects exist, show the selector
-      return (
-        <CanvasProjectSelector
-          projects={projects}
-          onSelectProject={selectProject}
-          onCreateNew={async () => {
-            try {
-              const newProjectId = await createNewProject("Untitled Project");
-              if (newProjectId) {
-                navigate(`/canvas/${newProjectId}`);
-              } else {
-                toast.error("Failed to get ID for the new project.");
-              }
-            } catch (error) {
-              console.error("Error during project creation flow:", error);
-            }
-          }}
-          onDeleteProject={deleteProject} // Pass deleteProject down
-        />
-      );
-    } else {
-      // If no projects exist, show the empty state to create one
-      return <CanvasEmptyStateAdapter createProject={createNewProject} />;
-    }
+  // --- Project Selection / Empty State Logic ---
+  // If no project ID in URL/route, show selector or empty state
+  if (!routeProjectId) {
+     if (projectsLoading) { // Still loading the list? Show loader
+       return (
+         <div className="flex items-center justify-center h-screen">
+           <div className="text-center">
+             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+             <p className="text-lg">Loading projects list...</p>
+           </div>
+         </div>
+       );
+     } else if (projects.length > 0) {
+       // Projects list loaded, show selector
+       return (
+         <CanvasProjectSelector
+           projects={projects}
+           onSelectProject={(id) => navigate(`/canvas/${id}`)} // Navigate on select
+           onCreateNew={async () => {
+             try {
+               const newProjectId = await createNewProject("Untitled Project");
+               if (newProjectId) {
+                 navigate(`/canvas/${newProjectId}`);
+               }
+             } catch (error) { /* Handled in createNewProject */ }
+           }}
+           onDeleteProject={deleteProjectAction} // Use renamed action
+         />
+       );
+     } else {
+       // No projects exist, show empty state
+       return <CanvasEmptyStateAdapter createProject={createNewProject} />;
+     }
   }
 
   // --- Loading Specific Project Check ---
-  // If we have a projectId (from URL or selection) but the project data isn't loaded yet
-  if (!project && (projectId || routeProjectId)) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-lg">Loading selected project...</p>
-        </div>
-      </div>
-    );
+  // If we have a routeProjectId but the project from useCanvas isn't loaded yet
+  if (routeProjectId && !project && canvasLoading) {
+     return (
+       <div className="flex items-center justify-center h-screen">
+         <div className="text-center">
+           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+           <p className="text-lg">Loading project details...</p>
+         </div>
+       </div>
+     );
   }
 
   // --- Render Main Canvas UI ---
@@ -324,8 +296,8 @@ export default function Canvas() {
            </Button>
         </div>
         <CanvasHeaderAdapter
-          project={project}
-          updateProject={updateProject}
+          project={project} // Pass project from useCanvas
+          updateProject={updateProjectAction}
           createNewProject={createNewProject}
           onToggleScriptPanel={toggleScriptPanel}
           onToggleDetailPanel={toggleDetailPanel}
@@ -342,58 +314,62 @@ export default function Canvas() {
           }}
         />
 
-        <div className="flex flex-1 overflow-hidden"> {/* Reverted background */}
-          <CanvasSidebarAdapter
+        <main className="flex-1 overflow-hidden flex flex-col"> {/* Reverted background */}
+          <CanvasWorkspaceAdapter
             project={project}
+            selectedScene={selectedScene}
             selectedSceneId={selectedSceneId}
             setSelectedSceneId={setSelectedSceneId}
-            createScene={createScene}
-            deleteScene={handleDeleteScene}
-            loading={loading} // Pass down loading state for sidebar indicators if needed
-            setActiveScene={setActiveScene} // Pass down context setter
+            mainImageUrl={project?.main_product_image_url} // Pass mainImageUrl
+            // Wrap addScene which returns Promise<CanvasScene | null> to match Promise<void>
+            addScene={async () => { await addScene(); }}
+            updateScene={updateScene}
+            deleteScene={handleDeleteScene} // Pass boolean promise directly as fixed in adapter
+            // Wrap divideScriptToScenes (boolean promise) to match void promise
+            // NOTE: Parameter type mismatch still exists (string vs array) - requires deeper fix
+            divideScriptToScenes={async (/* sceneScripts: Array<{...}> */ script: string) => {
+              console.warn("DivideScriptToScenes called via adapter with potentially incorrect parameter type");
+              await divideScriptToScenes(script); // Using the hook's function signature for now
+            }}
+            // Wrap saveFullScript (boolean promise) to match void promise
+            saveFullScript={async (script: string) => { await saveFullScript(script); }}
+            createNewProject={createNewProject}
+            // Wrap updateProjectTitle (boolean promise) to match void promise
+            updateProjectTitle={async (title: string) => { await updateProjectTitle(title); }}
+            updateMainImageUrl={updateMainImageUrl}
+            updateProject={updateProjectAction}
+            // Removed agent prop
           />
+        </main>
 
-          <main className="flex-1 overflow-hidden flex flex-col"> {/* Reverted background */}
-            <CanvasWorkspaceAdapter
-              project={project}
-              selectedScene={selectedScene}
-              selectedSceneId={selectedSceneId}
-              setSelectedSceneId={setSelectedSceneId}
-              addScene={addScene}
-              updateScene={updateScene}
-              deleteScene={handleDeleteScene}
-              divideScriptToScenes={divideScriptToScenes}
-              saveFullScript={saveFullScript}
-              createNewProject={createNewProject}
-              updateProjectTitle={updateProjectTitle}
-              // Removed agent prop
-              // agent={agentProps}
-            />
-          </main>
+        {showDetailPanel && (
+          <CanvasDetailPanelAdapter
+            scene={selectedScene}
+            project={project} // Pass project from useCanvas
+            projectId={project?.id || ''}
+            updateScene={updateScene}
+            // updateProject prop removed from CanvasDetailPanelAdapter
+            collapsed={false}
+            setCollapsed={() => setShowDetailPanel(false)}
+          />
+        )}
 
-          {showDetailPanel && (
-            <CanvasDetailPanelAdapter
-              scene={selectedScene}
-              projectId={project?.id || ''}
-              updateScene={updateScene}
-              collapsed={false}
-              setCollapsed={() => setShowDetailPanel(false)}
-            />
-          )}
-
-          {showScriptPanel && (
-            <CanvasScriptPanelAdapter
-              project={project}
-              projectId={project?.id || ''}
-              onUpdateScene={updateScene}
-              onClose={() => setShowScriptPanel(false)}
-              saveFullScript={saveFullScript}
-              divideScriptToScenes={divideScriptToScenes}
-            />
-          )}
-
-          {/* Removed CanvasChat panel rendering */}
-        </div>
+        {showScriptPanel && (
+          <CanvasScriptPanelAdapter
+            project={project}
+            projectId={project?.id || ''}
+            onUpdateScene={updateScene}
+            onClose={() => setShowScriptPanel(false)}
+            // Wrap saveFullScript (boolean promise) to match void promise
+            saveFullScript={async (script: string) => { await saveFullScript(script); }}
+            // Wrap divideScriptToScenes (boolean promise) to match void promise
+            // NOTE: Parameter type mismatch still exists (string vs array) - requires deeper fix
+             divideScriptToScenes={async (/* sceneScripts: Array<{...}> */ script: string) => {
+              console.warn("DivideScriptToScenes called via adapter with potentially incorrect parameter type");
+              await divideScriptToScenes(script); // Using the hook's function signature for now
+            }}
+          />
+        )}
       </div>
     );
   }

@@ -118,7 +118,7 @@ export function AudioUploader({
       />
       
       {audioUrl ? (
-        <div className="flex items-center justify-between p-2 border rounded bg-slate-50 dark:bg-slate-800">
+        <div className="flex items-center justify-between p-2 border rounded bg-background dark:bg-secondary">
           <div className="flex items-center">
             <Button
               variant="ghost"

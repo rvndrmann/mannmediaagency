@@ -9,6 +9,8 @@ import { useMCPContext } from "@/contexts/MCPContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label"; // Import Label
+import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 
 interface SceneEditorProps {
   scene: CanvasScene;
@@ -21,6 +23,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   const [voiceOverText, setVoiceOverText] = useState(scene?.voiceOverText || "");
   const [description, setDescription] = useState(scene?.description || "");
   const [imagePrompt, setImagePrompt] = useState(scene?.imagePrompt || "");
+  const [customInstruction, setCustomInstruction] = useState(""); // State for custom instruction
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -152,8 +155,11 @@ ${scene.description ? "Scene Description: " + scene.description : ""}
 Create a detailed image prompt that includes visual elements, style, lighting, mood, composition, and quality parameters.
 Format the prompt to get the best results from an AI image generator.`;
 
-        await generateImagePrompt(scene.id, context);
-        setImagePrompt(scene.imagePrompt || "");
+        // Pass current state values for script, voiceOverText, and customInstruction
+        await generateImagePrompt(scene.id, script, voiceOverText, customInstruction, context);
+        // Remove the immediate local state update below.
+        // The input field will update when the 'scene' prop changes.
+        // setImagePrompt(scene.imagePrompt || "");
         toast.success("Image prompt generated and saved");
       }
     } catch (error) {
@@ -165,9 +171,10 @@ Format the prompt to get the best results from an AI image generator.`;
     script, 
     voiceOverText, 
     isProcessing, 
-    generateSceneScript, 
-    generateSceneDescription, 
-    generateImagePrompt
+    generateSceneScript,
+    generateSceneDescription,
+    generateImagePrompt,
+    customInstruction // Add customInstruction to dependency array
   ]);
   
   const handleGenerateImage = async () => {
@@ -314,6 +321,21 @@ Format the prompt to get the best results from an AI image generator.`;
           onChange={setImagePrompt}
           onGenerateWithAI={() => generateWithAI('imagePrompt')}
         />
+
+        {/* Add Custom Instruction Textarea */}
+        <div className="space-y-2">
+          <Label htmlFor="custom-instruction">Custom Instruction (Optional)</Label>
+          <Textarea
+            id="custom-instruction"
+            value={customInstruction}
+            onChange={(e) => setCustomInstruction(e.target.value)}
+            placeholder="Enter specific instructions for the AI image prompt generation..."
+            className="min-h-[80px]"
+          />
+          <p className="text-xs text-muted-foreground">
+            Provide specific guidance for the AI, e.g., "Focus on the character's expression", "Use a wide-angle shot", "Make it black and white".
+          </p>
+        </div>
         
         <SceneControls
           sceneId={scene.id}

@@ -57,7 +57,7 @@ export function CanvasSidebar({
   // If project is null or loading, display a placeholder or loading state
   if (!project) {
     return (
-      <div className={`${collapsed ? 'w-14' : 'w-64'} border-r bg-slate-50 dark:bg-slate-900 flex flex-col`}>
+      <div className={`${collapsed ? 'w-14' : 'w-64'} border-r bg-background dark:bg-secondary flex flex-col`}>
         <div className="p-2 border-b">
           {collapsed ? (
             <Button variant="ghost" size="icon" className="w-full" disabled>
@@ -82,7 +82,7 @@ export function CanvasSidebar({
 
   if (collapsed) {
     return (
-      <div className="w-14 border-r bg-slate-50 dark:bg-slate-900 flex flex-col">
+      <div className="w-14 border-r bg-background dark:bg-secondary flex flex-col">
         <div className="p-2 border-b">
           <TooltipProvider>
             <Tooltip>
@@ -127,7 +127,7 @@ export function CanvasSidebar({
   }
 
   return (
-    <div className="w-64 border-r bg-slate-50 dark:bg-slate-900 flex flex-col">
+    <div className="w-64 border-r bg-background dark:bg-secondary flex flex-col">
       <div className="p-2 border-b flex justify-between items-center">
         <h3 className="font-medium">Scenes</h3>
         <Button

@@ -1,11 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Add useCallback
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Overall auth loading
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminLoading, setIsAdminLoading] = useState(true); // Separate loading for admin check
   const [error, setError] = useState<Error | null>(null);
+
+  // Function to check admin status
+  const checkAdminStatus = useCallback(async (userId: string | undefined) => {
+    if (!userId) {
+      setIsAdmin(false);
+      setIsAdminLoading(false);
+      return;
+    }
+    setIsAdminLoading(true);
+    try {
+      // Assuming the table is 'admin_users' and has a 'user_id' column matching auth.users.id
+      const { data, error, count } = await supabase
+        .from('admin_users')
+        .select('user_id', { count: 'exact', head: true }) // More efficient: check existence
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error("Error checking admin status:", error);
+        setIsAdmin(false); // Default to false on error
+      } else {
+        setIsAdmin(count !== null && count > 0);
+        console.log(`User ${userId} isAdmin status: ${count !== null && count > 0}`);
+      }
+    } catch (err) {
+      console.error("Exception checking admin status:", err);
+      setIsAdmin(false);
+    } finally {
+      setIsAdminLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     // Check for the current user
@@ -38,8 +70,10 @@ export function useAuth() {
         
         // If we have a valid session, use it
         if (sessionData?.session) {
-          setUser(sessionData.session.user);
-          console.log('User set from session in auth hook:', sessionData.session.user.id);
+          const currentUser = sessionData.session.user;
+          setUser(currentUser);
+          console.log('User set from session in auth hook:', currentUser.id);
+          checkAdminStatus(currentUser.id); // Check admin status
           // Update localStorage for future reference
           localStorage.setItem('auth_confirmed', 'true');
           localStorage.setItem('user_email', sessionData.session.user.email || 'unknown');
@@ -80,6 +114,7 @@ export function useAuth() {
         
         setUser(user);
         console.log('User set from getUser in auth hook:', user ? user.id : 'No user');
+        checkAdminStatus(user?.id); // Check admin status
         
         // Update localStorage for future reference if we got a user
         if (user) {
@@ -96,6 +131,7 @@ export function useAuth() {
         
         // Clear localStorage auth confirmation if authentication check fails
         localStorage.removeItem('auth_confirmed');
+        setIsAdmin(false); // Reset admin status on error
       } finally {
         setLoading(false);
       }
@@ -111,13 +147,15 @@ export function useAuth() {
       // Update the user state based on the auth event
       if (event === 'SIGNED_OUT') {
         setUser(null);
+        setIsAdmin(false); // Reset admin status on sign out
         localStorage.removeItem('auth_confirmed');
         localStorage.removeItem('user_email');
         localStorage.removeItem('auth_timestamp');
         localStorage.removeItem('auth_reload_attempt');
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        setUser(session?.user ?? null);
-        
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        checkAdminStatus(currentUser?.id); // Check admin status on sign in/refresh
         // Update localStorage for future reference
         if (session?.user) {
           localStorage.setItem('auth_confirmed', 'true');
@@ -169,7 +207,8 @@ export function useAuth() {
 
   return {
     user,
-    loading,
+    loading: loading || isAdminLoading, // Combine loading states
+    isAdmin,
     error,
     signIn,
     signOut,

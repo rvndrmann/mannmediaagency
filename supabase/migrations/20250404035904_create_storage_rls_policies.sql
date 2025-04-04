@@ -87,3 +87,32 @@ USING (
     bucket_id = 'result-images' AND
     check_is_admin()
 );
+ 
+ 
+-- Storage RLS Policies for 'lovable-uploads' bucket
+ 
+-- Drop existing policies first (if any) - Use distinct names
+DROP POLICY IF EXISTS "Allow authenticated uploads for lovable-uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public reads for lovable-uploads" ON storage.objects;
+-- Add drops for update/delete if you create those policies
+ 
+-- Allow any authenticated user to upload (insert) into the 'lovable-uploads' bucket
+CREATE POLICY "Allow authenticated uploads for lovable-uploads"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+    bucket_id = 'lovable-uploads'
+    -- Optionally add path restrictions here if needed, e.g.:
+    -- AND storage.foldername(name) = 'public' -- Allow only in 'public' folder
+    -- OR storage.foldername(name) = 'main-project-images' -- Allow in specific folder
+);
+ 
+-- Allow public read access to files in 'lovable-uploads' (common for user-uploaded content)
+CREATE POLICY "Allow public reads for lovable-uploads"
+ON storage.objects FOR SELECT
+USING (
+    bucket_id = 'lovable-uploads'
+);
+ 
+-- NOTE: Consider adding policies for UPDATE and DELETE if needed,
+-- potentially restricted to the user who uploaded the file (using owner column) or admins.

@@ -316,7 +316,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         
         toast.error("Request timed out. Please try again.");
       }
-    }, 30000) as unknown as number; // 30 second safety timeout
+    }, 240000) as unknown as number; // 4 minute safety timeout (longer than backend polling)
     
     // Update tracking refs
     lastSubmissionTimeRef.current = now;

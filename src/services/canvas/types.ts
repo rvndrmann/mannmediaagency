@@ -49,6 +49,18 @@ export interface CanvasScene {
   updated_at?: string;
   updatedAt?: string; // Add for compatibility
   voiceOverText?: string;
+  voice_over_text?: string; // Add snake_case
+  productImageUrl?: string; // Add missing field
+  product_image_url?: string; // Add missing field
+  voiceOverUrl?: string; // Add missing field
+  voice_over_url?: string; // Add missing field
+  backgroundMusicUrl?: string; // Add missing field
+  background_music_url?: string; // Add missing field
+  duration?: number; // Add missing field
+  sceneImageV1Url?: string; // Add V1
+  scene_image_v1_url?: string; // Add V1 snake_case
+  sceneImageV2Url?: string; // Add V2
+  scene_image_v2_url?: string; // Add V2 snake_case
 }
 
 export interface SceneUpdateParams {
@@ -70,4 +82,16 @@ export interface VideoGenerationParams {
 }
 
 // Add a type for scene update operations
-export type SceneUpdateType = 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video';
+export type SceneUpdateType =
+  | 'script'
+  | 'imagePrompt'
+  | 'description'
+  | 'image'
+  | 'imageUrl' // Added for consistency
+  | 'productImage'
+  | 'video'
+  | 'voiceOver'
+  | 'backgroundMusic'
+  | 'voiceOverText'
+  | 'sceneImageV1' // Added for Scene Image V1 upload
+  | 'sceneImageV2'; // Added for Scene Image V2 upload

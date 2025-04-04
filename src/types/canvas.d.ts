@@ -64,6 +64,10 @@ export interface CanvasScene {
   backgroundMusicUrl?: string;
   duration?: number;
   order?: number; // Alias for sceneOrder/scene_order
+  sceneImageV1Url?: string; // Add V1
+  scene_image_v1_url?: string; // Add V1 snake_case
+  sceneImageV2Url?: string; // Add V2
+  scene_image_v2_url?: string; // Add V2 snake_case
 }
 
 export interface SceneUpdateParams {
@@ -94,7 +98,9 @@ export type SceneUpdateType =
   | 'voiceOver'  
   | 'voiceOverText'
   | 'productImage'
-  | 'backgroundMusic';
+  | 'backgroundMusic'
+  | 'sceneImageV1' // Added for Scene Image V1 upload
+  | 'sceneImageV2'; // Added for Scene Image V2 upload
 
 // Define update function type with the complete SceneUpdateType
 export type UpdateSceneFunction = (

@@ -21,7 +21,7 @@ import {
 interface SceneDetailPanelProps {
   scene: CanvasScene | null;
   projectId: string;
-  updateScene: (sceneId: string, type: 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2', value: string) => Promise<void>;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 }
@@ -39,6 +39,8 @@ export function SceneDetailPanel({
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isUploadingVoiceOver, setIsUploadingVoiceOver] = useState(false);
   const [isUploadingMusic, setIsUploadingMusic] = useState(false);
+  const [isUploadingSceneImageV1, setIsUploadingSceneImageV1] = useState(false);
+  const [isUploadingSceneImageV2, setIsUploadingSceneImageV2] = useState(false);
   
   // Update local state when scene changes
   if (scene && scene.imagePrompt !== imagePrompt) {
@@ -63,7 +65,7 @@ export function SceneDetailPanel({
   
   const handleFileUpload = async (
     file: File, 
-    uploadType: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic',
+    uploadType: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2',
     setUploading: (uploading: boolean) => void
   ) => {
     if (!scene) return;
@@ -77,7 +79,11 @@ export function SceneDetailPanel({
           ? 'background-music' 
           : uploadType === 'video'
             ? 'scene-videos'
-            : 'canvas_assets';
+            : uploadType === 'sceneImageV1'
+              ? 'canvas_assets' // Assuming same bucket for now
+              : uploadType === 'sceneImageV2'
+                ? 'canvas_assets' // Assuming same bucket for now
+                : 'canvas_assets';
       
       // Upload file to Supabase storage
       const publicUrl = await uploadFileToBucket(bucket, file);
@@ -99,7 +105,7 @@ export function SceneDetailPanel({
   };
   
   const handleDeleteFile = async (
-    uploadType: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic'
+    uploadType: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2'
   ) => {
     if (!scene) return;
     
@@ -108,7 +114,7 @@ export function SceneDetailPanel({
       let currentUrl = '';
       switch (uploadType) {
         case 'image':
-          currentUrl = scene.imageUrl;
+          currentUrl = scene.imageUrl; // Keep original 'image' for now, might need adjustment
           break;
         case 'productImage':
           currentUrl = scene.productImageUrl;
@@ -121,6 +127,12 @@ export function SceneDetailPanel({
           break;
         case 'backgroundMusic':
           currentUrl = scene.backgroundMusicUrl;
+          break;
+        case 'sceneImageV1':
+          currentUrl = scene.sceneImageV1Url || '';
+          break;
+        case 'sceneImageV2':
+          currentUrl = scene.sceneImageV2Url || '';
           break;
       }
       
@@ -136,7 +148,11 @@ export function SceneDetailPanel({
           ? 'background-music' 
           : uploadType === 'video'
             ? 'scene-videos'
-            : 'canvas_assets';
+            : uploadType === 'sceneImageV1'
+              ? 'canvas_assets' // Assuming same bucket
+              : uploadType === 'sceneImageV2'
+                ? 'canvas_assets' // Assuming same bucket
+                : 'canvas_assets';
       
       // Delete file from Supabase storage
       await deleteFileFromBucket(bucket, currentUrl);
@@ -164,7 +180,7 @@ export function SceneDetailPanel({
     title: string;
     icon: React.ComponentType<LucideProps>;
     fileType: string;
-    uploadType: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic';
+    uploadType: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2';
     isUploading: boolean;
     setUploading: (uploading: boolean) => void;
     currentUrl: string;
@@ -190,7 +206,7 @@ export function SceneDetailPanel({
       
       {currentUrl ? (
         <div className="mb-2">
-          {uploadType === 'image' || uploadType === 'productImage' ? (
+          {uploadType === 'image' || uploadType === 'productImage' || uploadType === 'sceneImageV1' || uploadType === 'sceneImageV2' ? (
             <div className="aspect-video rounded-md overflow-hidden bg-muted">
               <img 
                 src={currentUrl} 
@@ -237,6 +253,7 @@ export function SceneDetailPanel({
       )}
     </div>
   );
+  
   
   return (
     <div className={`border-l bg-background flex flex-col transition-all ${
@@ -293,6 +310,28 @@ export function SceneDetailPanel({
               isUploading={isUploadingProductImage}
               setUploading={setIsUploadingProductImage}
               currentUrl={scene.productImageUrl}
+              acceptedTypes="image/*"
+            />
+            
+            <FileUploadItem
+              title="Scene Image V1"
+              icon={ImageIcon}
+              fileType="scene image v1"
+              uploadType="sceneImageV1"
+              isUploading={isUploadingSceneImageV1}
+              setUploading={setIsUploadingSceneImageV1}
+              currentUrl={scene.sceneImageV1Url || ''}
+              acceptedTypes="image/*"
+            />
+            
+            <FileUploadItem
+              title="Scene Image V2"
+              icon={ImageIcon}
+              fileType="scene image v2"
+              uploadType="sceneImageV2"
+              isUploading={isUploadingSceneImageV2}
+              setUploading={setIsUploadingSceneImageV2}
+              currentUrl={scene.sceneImageV2Url || ''}
               acceptedTypes="image/*"
             />
             

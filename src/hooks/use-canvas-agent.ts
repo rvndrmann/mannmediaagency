@@ -1,10 +1,14 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react"; // Added useEffect
 import { useCanvasAgentMCP } from "./use-canvas-agent-mcp";
 import { useCanvasMessages } from "./use-canvas-messages";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
-import { SceneUpdateType } from "@/types/canvas";
+import { SceneUpdateType, CanvasScene } from "@/types/canvas"; // Added CanvasScene
+// OpenAI import is no longer needed here
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+
+// Remove OpenAI client initialization and sleep function
 
 interface UpdateSceneFunction {
   (sceneId: string, type: SceneUpdateType, value: string): Promise<void>;
@@ -136,45 +140,93 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     }
   }, [projectId, agentMcp, addAgentMessage, addUserMessage, addSystemMessage]);
   
-  const generateImagePrompt = useCallback(async (sceneId: string, context?: string): Promise<boolean> => {
-    if (!sceneId) {
-      toast.error("Scene ID is required to generate image prompt");
-      return false;
-    }
-    
-    setIsLoading(true);
-    setActiveAgent("image-prompt-generator");
-    
-    try {
-      if (context) {
-        addUserMessage(`Generate image prompt with context: ${context}`);
-      } else {
-        addUserMessage("Generate image prompt");
+  // Update function signature to accept scene data directly
+  const generateImagePrompt = useCallback(async (
+    sceneId: string,
+    sceneScript: string,
+    voiceOverText: string,
+    customInstruction?: string,
+    context?: string // Keep context if still needed for other purposes
+  ): Promise<boolean> => {
+      // Validate inputs
+      if (!sceneId) {
+          toast.error("Scene ID is required.");
+          return false;
       }
-      
-      const success = await agentMcp.generateImagePrompt(sceneId, context);
-      
-      if (success) {
-        addAgentMessage(
-          "image", 
-          "Image prompt generated successfully.", 
-          sceneId
-        );
-      } else {
-        addSystemMessage("Failed to generate image prompt");
+      if (!sceneScript && !voiceOverText) {
+           toast.error("Scene script or voice-over text is required to generate prompt.");
+           return false;
       }
-      
-      return success;
-    } catch (error) {
-      console.error("Error generating image prompt:", error);
-      addSystemMessage("Error generating image prompt");
-      toast.error("Failed to generate image prompt");
-      return false;
-    } finally {
-      setIsLoading(false);
-      setActiveAgent(null);
-    }
-  }, [projectId, agentMcp, addAgentMessage, addUserMessage, addSystemMessage]);
+      // No OpenAI client check needed
+       if (!updateScene) {
+          toast.error("Update scene function not available.");
+          return false;
+      }
+
+      setIsLoading(true);
+      setActiveAgent("image-prompt-generator");
+      addUserMessage(`Generating image prompt for scene ${sceneId} via Edge Function...`); // Keep user message
+
+      try {
+          // Log the data being sent
+          console.log(`[useCanvasAgent] Calling generate-image-prompt Edge Function for sceneId: ${sceneId}`);
+
+          // Call the Supabase Edge Function
+          const { data: functionResponse, error: functionError } = await supabase.functions.invoke(
+              'generate-image-prompt', // Name of the Edge Function
+              {
+                  // Pass script, voice-over, and instruction directly
+                  body: {
+                      sceneScript,
+                      voiceOverText,
+                      customInstruction,
+                      context // Pass context if needed by function/prompt
+                  },
+              }
+          );
+
+          if (functionError) {
+              console.error("Edge function 'generate-image-prompt' invocation error:", functionError);
+              let detailMessage = functionError.message;
+              try {
+                  // Attempt to parse context for more detailed error from the function
+                  const ctx = JSON.parse(functionError.context || '{}');
+                  if (ctx.error) detailMessage = ctx.error;
+              } catch(e) { /* Ignore parsing error */ }
+              // Check specifically for 404 which we were diagnosing
+              if (functionError.message.includes('404')) {
+                 detailMessage = "Edge Function endpoint not found (404). Please verify deployment.";
+              }
+              throw new Error(`Failed to call AI service: ${detailMessage}`);
+          }
+
+          // Process the successful response
+          const generatedPrompt = functionResponse?.imagePrompt;
+
+          if (!generatedPrompt || typeof generatedPrompt !== 'string') {
+              console.error("Invalid response structure from 'generate-image-prompt' Edge function:", functionResponse);
+              throw new Error("Invalid image prompt format received from AI service.");
+          }
+
+          // Update the scene with the generated prompt
+          await updateScene(sceneId, 'imagePrompt', generatedPrompt);
+
+          addAgentMessage("image", `Generated Image Prompt: ${generatedPrompt}`, sceneId);
+          toast.success("Image prompt generated successfully!");
+          return true;
+
+      } catch (error: unknown) { // Explicitly type error
+          console.error("Error generating image prompt:", error); // Log the caught error
+          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+          addSystemMessage(`Error generating image prompt: ${errorMessage}`);
+          toast.error(`Failed to generate image prompt: ${errorMessage}`);
+          return false;
+      } finally {
+          setIsLoading(false);
+          setActiveAgent(null);
+      }
+  // Update dependencies - remove projectId if no longer directly used here
+  }, [updateScene, addAgentMessage, addUserMessage, addSystemMessage]);
   
   const generateSceneImage = useCallback(async (sceneId: string, imagePrompt?: string): Promise<boolean> => {
     if (!sceneId) {

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    // Set modern defaults suitable for Deno
+    "target": "esnext",
+    "module": "esnext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    // Deno types are typically inferred from the environment
+    // Module resolution suitable for Deno/ES modules
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true, // Allow importing .ts files
+    "noEmit": true, // Supabase CLI handles emitting
+    // Settings for JSX if used (adjust if not needed)
+    "jsx": "react-jsx", 
+    "jsxImportSource": "npm:react" 
+  },
+  // Define the scope of this configuration
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"] 
+}

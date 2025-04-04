@@ -22,8 +22,8 @@ export function useCanvasProjects() {
     setSelectedSceneId,
     createProject,
     addScene: createScene,
-    deleteScene,
     updateScene,
+    deleteScene: deleteSceneFromCanvas, // Destructure and rename
     divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,
@@ -206,32 +206,79 @@ export function useCanvasProjects() {
   }, [projectId]);
 
   // Update a project
-  const updateProject = useCallback(async (id: string, data: any): Promise<any> => {
+  const updateProject = useCallback(async (id: string, data: Partial<CanvasProject>): Promise<any> => {
     try {
+      // Prepare the update data for the database (handle potential snake_case)
+      const dbData: any = { ...data };
+      if (data.main_product_image_url !== undefined) {
+        dbData.main_product_image_url = data.main_product_image_url;
+      }
+      // Add other potential mappings if needed
+
       const { data: updatedProject, error } = await supabase
         .from('canvas_projects')
-        .update(data)
+        .update(dbData) // Use dbData
         .eq('id', id)
         .select()
         .single();
-      
+
       if (error) throw error;
-      
-      // Update local state
+
+      // --- BEGIN AUTO-POPULATE SCENES ---
+      let sceneUpdatePromise = Promise.resolve(); // Initialize with a resolved promise
+      const newMainImageUrl = data.main_product_image_url;
+      if (newMainImageUrl !== undefined) {
+        console.log(`[useCanvasProjects] Main image updated for project ${id} to ${newMainImageUrl}. Auto-populating scenes...`);
+        // Assign the async operation to the promise variable
+        sceneUpdatePromise = (async () => {
+          try {
+            console.log(`[useCanvasProjects] Attempting to update canvas_scenes for project_id ${id}...`);
+            const { data: sceneUpdateData, error: sceneUpdateError } = await supabase
+              .from('canvas_scenes')
+              .update({ product_image_url: newMainImageUrl })
+              .eq('project_id', id)
+              .select('id');
+
+            if (sceneUpdateError) {
+              console.error(`[useCanvasProjects] Error auto-populating scene images for project ${id}:`, sceneUpdateError);
+              toast.error(`Failed to update scene images: ${sceneUpdateError.message}`);
+            } else {
+              console.log(`[useCanvasProjects] Successfully updated product_image_url for ${sceneUpdateData?.length || 0} scenes in project ${id}.`);
+            }
+          } catch (sceneUpdateErr) {
+             console.error(`[useCanvasProjects] Exception during scene auto-population for project ${id}:`, sceneUpdateErr);
+             toast.error("An exception occurred while updating scene images.");
+          }
+        })(); // Immediately invoke the async IIFE
+      }
+      // --- END AUTO-POPULATE SCENES ---
+
+      // Update local projects list state immediately (UI might show stale scenes briefly)
       setProjects(prev => prev.map(p => {
         if (p.id === id) {
           return { ...p, ...data };
         }
         return p;
       }));
-      
+
+      // Wait for the scene update to complete *before* refreshing the useCanvas state
+      await sceneUpdatePromise;
+
+      // Update the project state within the useCanvas hook if this is the currently selected project
+      if (projectId === id && fetchProject) {
+         console.log(`[useCanvasProjects] Scene update awaited. Fetching project ${id} to refresh useCanvas state...`);
+         await fetchProject(); // Await the fetch as well
+         console.log(`[useCanvasProjects] fetchProject completed for ${id}.`);
+      }
+
+
       return updatedProject;
     } catch (err) {
       console.error("Error updating project:", err);
       toast.error("Failed to update project");
       throw err;
     }
-  }, []);
+  }, [projectId, fetchProject]); // Added projectId and fetchProject dependencies
 
   // Load projects when the component mounts
   useEffect(() => {
@@ -241,6 +288,27 @@ export function useCanvasProjects() {
   // Select a project
   const selectProject = useCallback((id: string) => {
     setProjectId(id);
+  }, []);
+
+  const deleteScene = useCallback(async (sceneId: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('canvas_scenes')
+        .delete()
+        .eq('id', sceneId);
+
+      if (error) {
+        console.error("Error deleting scene:", error);
+        toast.error("Failed to delete scene");
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error("Error deleting scene:", err);
+      toast.error("Failed to delete scene");
+      return false;
+    }
   }, []);
 
   return {
@@ -261,7 +329,7 @@ export function useCanvasProjects() {
     deleteProject,
     createScene,
     updateScene,
-    deleteScene,
+    deleteScene: deleteSceneFromCanvas, // Return the renamed function as deleteScene
     divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,

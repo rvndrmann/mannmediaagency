@@ -9,7 +9,7 @@ export interface ProjectContextType {
   activeScene: string | null;
   setActiveProject: (projectId: string | null) => void;
   setActiveScene: (sceneId: string | null) => void;
-  createProject: (title: string, description?: string) => Promise<string>;
+  createProject: (title: string, description?: string) => Promise<string | null>; // Can return null on failure
   updateProject: (id: string, data: Partial<CanvasProject>) => Promise<void>;
   createScene: (projectId: string, data: Partial<CanvasScene>) => Promise<string>;
   updateScene: (id: string, data: Partial<CanvasScene>) => Promise<void>;
@@ -37,36 +37,37 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
   const [projectDetails, setProjectDetails] = useState<any>(null);
   const [projectContent, setProjectContent] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchProjects = async () => {
-      console.log("Fetching initial project list for UI...");
-      try {
-        // Use standard client which respects RLS
-        const { data: projectsData, error } = await supabase
-          .from('canvas_projects')
-          .select('*') // Select columns needed for the list
-          .order('created_at', { ascending: false }); // Example order
+  // Define fetchProjects in the component scope
+  const fetchProjects = async () => {
+    console.log("Fetching project list for UI..."); // Log context (initial or refresh)
+    try {
+      // Use standard client which respects RLS
+      const { data: projectsData, error } = await supabase
+        .from('canvas_projects')
+        .select('*') // Select columns needed for the list
+        .order('created_at', { ascending: false }); // Example order
 
-        if (error) {
-          console.error('Error fetching projects for UI:', error);
-          toast.error(`Failed to load projects: ${error.message}`);
-          setProjects([]); // Set empty on error
-        } else if (projectsData) {
-          const normalized = projectsData.map(normalizeProject);
-          console.log(`Fetched ${normalized.length} projects for UI.`);
-          setProjects(normalized);
-        } else {
-          setProjects([]);
-        }
-      } catch (error) {
-        console.error('Unexpected error fetching projects for UI:', error);
-        toast.error("An unexpected error occurred while loading projects.");
+      if (error) {
+        console.error('Error fetching projects for UI:', error);
+        toast.error(`Failed to load projects: ${error.message}`);
+        setProjects([]); // Set empty on error
+      } else if (projectsData) {
+        const normalized = projectsData.map(normalizeProject);
+        console.log(`Fetched ${normalized.length} projects for UI.`);
+        setProjects(normalized);
+      } else {
         setProjects([]);
       }
-    };
+    } catch (error) {
+      console.error('Unexpected error fetching projects for UI:', error);
+      toast.error("An unexpected error occurred while loading projects.");
+      setProjects([]);
+    }
+  };
 
-    fetchProjects();
-  }, []); // Fetch only on initial mount
+  useEffect(() => {
+    fetchProjects(); // Call fetchProjects on initial mount
+  }, []);
 
   const normalizeProject = (project: any): CanvasProject => {
     return {
@@ -112,24 +113,52 @@ export const ProjectProvider = ({ children }: ProjectProviderProps) => {
     };
   };
 
-  const createProject = async (title: string, description?: string): Promise<string> => {
-    try {
-      const projectId = `project-${Date.now()}`;
-      const newProject = normalizeProject({
-        id: projectId,
-        title,
-        description,
-        userId: 'user-1',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      
-      setProjects(prev => [...prev, newProject]);
-      return projectId;
-    } catch (error) {
-      console.error('Error creating project:', error);
-      throw error;
-    }
+  const createProject = async (title: string, description?: string): Promise<string | null> => {
+      try {
+          // Assuming 'user-1' is a placeholder; replace with actual user ID logic if available
+          const userId = 'user-1';
+
+          const projectData = {
+              // Let Supabase handle the ID generation
+              title,
+              description: description || '',
+              user_id: userId, // Ensure this column name matches your Supabase table
+          };
+
+          console.log("Attempting to insert project into Supabase:", projectData);
+          const { data: insertedData, error } = await supabase
+              .from('canvas_projects')
+              .insert(projectData)
+              .select() // Select the inserted row to get its ID and other details
+              .single(); // Expecting one row back
+
+          if (error) {
+              console.error('Error inserting project into Supabase:', error);
+              toast.error(`Failed to create project: ${error.message}`);
+              return null; // Indicate failure
+          }
+
+          if (!insertedData) {
+               console.error('Supabase insert did not return data.');
+               toast.error('Failed to create project: No data returned.');
+               return null; // Indicate failure
+          }
+
+          console.log("Project inserted successfully:", insertedData);
+          toast.success(`Project "${insertedData.title}" created successfully!`);
+
+          // Refresh the project list from Supabase to update the UI correctly
+          await fetchProjects();
+
+          // Return the ID of the newly created project
+          return insertedData.id;
+
+      } catch (error) {
+          console.error('Unexpected error in createProject:', error);
+          const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+          toast.error(`Project creation failed: ${errorMessage}`);
+          return null; // Indicate failure
+      }
   };
 
   const updateProject = async (id: string, data: Partial<CanvasProject>): Promise<void> => {

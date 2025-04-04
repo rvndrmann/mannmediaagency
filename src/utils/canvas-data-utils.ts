@@ -47,6 +47,10 @@ export function normalizeScene(scene: any): CanvasScene {
     voice_over_text: scene.voice_over_text || scene.voiceOverText || '',
     backgroundMusicUrl: scene.backgroundMusicUrl || scene.background_music_url || '',
     background_music_url: scene.background_music_url || scene.backgroundMusicUrl || '',
+    sceneImageV1Url: scene.sceneImageV1Url || scene.scene_image_v1_url || '', // Add V1 normalization
+    scene_image_v1_url: scene.scene_image_v1_url || scene.sceneImageV1Url || '', // Add V1 normalization (snake_case)
+    sceneImageV2Url: scene.sceneImageV2Url || scene.scene_image_v2_url || '', // Add V2 normalization
+    scene_image_v2_url: scene.scene_image_v2_url || scene.sceneImageV2Url || '', // Add V2 normalization (snake_case)
     sceneOrder: scene.sceneOrder || scene.scene_order || scene.order || 0,
     scene_order: scene.scene_order || scene.sceneOrder || scene.order || 0,
     order: scene.order || scene.sceneOrder || scene.scene_order || 0,

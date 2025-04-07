@@ -7,15 +7,8 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 // Create a function to initialize the Supabase client
 const createSupabaseClient = () => {
-  // Clear any potentially corrupted auth data
-  if (typeof window !== 'undefined') {
-    // Only attempt to clear if we detect issues
-    const authConfirmed = localStorage.getItem('auth_confirmed');
-    if (!authConfirmed) {
-      localStorage.removeItem('supabase.auth.token');
-    }
-  }
-  
+  // Note: Removed logic that cleared localStorage.removeItem('supabase.auth.token')
+  // as it might interfere with the PKCE flow.
   return createClient<Database>(
     SUPABASE_URL,
     SUPABASE_ANON_KEY,

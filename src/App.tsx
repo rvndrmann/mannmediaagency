@@ -124,7 +124,7 @@ function App() {
           <Route path="/product-shoot" element={<ProductShot />} />
           <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
           <Route path="/image-to-video" element={<ImageToVideo />} />
-          <Route path="/browser-use" element={<BrowserUse />} />
+          <Route path="/browser-use" element={<AdminRoute><BrowserUse /></AdminRoute>} />
           <Route path="/trace-analytics" element={<TraceAnalytics />} />
           <Route path="/custom-orders" element={<CustomOrders />} />
           <Route path="/video-projects" element={<VideoProjectPage />} />

@@ -62,7 +62,7 @@ const BrowserUsePage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const taskIdFromUrl = searchParams.get("task");
-  const { user } = useUser(); // Get user object
+  const { user, isAdmin, isLoading: isUserLoading } = useUser(); // Get user, admin status, and loading state
   const { data: userCreditsData, isLoading: isLoadingCredits } = useUserCredits(); // Get credits data and loading state
   
   const [tasks, setTasks] = useState<BrowserTask[]>([]);
@@ -83,7 +83,7 @@ const BrowserUsePage = () => {
   };
 
   useEffect(() => {
-    fetchTasks();
+    // fetchTasks(); // Removed initial call from here, will be called when user loads
     
     const id = window.setInterval(() => {
       if (activeTask) {
@@ -98,7 +98,14 @@ const BrowserUsePage = () => {
         window.clearInterval(intervalId);
       }
     };
-  }, [activeTask]);
+  }, [activeTask]); // Keep dependency for interval logic
+
+  // Fetch tasks only when user is loaded
+  useEffect(() => {
+    if (user) {
+      fetchTasks();
+    }
+  }, [user]);
   
   useEffect(() => {
     if (taskIdFromUrl) {
@@ -106,11 +113,20 @@ const BrowserUsePage = () => {
     }
   }, [taskIdFromUrl]);
 
+  // Effect to redirect non-admins
+  useEffect(() => {
+    // Wait until user loading is complete before checking admin status
+    if (!isUserLoading && !isAdmin) {
+      toast.error("Access Denied: You do not have permission to view this page.");
+      navigate("/", { replace: true }); // Redirect to home page
+    }
+  }, [isAdmin, isUserLoading, navigate]);
+
   const fetchTasks = async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: { action: "list" }
+        body: { action: "list", userId: user?.id } // Add userId to the request
       });
       
       if (error) throw error;
@@ -301,6 +317,14 @@ const BrowserUsePage = () => {
     setShowTemplatesPanel(false);
   };
 
+  // Render loading state or null if user/admin status is still loading or if user is not admin
+  if (isUserLoading || !isAdmin) {
+    // Optional: Show a loading indicator or specific message
+    // Returning null prevents rendering the page content prematurely or for non-admins
+    return <div className="flex items-center justify-center min-h-screen">Loading user data...</div>;
+  }
+
+  // Only render the page content if loading is complete and user is admin
   return (
     <div className="container mx-auto py-8">
       <div className="flex items-center mb-6">

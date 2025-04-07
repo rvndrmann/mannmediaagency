@@ -71,7 +71,7 @@ template = "Your code is {{ .Code }}"
 max_frequency = "5s"
 [auth.sms.twilio]
 enabled = true
-account_sid = "" # Set via environment variable or Supabase secrets
+account_sid = "env(SUPABASE_AUTH_TWILIO_ACCOUNT_SID)" # Placeholder for CLI validation
 message_service_sid = "MG44265d585e4a74898a442524d5bb1d0e"
 auth_token = "hash:db349b570521454840d25de328fc765354ee30dabbf11abd07c839b2cf7eb5cc"
 [auth.sms.twilio_verify]

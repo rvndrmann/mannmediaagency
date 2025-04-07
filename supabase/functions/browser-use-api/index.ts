@@ -57,7 +57,7 @@ serve(async (req: Request) => {
         if (!userId) return jsonResponse({ error: "User ID required to list tasks." }, 400); // Re-check userId specifically for list
         console.log(`Listing tasks for user ${userId}`);
         const { data: tasks, error } = await supabaseAdmin
-          .from('browser_automation_tasks')
+          .from('browser_task_history') // Changed to query the correct history table
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });

@@ -4,7 +4,7 @@ import { useCanvasAgentMCP } from "./use-canvas-agent-mcp";
 import { useCanvasMessages } from "./use-canvas-messages";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
-import { SceneUpdateType, CanvasScene, AdminSceneUpdate } from "@/types/canvas"; // Use AdminSceneUpdate here
+import { SceneUpdateType, CanvasScene, AdminSceneUpdate, CanvasProject } from "@/types/canvas"; // Use AdminSceneUpdate here, Add CanvasProject
 // OpenAI import is no longer needed here
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js"; // Import RealtimePostgresChangesPayload
@@ -17,6 +17,8 @@ interface UpdateSceneFunction {
 
 interface UseCanvasAgentProps {
   projectId?: string;
+  project?: CanvasProject | null; // Add project prop
+  projects?: CanvasProject[];    // Add projects prop
   sceneId?: string;
   updateScene?: UpdateSceneFunction;
 }
@@ -25,10 +27,11 @@ interface UseCanvasAgentProps {
  * Main hook for Canvas Agent functionality
  */
 export function useCanvasAgent(props: UseCanvasAgentProps) {
-  const { projectId, sceneId, updateScene } = props;
+  const { projectId, project, projects, sceneId, updateScene } = props; // Destructure new props
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
-  const adminUpdatesChannelRef = useRef<RealtimeChannel | null>(null); // Ref for realtime channel
+  const adminUpdatesChannelRef = useRef<RealtimeChannel | null>(null); // Ref for admin updates channel
+  const sceneUpdatesChannelRef = useRef<RealtimeChannel | null>(null); // Ref for scene updates channel
 
   // Use the Canvas Messages hook for message management
   const {
@@ -48,6 +51,8 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
   // Use the MCP integration hook
   const agentMcp = useCanvasAgentMCP ? useCanvasAgentMCP({
     projectId,
+    project,  // Pass project down
+    projects, // Pass projects down
     sceneId,
     updateScene
   }) : {
@@ -410,34 +415,43 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
       console.log('Admin update received:', payload);
       const { new: updateRecord } = payload;
 
-      if (!updateRecord) return;
-
+      // Ensure updateRecord is not empty and has scene_id
+      if (!updateRecord || !('scene_id' in updateRecord) || !updateRecord.scene_id) {
+          console.warn("Admin update received without record or scene_id:", payload);
+          return;
+      }
+      // Now TypeScript knows updateRecord has scene_id within this block
+      const sceneId = updateRecord.scene_id;
+ 
       // Fetch project details to confirm ownership before processing
       supabase
         .from('canvas_scenes')
         .select('project_id')
-        .eq('id', updateRecord.scene_id)
+        .eq('id', sceneId) // Use the validated sceneId
         .single()
         .then(({ data: sceneData, error }) => {
           if (error || !sceneData || sceneData.project_id !== projectId) {
              if(error) console.error("Error fetching scene for admin update check:", error);
-             else console.log("Admin update ignored, scene not part of current project:", updateRecord.scene_id);
+             else console.log("Admin update ignored, scene not part of current project:", sceneId);
             return; // Ignore update if scene doesn't belong to the current project
           }
 
-          // Format message based on update type
-          let messageContent = `An administrator updated the ${updateRecord.update_type} for scene ${updateRecord.scene_id}.`;
-          if (updateRecord.update_content) {
+          // Format message based on update type, checking properties exist using 'in'
+          let messageContent = `An administrator update occurred for scene ${sceneId}.`; // Default message
+          if ('update_type' in updateRecord && updateRecord.update_type) {
+              messageContent = `An administrator updated the ${updateRecord.update_type} for scene ${sceneId}.`;
+          }
+          if ('update_content' in updateRecord && updateRecord.update_content) {
             // Keep it concise for the chat
              const displayContent = updateRecord.update_content.length > 50
                 ? `${updateRecord.update_content.substring(0, 50)}...`
                 : updateRecord.update_content;
             messageContent += ` New value: "${displayContent}"`;
           }
-
+ 
           // Add a system message to the chat
           addSystemMessage(messageContent);
-          toast.info(`Admin update received for scene ${updateRecord.scene_id}`);
+          toast.info(`Admin update received for scene ${sceneId}`);
         });
     };
 
@@ -477,7 +491,112 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
       }
     };
     // Dependencies: projectId, supabase client instance, addSystemMessage
-  }, [projectId, supabase, addSystemMessage]);
+  }, [projectId, supabase, addSystemMessage]); // Keep dependencies for admin updates
+
+  // --- Scene Generation Update Handling (Supabase Realtime) ---
+  useEffect(() => {
+    if (!projectId || !supabase) {
+      console.log("Scene updates: Missing projectId or Supabase client.");
+      return;
+    }
+
+    const handleSceneUpdate = (payload: RealtimePostgresChangesPayload<CanvasScene>) => {
+      console.log('Scene update received:', payload);
+      const { new: updatedScene, old: oldScene } = payload;
+ 
+      // Ensure updatedScene is not empty and has id and status
+      if (!updatedScene || !('id' in updatedScene) || !updatedScene.id || !('status' in updatedScene)) {
+          console.warn("Scene update received without record, id, or status:", payload);
+          return;
+      }
+      // Now TypeScript knows updatedScene has id and status
+      const sceneId = updatedScene.id;
+      const newStatus = updatedScene.status;
+
+      // Check if the status actually changed (and oldScene exists and has status for comparison)
+      if (oldScene && 'status' in oldScene && newStatus === oldScene.status) {
+        console.log(`Scene ${sceneId} status unchanged (${newStatus}), ignoring.`);
+        return;
+      }
+
+      const sceneIdentifier = `Scene ${('scene_index' in updatedScene && typeof updatedScene.scene_index === 'number') ? updatedScene.scene_index + 1 : sceneId}`; // Use index if available and is a number
+
+      let messageContent = "";
+      let toastType: 'success' | 'error' | 'info' = 'info';
+
+      switch (newStatus) { // Use the validated status
+        case 'completed':
+          messageContent = `${sceneIdentifier} generation completed.`;
+          // Optionally include links if available (using 'in' check) and not null/empty
+          if ('image_url' in updatedScene && updatedScene.image_url) {
+             messageContent += `\nImage: ${updatedScene.image_url}`;
+          }
+           if ('video_url' in updatedScene && updatedScene.video_url) {
+             messageContent += `\nVideo: ${updatedScene.video_url}`;
+          }
+          toastType = 'success';
+          break;
+        case 'failed':
+          messageContent = `${sceneIdentifier} generation failed.`;
+          // Optionally include error details if stored (using 'in' check) and not null/empty
+          if ('error_message' in updatedScene && updatedScene.error_message) {
+             messageContent += `\nError: ${updatedScene.error_message}`;
+          }
+          toastType = 'error';
+          break;
+        // Add cases for other status updates if needed (e.g., 'generating_video')
+        // case 'generating_video':
+        //   messageContent = `${sceneIdentifier} is now generating video...`;
+        //   toastType = 'info';
+        //   break;
+        default:
+          // Ignore other status changes for chat messages for now
+          console.log(`Scene ${sceneId} updated to status: ${newStatus} - no chat message needed.`);
+          return;
+      }
+
+      // Add a system message to the chat
+      addSystemMessage(messageContent);
+      toast[toastType](messageContent.split('\n')[0]); // Show first line in toast
+    };
+
+    // Subscribe to updates on the canvas_scenes table for the specific project
+    const channel = supabase
+      .channel(`scene_updates_for_project_${projectId}`)
+      .on<CanvasScene>(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'canvas_scenes',
+          filter: `project_id=eq.${projectId}`,
+        },
+        (payload) => handleSceneUpdate(payload as RealtimePostgresChangesPayload<CanvasScene>)
+      )
+      .subscribe((status, err) => {
+         if (status === 'SUBSCRIBED') {
+            console.log(`Subscribed to scene updates for project ${projectId}`);
+         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error(`Scene updates subscription error for project ${projectId}:`, status, err);
+            toast.error("Realtime connection error for scene updates.");
+         } else {
+            console.log(`Scene updates subscription status for project ${projectId}: ${status}`);
+         }
+      });
+
+    sceneUpdatesChannelRef.current = channel;
+
+    // Cleanup function
+    return () => {
+      if (sceneUpdatesChannelRef.current) {
+        console.log(`Unsubscribing from scene updates for project ${projectId}`);
+        supabase.removeChannel(sceneUpdatesChannelRef.current)
+          .then(status => console.log("Scene updates unsubscribe status:", status))
+          .catch(error => console.error("Error unsubscribing from scene updates:", error));
+        sceneUpdatesChannelRef.current = null;
+      }
+    };
+  }, [projectId, supabase, addSystemMessage]); // Dependencies for scene updates
 
 
   return {

@@ -24,6 +24,7 @@ interface CanvasDetailPanelProps {
   scene: CanvasScene | null;
   projectId: string;
   project: CanvasProject | null;
+  projects?: CanvasProject[]; // Add projects prop
   updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2' | 'bria_v2_request_id' | 'fal_tts_request_id' | 'voiceoverAudioUrl', value: string | null) => Promise<void>;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
@@ -33,6 +34,7 @@ export function CanvasDetailPanel({
   scene,
   projectId,
   project,
+  projects, // Destructure projects
   updateScene,
   collapsed,
   setCollapsed,
@@ -67,6 +69,8 @@ export function CanvasDetailPanel({
     generateSceneDescription // Assuming this exists in the hook
   } = useCanvasAgent({
     projectId,
+    project, // Pass project
+    projects, // Pass projects
     sceneId: scene?.id,
     updateScene
   });

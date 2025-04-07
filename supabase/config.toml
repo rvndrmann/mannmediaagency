@@ -1,4 +1,3 @@
-
 project_id = "avdwgvjhufslhqrrmxgo"
 [functions.chat-with-langflow]
 verify_jwt = false
@@ -42,3 +41,39 @@ verify_jwt = true
 verify_jwt = false
 [functions.browser-tasks-scheduler-cron]
 verify_jwt = false
+
+[auth]
+enabled = true
+site_url = "https://www.mannmediaagency.com"
+additional_redirect_urls = ["https://www.mannmediaagency.com/auth/callback", "https://avdwgvjhufslhqrrmxgo.supabase.co/auth/v1/callback", "http://localhost:5173/auth/callback", "https://mannmediaagency.com/auth/callback", "http://localhost:8080/", "http://localhost:8080/auth/callback", "http://localhost:8082/", "http://localhost:8082/auth/callback", "https://avdwgvjhufslhqrrmxgo.supabase.co/functions/v1/mcp-server."]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_manual_linking = true
+enable_signup = true
+enable_anonymous_sign_ins = false
+minimum_password_length = 6
+
+[auth.mfa]
+max_enrolled_factors = 10
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+[auth.mfa.phone]
+enroll_enabled = false
+verify_enabled = false
+
+[auth.email.template]
+[auth.sms]
+enable_signup = true
+enable_confirmations = false
+template = "Your code is {{ .Code }}"
+max_frequency = "5s"
+[auth.sms.twilio]
+enabled = true
+account_sid = "" # Set via environment variable or Supabase secrets
+message_service_sid = "MG44265d585e4a74898a442524d5bb1d0e"
+auth_token = "hash:db349b570521454840d25de328fc765354ee30dabbf11abd07c839b2cf7eb5cc"
+[auth.sms.twilio_verify]
+enabled = false
+account_sid = ""

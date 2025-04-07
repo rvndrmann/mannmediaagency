@@ -1,106 +1,61 @@
+// src/types/canvas.ts (Corrected Content)
 
 export interface CanvasProject {
   id: string;
   title: string;
-  description?: string;
-  
-  // Normalized fields with backwards compatibility
-  userId: string;
-  user_id?: string;
-  
-  fullScript?: string;
-  full_script?: string;
-  
-  createdAt: string;
-  created_at?: string;
-  
-  updatedAt: string;
-  updated_at?: string;
-  
-  scenes?: CanvasScene[];
-  
-  productImage?: string;
-  cover_image_url?: string;
-  final_video_url?: string;
-  main_product_image_url?: string; // Added for main project image
+  description: string | null;
+  final_video_url: string | null;
+  full_script: string | null;
+  main_product_image_url: string | null;
+  user_id: string; // Matches DB schema
+  created_at: string; // Matches DB schema
+  updated_at: string; // Matches DB schema
+  // Add normalized fields if needed elsewhere, but keep base type aligned with DB
+  userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CanvasScene {
+  background_music_url: string | null;
+  bria_v2_request_id: string | null;
+  created_at: string; // Matches DB schema
+  custom_instruction: string | null;
+  description: string | null;
+  duration: number | null;
+  fal_tts_request_id: string | null;
   id: string;
-  title: string;
-  
-  // Normalized script fields
-  script?: string;
-  
-  // Normalized image prompt fields
-  imagePrompt?: string;
-  image_prompt?: string;
-  
-  description?: string;
-  
-  // Normalized media fields
-  image?: string;
-  imageUrl?: string;
-  image_url?: string;
-  sceneImageV1Url?: string; // Added for Scene Image V1
-  scene_image_v1_url?: string; // Added for Scene Image V1 (DB)
-  sceneImageV2Url?: string; // Added for Scene Image V2
-  scene_image_v2_url?: string; // Added for Scene Image V2 (DB)
-  video?: string;
+  image_prompt: string | null;
+  image_url: string | null;
+  is_template: boolean | null;
+  product_image_url: string | null;
+  project_id: string; // Matches DB schema
+  scene_order: number | null;
+  script: string | null;
+  template_id: string | null;
+  updated_at: string; // Matches DB schema
+  video_url: string | null;
+  voice_over_text: string | null;
+  voice_over_url: string | null;
+  // Add normalized fields if needed elsewhere, but keep base type aligned with DB
+  projectId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  title?: string; // Keep title if used in UI, though not in DB schema directly
+  imageUrl?: string; // Keep normalized fields if used extensively
   videoUrl?: string;
-  video_url?: string;
-  
-  voiceOver?: string;
-  voiceOverText?: string;
-  voice_over_text?: string;
-  
-  backgroundMusic?: string;
-  backgroundMusicUrl?: string;
-  background_music_url?: string;
-  
-  // Project relationship fields
-  projectId: string;
-  project_id?: string;
-  
-  // Normalized timestamp fields
-  createdAt: string;
-  created_at?: string;
-  
-  updatedAt: string;
-  updated_at?: string;
-  
-  // Normalized order fields
-  scene_order?: number;
-  sceneOrder?: number;
-  order?: number;
-  
-  // Additional fields for compatibility
-  productImage?: string;
-  productImageUrl?: string;
-  product_image_url?: string;
-  
-  voiceOverUrl?: string;
-  voice_over_url?: string;
-  
-  duration?: number;
-
-  // Added field for Bria V2 request ID
-  bria_v2_request_id?: string; // Database column name
-  briaV2RequestId?: string; // Normalized name for frontend use (optional, depends on data fetching)
-// Added field for Fal AI TTS voiceover
-voiceover_audio_url?: string | null; // Database column name
-voiceoverAudioUrl?: string | null; // Normalized name for frontend use
-fal_tts_request_id?: string; // Database column name for TTS request ID
-falTtsRequestId?: string; // Normalized name for frontend use
+  voiceOverText?: string; // Already exists in DB schema as voice_over_text
+  voiceOverUrl?: string; // Already exists in DB schema as voice_over_url
+  sceneOrder?: number; // Keep normalized field if used
 }
 
-export type WorkflowStage = 
-  | 'planning' 
-  | 'script_writing' 
-  | 'scene_generation' 
-  | 'image_generation' 
-  | 'video_generation' 
-  | 'audio_generation' 
+export type WorkflowStage =
+  | 'planning'
+  | 'script_writing'
+  | 'scene_generation'
+  | 'image_generation'
+  | 'video_generation'
+  | 'audio_generation'
   | 'final_compilation';
 
 export interface WorkflowState {
@@ -108,30 +63,30 @@ export interface WorkflowState {
   status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'paused';
   currentStage?: WorkflowStage;
   stageResults?: Record<string, any>;
-  
+
   createdAt: string;
   created_at?: string;
-  
+
   updatedAt: string;
   updated_at?: string;
-  
+
   completedStages?: WorkflowStage[];
   errorMessage?: string;
-  
+
   startedAt?: string;
   start_at?: string;
-  
+
   completedAt?: string;
   completed_at?: string;
-  
+
   sceneStatuses?: Record<string, any>;
   progress?: number;
 }
 
-export type SceneUpdateType = 
-  | 'script' 
-  | 'imagePrompt' 
-  | 'description' 
+export type SceneUpdateType =
+  | 'script'
+  | 'imagePrompt'
+  | 'description'
   | 'image'
   | 'imageUrl'
   | 'productImage'
@@ -149,41 +104,41 @@ export interface SceneData {
   id?: string;
   projectId: string;
   project_id?: string;
-  
+
   title?: string;
   script?: string;
   description?: string;
-  
+
   imagePrompt?: string;
   image_prompt?: string;
-  
+
   imageUrl?: string;
   image_url?: string;
-  
+
   videoUrl?: string;
   video_url?: string;
-  
+
   sceneOrder?: number;
   scene_order?: number;
-  
+
   createdAt?: string;
   created_at?: string;
-  
+
   updatedAt?: string;
   updated_at?: string;
-  
+
   voiceOverText?: string;
   voice_over_text?: string;
-  
+
   voiceOverUrl?: string;
   voice_over_url?: string;
-  
+
   productImageUrl?: string;
   product_image_url?: string;
-  
+
   backgroundMusicUrl?: string;
   background_music_url?: string;
-  
+
   duration?: number;
 
   // Add missing scene image fields

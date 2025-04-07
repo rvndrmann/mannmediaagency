@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom"; // Removed useLocation
+import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom"; // Removed useLocation, Added useParams
 import { Toaster } from "sonner";
 import MultiAgentChat from "./pages/MultiAgentChat";
 import { VideoProjectPage } from "./pages/VideoProjectPage";
@@ -89,6 +89,26 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 // If needed elsewhere, it can be kept or moved to a separate file.
 
 
+// Wrapper component to handle projectId extraction for MultiAgentChat route
+const MultiAgentChatPageWrapper = () => {
+  const { projectId } = useParams<{ projectId: string }>();
+
+  // Only render the chat interface if a project ID is present in the URL
+  if (!projectId) {
+    // Optional: Redirect to a project selection page or show a message
+    // For now, returning null to prevent rendering without a required projectId.
+    // Consider redirecting: return <Navigate to="/canvas" replace />;
+    console.warn("Attempted to access multi-agent chat without a project ID.");
+    return null;
+  }
+
+  return (
+    <CanvasMcpProvider projectId={projectId}>
+      <MultiAgentChat />
+    </CanvasMcpProvider>
+  );
+};
+
 function App() {
   return (
     <MCPProvider>
@@ -98,7 +118,7 @@ function App() {
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Index />} />
           {/* Added optional projectId parameter */}
-          <Route path="/multi-agent-chat/:projectId?" element={<CanvasMcpProvider><MultiAgentChat /></CanvasMcpProvider>} />
+          <Route path="/multi-agent-chat/:projectId?" element={<MultiAgentChatPageWrapper />} />
           <Route path="/canvas" element={<Canvas />} />
           <Route path="/canvas/:projectId" element={<Canvas />} />
           <Route path="/product-shoot" element={<ProductShot />} />

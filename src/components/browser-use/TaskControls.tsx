@@ -128,8 +128,10 @@ export function TaskControls({
       )}
       
       {typeof userCredits === 'number' && (
-        <div className="ml-auto text-sm text-muted-foreground">
-          Credits: {userCredits.toFixed(2)}
+        <div className="ml-auto text-sm text-muted-foreground flex items-center gap-2">
+          <span>Cost: 1 credit</span>
+          <span>|</span>
+          <span>Available: {userCredits.toFixed(0)} credits</span>
         </div>
       )}
     </div>

@@ -193,24 +193,7 @@ export function CanvasWorkspace({
             </ScrollArea>
           </div>
           
-          {/* Main content area for Scene Editor and Detail Panel */}
-          {/* Main content area for Scene Editor */}
-          {/* Main content area for Scene Editor and Detail Panel */}
-          {/* Main content area for Scene Editor */}
-          <div className="flex-1 overflow-hidden flex p-4 gap-4"> {/* Restoring gap */}
-            {selectedScene ? (
-              <div className="flex-1 overflow-auto bg-background dark:bg-secondary rounded-md shadow"> {/* Restoring flex-1 */}
-                <SceneEditor
-                  scene={selectedScene}
-                  onUpdate={updateScene}
-                />
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground"> {/* Restoring flex-1 */}
-                Select a scene to edit
-              </div>
-            )}
-          </div>
+          {/* The SceneEditor is now rendered by CanvasDetailPanelAdapter in Canvas.tsx */}
         </TabsContent>
       </Tabs>
     </div>

@@ -1,8 +1,11 @@
 import logging
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Any
+from typing import Any, Optional # Added Optional
+
+# Import the pipeline runner function
+from .services.pipeline_runner import start_project_generation
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -114,6 +117,20 @@ async def send_chat_message(project_id: str, request_data: ChatMessageRequest):
     except Exception as e:
         logger.exception(f"Unexpected error processing chat for project {project_id}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# --- Generation Pipeline Endpoint ---
+@app.post("/api/pipeline/start/{project_id}")
+async def trigger_generation_pipeline(project_id: str, background_tasks: BackgroundTasks):
+    """
+    Triggers the generation pipeline for a specific project as a background task.
+    """
+    logger.info(f"Received request to start generation pipeline for project: {project_id}")
+    # Add the pipeline function as a background task
+    background_tasks.add_task(start_project_generation, project_id)
+    logger.info(f"Generation pipeline for project {project_id} added to background tasks.")
+    # Return immediately
+    return {"message": f"Generation pipeline started for project {project_id}"}
 
 # --- Run the server (for local development) ---
 #     return {"message": "Chat endpoint not yet implemented"}

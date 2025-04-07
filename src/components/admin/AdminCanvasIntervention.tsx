@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/use-auth'; // Assuming useAuth provides user info
+import { supabase } from '@/integrations/supabase/client'; // Keep only the standard client import
+import { useAuth } from '@/hooks/use-auth';
+import { useProjectContext } from '@/hooks/multi-agent/project-context'; // Import project context
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,7 +10,8 @@ import { toast } from 'sonner';
 import { CanvasProject, CanvasScene } from '@/types/canvas'; // Assuming these types exist
 
 export const AdminCanvasIntervention = () => {
-  const { user } = useAuth(); // Get authenticated user
+  const { user } = useAuth();
+  const { normalizeProject, normalizeScene } = useProjectContext(); // Get normalization functions
   const [projects, setProjects] = useState<CanvasProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [scenes, setScenes] = useState<CanvasScene[]>([]);
@@ -32,7 +34,9 @@ export const AdminCanvasIntervention = () => {
         console.error('Error fetching projects:', error);
         toast.error('Failed to load projects.');
       } else {
-        setProjects(data || []);
+        // Normalize the fetched data before setting state
+        const normalizedProjects = (data || []).map(normalizeProject);
+        setProjects(normalizedProjects);
       }
       setIsLoadingProjects(false);
     };
@@ -61,7 +65,9 @@ export const AdminCanvasIntervention = () => {
         toast.error('Failed to load scenes for the selected project.');
         setScenes([]);
       } else {
-        setScenes(data || []);
+        // Normalize the fetched data before setting state
+        const normalizedScenes = (data || []).map(normalizeScene);
+        setScenes(normalizedScenes);
       }
       setIsLoadingScenes(false);
     };
@@ -78,17 +84,33 @@ export const AdminCanvasIntervention = () => {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('admin_scene_updates').insert({
+      // Prepare the data payload for the Edge Function
+      const payload = {
         project_id: selectedProjectId,
         scene_id: selectedSceneId,
-        admin_user_id: user.id,
         update_content: updateContent.trim(),
-        // Assuming 'status' defaults or is handled by trigger/policy
-      });
+        // update_type: 'other' // Or determine this based on context if needed
+      };
+
+      console.log('Invoking admin-submit-scene-update function with payload:', payload);
+
+      // Invoke the Edge Function
+      const { data: functionData, error } = await supabase.functions.invoke(
+        'admin-submit-scene-update',
+        { body: payload }
+      );
 
       if (error) {
-        throw error;
+        console.error('Edge function invocation error:', error);
+        // Attempt to parse Supabase function error details if available
+        let detailedError = error.message;
+        if (error.context && typeof error.context === 'object' && 'error' in error.context) {
+            detailedError = error.context.error as string;
+        }
+        throw new Error(detailedError || error.message); // Throw a new error with potentially more detail
       }
+
+      console.log('Edge function response:', functionData);
 
       toast.success('Scene update submitted successfully!');
       // Optionally clear the form
@@ -98,8 +120,8 @@ export const AdminCanvasIntervention = () => {
 
     } catch (error: any) {
       console.error('Error submitting scene update:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast.error(`Failed to submit update: ${errorMessage || 'An unknown error occurred'}`);
+      // Use the error message directly from the caught error
+      toast.error(`Failed to submit update: ${error.message || 'An unknown error occurred'}`);
     } finally {
       setIsSubmitting(false);
     }

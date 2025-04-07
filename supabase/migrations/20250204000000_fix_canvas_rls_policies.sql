@@ -1,5 +1,14 @@
 -- Enable RLS for canvas_projects if not already enabled
-ALTER TABLE public.canvas_projects ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'canvas_projects'
+  ) THEN
+    ALTER TABLE public.canvas_projects ENABLE ROW LEVEL SECURITY;
+  END IF;
+END
+$$;
 
 -- Policies for canvas_projects
 -- 1. Allow users to view their own projects

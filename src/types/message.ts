@@ -32,9 +32,10 @@ export interface Message {
   };
   canvasContent?: any; // Added this property for use-canvas-messages.ts
   runId?: string; // <-- Add optional runId
+  senderName?: string; // Optional name for display (e.g., "Admin")
 }
 
-export type MessageType = 'text' | 'canvas' | 'system' | 'tool' | 'image' | 'video' | 'handoff' | 'error' | 'context';
+export type MessageType = 'text' | 'canvas' | 'system' | 'tool' | 'image' | 'video' | 'handoff' | 'error' | 'context' | 'json';
 
 export interface Attachment {
   id: string;

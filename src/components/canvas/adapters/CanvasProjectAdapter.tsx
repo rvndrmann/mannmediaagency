@@ -63,6 +63,7 @@ interface CanvasWorkspaceAdapterProps {
 interface CanvasDetailPanelAdapterProps {
   scene: CanvasScene | null;
   project: CanvasProject | null; // Add project prop
+  projects?: CanvasProject[];    // Add projects prop
   projectId: string;
   updateScene: (sceneId: string, type: SceneUpdateType | 'fal_tts_request_id' | 'voiceoverAudioUrl', value: string | null) => Promise<void>;
   // updateProject prop removed
@@ -202,6 +203,7 @@ export function CanvasWorkspaceAdapter({
 export function CanvasDetailPanelAdapter({
   scene,
   project, // Destructure project
+  projects, // Destructure projects
   projectId,
   updateScene,
   // updateProject removed from destructuring
@@ -212,6 +214,7 @@ export function CanvasDetailPanelAdapter({
     <CanvasDetailPanel
       scene={scene}
       project={project} // Pass project down
+      projects={projects} // Pass projects down
       projectId={projectId}
       updateScene={updateScene}
       // updateProject prop removed

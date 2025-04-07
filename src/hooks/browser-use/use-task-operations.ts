@@ -1,16 +1,22 @@
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query"; // Import useQueryClient
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserTaskState } from "./types";
 import { useUser } from "@/hooks/use-user";
+import { useUserCredits } from "@/hooks/use-user-credits"; // Import useUserCredits
 import { toast } from "sonner";
 import { useTaskHistory } from "./use-task-history";
+
+const BROWSER_TASK_CREDIT_COST = 1; // Define cost constant
 
 export function useTaskOperations(
   state: BrowserTaskState,
   setters: any
 ) {
   const { user } = useUser();
+  const { data: userCreditsData } = useUserCredits(); // Get user credits data
+  const queryClient = useQueryClient(); // Get query client instance
   const { saveTaskToHistory, updateTaskHistory, getTaskHistoryByBrowserTaskId } = useTaskHistory();
   const [isStoppingTask, setIsStoppingTask] = useState(false);
   const [isPausingTask, setIsPausingTask] = useState(false);
@@ -28,6 +34,13 @@ export function useTaskOperations(
       return;
     }
 
+    // --- Frontend Pre-emptive Credit Check ---
+    if (userCreditsData && userCreditsData.credits_remaining < BROWSER_TASK_CREDIT_COST) {
+      toast.error("Insufficient credits to start this task.");
+      return;
+    }
+    // --- End Frontend Check ---
+
     try {
       setters.setIsProcessing(true);
       setters.setError(null);
@@ -40,7 +53,8 @@ export function useTaskOperations(
       const requestData = {
         task: state.taskInput,
         environment: state.environment,
-        browser_config: state.browserConfig
+        browser_config: state.browserConfig,
+        userId: user.id // Pass userId to the backend function
       };
 
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
@@ -74,13 +88,31 @@ export function useTaskOperations(
       });
       
       console.log("Created history record:", historyRecord);
+  // Invalidate credits on successful start to reflect deduction
+  queryClient.invalidateQueries({ queryKey: ['userCredits'] });
 
-    } catch (error) {
-      console.error("Error starting task:", error);
-      toast.error(`Failed to start task: ${error instanceof Error ? error.message : "Unknown error"}`);
-      setters.setIsProcessing(false);
-      setters.setConnectionStatus("error");
-      setters.setError(error instanceof Error ? error.message : "Unknown error");
+} catch (error) {
+  console.error("Error starting task:", error);
+  // Use the error message from the backend if available
+  let errorMessage = "Failed to start task";
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (typeof error === 'object' && error !== null && 'error_description' in error) {
+     // Handle Supabase function invocation errors which might have error_description
+     errorMessage = (error as any).error_description || errorMessage;
+  } else if (typeof error === 'object' && error !== null && 'message' in error) {
+     // Handle other potential error object structures
+     errorMessage = (error as any).message || errorMessage;
+  }
+  
+  toast.error(`Failed to start task: ${errorMessage}`);
+  setters.setIsProcessing(false);
+  setters.setConnectionStatus("error");
+  setters.setError(errorMessage);
+  
+  // Invalidate credits on failure as well, in case of refunds or backend errors
+  queryClient.invalidateQueries({ queryKey: ['userCredits'] });
+}
     }
   };
 

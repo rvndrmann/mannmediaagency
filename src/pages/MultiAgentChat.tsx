@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"; // Add useMemo
 import { useNavigate, Link, useParams } from "react-router-dom"; // Import useParams
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { MCPServerService } from "@/services/mcpService";
 import { v4 as uuidv4 } from "uuid";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useCanvasAgent } from "@/hooks/use-canvas-agent"; // Import useCanvasAgent
+import { useCanvasProjects } from "@/hooks/use-canvas-projects"; // Import useCanvasProjects
 import { toast } from "sonner";
 import { Message, Attachment } from "@/types/message";
 // AgentType might not be needed anymore if ChatMessage handles labels
@@ -51,7 +52,7 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const {
-    messages,
+    messages, setMessages, // <-- Destructure setMessages
     input,
     setInput,
     isLoading,
@@ -85,13 +86,23 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
   
   const { status, reconnectToMcp } = useMCPContext();
   const connectionStatus = status; // Use the status from the context
+// Get all projects list
+const { projects: allProjects, loading: projectsLoading } = useCanvasProjects();
 
-  // Instantiate useCanvasAgent to get modification functions
-  const canvasAgent = useCanvasAgent({
-    projectId: selectedProjectId,
-    // sceneId: sceneId, // sceneId from props might be for a specific context, agent handles its own scene focus? Check useCanvasAgent usage. Let's assume it's not needed here for now.
-    // updateScene function is likely handled internally or via MCP now, check useCanvasAgent implementation if needed.
-  });
+// Find the current project from the list based on selectedProjectId
+const currentProject = useMemo(() => {
+  if (!selectedProjectId || !allProjects) return null;
+  return allProjects.find(p => p.id === selectedProjectId) || null;
+}, [selectedProjectId, allProjects]);
+
+// Instantiate useCanvasAgent to get modification functions
+const canvasAgent = useCanvasAgent({
+  projectId: selectedProjectId,
+  project: currentProject, // Pass the found project object
+  projects: allProjects,   // Pass the full list
+  // sceneId: sceneId, // Keep commented for now
+  // updateScene function is likely handled internally or via MCP now
+});
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
@@ -122,27 +133,59 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
     if (selectedProjectId) {
       const mcpService = new MCPServerService(typeof process !== 'undefined' ? process.env.REACT_APP_MCP_URL || "" : "", selectedProjectId);
 
-      const handleMCPMessage = (event: MessageEvent) => {
+      // Pass setMessages to the handler
+      const handleMCPMessage = (event: MessageEvent, setMessagesFunc: React.Dispatch<React.SetStateAction<Message[]>>) => {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'scene_update' && data.sceneId && data.field && data.value) {
             // Handle scene update message
+            const updateMessage: Message = {
+              id: uuidv4(),
+              role: 'system', // Or 'assistant' if preferred
+              content: `Admin updated scene ${data.sceneId}: Field '${data.field}' changed.`,
+              // Optionally include the new value if it's not too long/complex:
+              // content: `Admin updated scene ${data.sceneId}: Field '${data.field}' changed to "${data.value}".`,
+              createdAt: new Date().toISOString(),
+              projectId: selectedProjectId, // Associate with the current project
+              // Add any other relevant fields from your Message type
+            };
+            // Assuming 'setMessages' is available from useMultiAgentChat hook
+            // Need to ensure setMessages is passed down or accessible here
+            // For now, logging the message to be added:
+            console.log("Adding scene update message to chat:", updateMessage);
+            setMessagesFunc(prev => [...prev, updateMessage]); // Use the passed function
+
             toast.success(`Scene ${data.sceneId} updated: ${data.field}`);
-            // You might want to dispatch an action or call a function to update the scene in the Canvas component
-            // For example: updateScene(data.sceneId, data.field, data.value);
+          } else if (data.type === 'admin_message' && data.content) {
+             // Handle direct admin message
+             const adminChatMessage: Message = {
+               id: uuidv4(),
+               role: 'assistant', // Treat admin messages as assistant messages
+               content: data.content,
+               createdAt: new Date().toISOString(),
+               projectId: selectedProjectId,
+               senderName: 'Admin', // Indicate sender
+               // Add attachments if provided in data.attachments
+               attachments: data.attachments || undefined,
+             };
+             console.log("Adding admin message to chat:", adminChatMessage);
+             setMessagesFunc(prev => [...prev, adminChatMessage]); // Use the passed function
+             toast.info("Received a message from Admin.");
           }
         } catch (error) {
           console.error("Error parsing MCP message:", error);
         }
       };
 
-      const connectToMCPStream = async () => {
+      // Define setMessages within the scope or ensure it's passed correctly
+      const connectToMCPStream = async (setMessagesFunc: React.Dispatch<React.SetStateAction<Message[]>>) => {
         try {
           await mcpService.connect();
           // Assuming the MCP server sends SSE events
           const eventSource = new EventSource(`${process.env.REACT_APP_MCP_URL}/stream?projectId=${selectedProjectId}`);
 
-          eventSource.onmessage = handleMCPMessage;
+          // Pass setMessages when assigning the handler
+          eventSource.onmessage = (event) => handleMCPMessage(event, setMessages);
           eventSource.onerror = (error) => {
             console.error("SSE error:", error);
             toast.error("Error connecting to MCP stream");
@@ -159,13 +202,14 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
         }
       };
 
-      let cleanup = connectToMCPStream();
+      // Pass setMessages when calling connectToMCPStream
+      let cleanup = connectToMCPStream(setMessages);
 
       return () => {
         cleanup.then(cleanupFn => cleanupFn());
       };
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, setMessages]); // <-- Add setMessages to dependency array
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -189,12 +233,22 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => { // Dest
     addAttachments(newAttachments);
   };
 
-  // Effect to sync state if URL parameter changes externally
+  // Effect to sync state if URL parameter changes externally AND handle missing initial ID
   useEffect(() => {
-    if (projectIdFromUrl !== selectedProjectId) {
+    if (!projectIdFromUrl && !selectedProjectId) {
+      // No project ID in URL and none selected yet
+      console.log("No project ID in URL or state, redirecting to /canvas");
+      toast.info("Please select a project first.");
+      navigate('/canvas', { replace: true }); // Redirect to project selection/overview
+    } else if (projectIdFromUrl && projectIdFromUrl !== selectedProjectId) {
+      // URL has an ID, and it's different from the current state
+      console.log(`Syncing selectedProjectId from URL: ${projectIdFromUrl}`);
       setSelectedProjectId(projectIdFromUrl);
+      // Optional: Add a toast or log if needed
     }
-  }, [projectIdFromUrl, selectedProjectId]);
+    // If projectIdFromUrl exists and matches selectedProjectId, do nothing.
+    // If !projectIdFromUrl but selectedProjectId exists (e.g., user selected one), do nothing.
+  }, [projectIdFromUrl, selectedProjectId, navigate]); // Add navigate to dependencies
 
   // --- Scene Edit Handlers ---
   const handleEditSceneScript = useCallback((sceneId: string) => {

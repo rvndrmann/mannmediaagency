@@ -1,21 +1,31 @@
 
 import { useState, useCallback } from 'react';
 import { Message } from '@/types/message';
-import { MCPServerService } from '@/services/mcpService';
-import { SceneUpdateType } from '@/types/canvas';
+import { MCPServerService } from '@/services/mcpService'; // Keep for type checking if needed, but instance comes from context
+import { CanvasProject, SceneUpdateType } from '@/types/canvas'; // Add CanvasProject import
 import { toast } from 'sonner';
+import { useMCPContext } from '@/contexts/MCPContext'; // Import the context hook
 
 interface UseCanvasAgentMCPProps {
   projectId?: string;
+  project?: CanvasProject | null; // Add current project details
+  projects?: CanvasProject[];    // Add list of all projects
   sceneId?: string | null;
   updateScene?: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
+  // Potentially add selectProject later:
+  // selectProject?: (id: string) => void;
 }
 
 export const useCanvasAgentMCP = ({
   projectId,
+  project, // Destructure new prop
+  projects, // Destructure new prop
   sceneId,
   updateScene
 }: UseCanvasAgentMCPProps) => {
+  // Remove incorrect mcpService destructuring
+  // Get callTool function and connection status from context
+  const { callTool: contextCallTool, status: connectionStatus } = useMCPContext();
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -69,19 +79,31 @@ export const useCanvasAgentMCP = ({
     context?: string
   ): Promise<boolean> => {
     if (!projectId || !updateScene) return false;
+    // Correct connection check using context values
+    if (connectionStatus !== 'connected' || !contextCallTool) {
+      toast.error("MCP Service not connected. Cannot generate script.");
+      addSystemMessage("Error: MCP Service not connected.");
+      return false;
+    }
     setIsProcessing(true);
     setActiveAgent('script');
 
     try {
+      console.log('[useCanvasAgentMCP] Checking MCP connection before generating script...');
+      console.log('[useCanvasAgentMCP] Connection status:', connectionStatus);
       addSystemMessage(`Generating script for scene...${context ? '\n\nContext: ' + context : ''}`);
 
-      // Call MCP tool to generate scene script
-      const mcpService = new MCPServerService(import.meta.env.VITE_MCP_URL || "", projectId);
+      // Call MCP tool using the service from context
       
-      const result = await mcpService.callTool('generate_scene_script', {
+      const result = await contextCallTool('generate_scene_script', {
         projectId: projectId,
         sceneId: sceneId,
         contextPrompt: context,
+        // Add project context
+        projectContext: {
+          currentProject: project,
+          allProjects: projects,
+        }
       });
 
       if (result.success && result.data?.script) {
@@ -103,25 +125,37 @@ export const useCanvasAgentMCP = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [projectId, updateScene, addSystemMessage, addAgentMessage]);
+  }, [projectId, updateScene, addSystemMessage, addAgentMessage, contextCallTool, connectionStatus, project, projects]);
 
   const generateSceneDescription = useCallback(async (
     sceneId: string,
     context?: string
   ): Promise<boolean> => {
     if (!projectId || !updateScene) return false;
+    // Correct connection check using context values
+    if (connectionStatus !== 'connected' || !contextCallTool) {
+      toast.error("MCP Service not connected. Cannot generate description.");
+      addSystemMessage("Error: MCP Service not connected.");
+      return false;
+    }
     setIsProcessing(true);
     setActiveAgent('description');
 
     try {
+      console.log('[useCanvasAgentMCP] Checking MCP connection before generating description...');
+      console.log('[useCanvasAgentMCP] Connection status:', connectionStatus);
       addSystemMessage(`Generating scene description...${context ? '\n\nContext: ' + context : ''}`);
 
-      // Call MCP tool to generate scene description
-      const mcpService = new MCPServerService(import.meta.env.VITE_MCP_URL || "", projectId);
-      const result = await mcpService.callTool('generate_scene_description', {
+      // Call MCP tool using the service from context
+      const result = await contextCallTool('generate_scene_description', {
         projectId: projectId,
         sceneId: sceneId,
         useDescription: context, // Assuming context can be used as useDescription
+        // Add project context
+        projectContext: {
+          currentProject: project,
+          allProjects: projects,
+        }
       });
 
       if (result.success && result.data?.result) {
@@ -143,25 +177,37 @@ export const useCanvasAgentMCP = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [projectId, updateScene, addSystemMessage, addAgentMessage]);
+  }, [projectId, updateScene, addSystemMessage, addAgentMessage, contextCallTool, connectionStatus, project, projects]);
 
   const generateImagePrompt = useCallback(async (
     sceneId: string,
     context?: string
   ): Promise<boolean> => {
     if (!projectId || !updateScene) return false;
+    // Correct connection check using context values
+    if (connectionStatus !== 'connected' || !contextCallTool) {
+      toast.error("MCP Service not connected. Cannot generate image prompt.");
+      addSystemMessage("Error: MCP Service not connected.");
+      return false;
+    }
     setIsProcessing(true);
     setActiveAgent('imagePrompt');
 
     try {
+      console.log('[useCanvasAgentMCP] Checking MCP connection before generating image prompt...');
+      console.log('[useCanvasAgentMCP] Connection status:', connectionStatus);
       addSystemMessage(`Generating image prompt...${context ? '\n\nContext: ' + context : ''}`);
 
-      // Call MCP tool to generate image prompt
-      const mcpService = new MCPServerService(import.meta.env.VITE_MCP_URL || "", projectId);
-      const result = await mcpService.callTool('generate_image_prompt', {
+      // Call MCP tool using the service from context
+      const result = await contextCallTool('generate_image_prompt', {
         projectId: projectId,
         sceneId: sceneId,
         imageAnalysis: context, // Assuming context can be used as imageAnalysis
+        // Add project context
+        projectContext: {
+          currentProject: project,
+          allProjects: projects,
+        }
       });
 
       if (result.success && result.data?.prompt) {
@@ -183,25 +229,37 @@ export const useCanvasAgentMCP = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [projectId, updateScene, addSystemMessage, addAgentMessage]);
+  }, [projectId, updateScene, addSystemMessage, addAgentMessage, contextCallTool, connectionStatus, project, projects]);
 
   const generateSceneImage = useCallback(async (
     sceneId: string,
     imagePrompt?: string
   ): Promise<boolean> => {
     if (!projectId || !updateScene) return false;
+    // Correct connection check using context values
+    if (connectionStatus !== 'connected' || !contextCallTool) {
+      toast.error("MCP Service not connected. Cannot generate scene image.");
+      addSystemMessage("Error: MCP Service not connected.");
+      return false;
+    }
     setIsProcessing(true);
     setActiveAgent('image');
 
     try {
+      console.log('[useCanvasAgentMCP] Checking MCP connection before generating scene image...');
+      console.log('[useCanvasAgentMCP] Connection status:', connectionStatus);
       addSystemMessage(`Generating scene image...${imagePrompt ? '\n\nUsing prompt: ' + imagePrompt : ''}`);
 
-      // Call MCP tool to generate scene image
-      const mcpService = new MCPServerService(import.meta.env.VITE_MCP_URL || "", projectId);
-      const result = await mcpService.callTool('generate_scene_image', {
+      // Call MCP tool using the service from context
+      const result = await contextCallTool('generate_scene_image', {
         projectId: projectId,
         sceneId: sceneId,
         imagePrompt: imagePrompt,
+        // Add project context
+        projectContext: {
+          currentProject: project,
+          allProjects: projects,
+        }
       });
 
       if (result.success && result.data?.imageUrl) {
@@ -223,25 +281,37 @@ export const useCanvasAgentMCP = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [projectId, updateScene, addSystemMessage, addAgentMessage]);
+  }, [projectId, updateScene, addSystemMessage, addAgentMessage, contextCallTool, connectionStatus, project, projects]);
 
   const generateSceneVideo = useCallback(async (
     sceneId: string,
     description?: string
   ): Promise<boolean> => {
     if (!projectId || !updateScene) return false;
+    // Correct connection check using context values
+    if (connectionStatus !== 'connected' || !contextCallTool) {
+      toast.error("MCP Service not connected. Cannot generate scene video.");
+      addSystemMessage("Error: MCP Service not connected.");
+      return false;
+    }
     setIsProcessing(true);
     setActiveAgent('video');
 
     try {
+      console.log('[useCanvasAgentMCP] Checking MCP connection before generating scene video...');
+      console.log('[useCanvasAgentMCP] Connection status:', connectionStatus);
       addSystemMessage(`Generating scene video...${description ? '\n\nBased on: ' + description : ''}`);
 
-      // Call MCP tool to generate scene video
-      const mcpService = new MCPServerService(import.meta.env.VITE_MCP_URL || "", projectId);
-      const result = await mcpService.callTool('generate_scene_video', {
+      // Call MCP tool using the service from context
+      const result = await contextCallTool('generate_scene_video', {
         projectId: projectId,
         sceneId: sceneId,
         aspectRatio: '16:9', // You might want to make this configurable
+        // Add project context
+        projectContext: {
+          currentProject: project,
+          allProjects: projects,
+        }
       });
 
       if (result.success && result.data?.videoUrl) {
@@ -263,7 +333,7 @@ export const useCanvasAgentMCP = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [projectId, updateScene, addSystemMessage, addAgentMessage]);
+  }, [projectId, updateScene, addSystemMessage, addAgentMessage, contextCallTool, connectionStatus, project, projects]);
 
   return {
     isProcessing,

@@ -49,6 +49,7 @@ export const Navigation = () => {
   const [loadingNotifications, setLoadingNotifications] = useState(true);
   const [customOrderNotifications, setCustomOrderNotifications] = useState<number>(0);
   const { activeProject } = useProjectContext(); // Get active project ID from context
+  console.log('[Navigation.tsx] Active Project ID from context:', activeProject); // DEBUG LOG
 
   useEffect(() => {
     const checkAdminStatus = async () => {

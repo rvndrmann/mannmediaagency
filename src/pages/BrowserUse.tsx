@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useUser } from "@/hooks/use-user"; // Import useUser
+import { useUserCredits } from "@/hooks/use-user-credits"; // Import useUserCredits
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +24,8 @@ import { ScheduledTasksList } from "@/components/browser-use/ScheduledTasksList"
 import { SensitiveDataManager } from "@/components/browser-use/SensitiveDataManager";
 import { ProxyHelper } from "@/components/browser-use/ProxyHelper";
 import { TaskScheduler } from "@/components/browser-use/TaskScheduler";
+
+const BROWSER_TASK_CREDIT_COST = 1; // Define cost constant
 
 interface BrowserTask {
   id: string;
@@ -58,6 +62,8 @@ const BrowserUsePage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const taskIdFromUrl = searchParams.get("task");
+  const { user } = useUser(); // Get user object
+  const { data: userCreditsData, isLoading: isLoadingCredits } = useUserCredits(); // Get credits data and loading state
   
   const [tasks, setTasks] = useState<BrowserTask[]>([]);
   const [activeTask, setActiveTask] = useState<BrowserTask | null>(null);
@@ -205,11 +211,19 @@ const BrowserUsePage = () => {
         return;
       }
       
+      // Ensure user ID is available before invoking
+      if (!user?.id) {
+        toast.error("User not found. Please log in again.");
+        setIsTaskLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: { 
+        body: {
           task: taskInput,
           environment,
-          browser_config: browserConfig
+          browser_config: browserConfig,
+          userId: user.id // Pass userId
         }
       });
       
@@ -393,7 +407,7 @@ const BrowserUsePage = () => {
                 </Alert>
               )}
             </CardContent>
-            <CardFooter className="flex justify-between">
+            <CardFooter className="flex justify-between items-center"> {/* Added items-center */}
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
@@ -414,19 +428,45 @@ const BrowserUsePage = () => {
                   <Badge variant="secondary" className="ml-2 text-xs">Coming Soon</Badge>
                 </Button>
               </div>
-              <Button onClick={startNewTask} disabled={isTaskLoading || !taskInput.trim()}>
-                {isTaskLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Starting task...
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Start Task
-                  </>
+              <div className="flex items-center gap-4"> {/* Group button and credits */}
+                {/* Credit Display */}
+                {!isLoadingCredits && typeof userCreditsData?.credits_remaining === 'number' && (
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <span>Cost: {BROWSER_TASK_CREDIT_COST} credit</span>
+                    <span>|</span>
+                    <span>Available: {userCreditsData.credits_remaining.toFixed(0)} credits</span>
+                  </div>
                 )}
-              </Button>
+                {isLoadingCredits && (
+                   <div className="text-sm text-muted-foreground flex items-center gap-2">
+                     <Loader2 className="h-4 w-4 animate-spin" /> Loading credits...
+                   </div>
+                )}
+                
+                {/* Start Task Button */}
+                <Button
+                  onClick={startNewTask}
+                  disabled={
+                    isTaskLoading ||
+                    !taskInput.trim() ||
+                    isLoadingCredits ||
+                    typeof userCreditsData?.credits_remaining !== 'number' ||
+                    userCreditsData.credits_remaining < BROWSER_TASK_CREDIT_COST
+                  }
+                >
+                  {isTaskLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Starting task...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-4 w-4" />
+                      Start Task
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardFooter>
           </Card>
         </TabsContent>

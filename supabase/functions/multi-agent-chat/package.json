@@ -1,0 +1,18 @@
+{
+  "name": "multi-agent-chat-function",
+  "version": "1.0.0",
+  "description": "Supabase function to handle multi-agent chat orchestration.",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "aiconfig": "^1.1.15",
+    "@opentelemetry/api": "^1.9.0",
+    "@supabase/supabase-js": "^2.48.1" // Assuming we might need the client later, good practice to include
+    // Add any other direct dependencies discovered if needed
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.5" // For Node.js types if using TypeScript
+  }
+}

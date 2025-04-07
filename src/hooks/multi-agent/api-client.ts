@@ -14,9 +14,10 @@ interface SendChatMessageParams {
   runId: string; // Keep for logging/tracing if needed
   groupId: string; // Keep for logging/tracing if needed
   projectId?: string;
-  contextData?: Record<string, any>; // Keep if sending extra context
+  projectContext?: any; // <-- Replace contextData with projectContext
   thread_id?: string | null;
   sceneId?: string; // <-- Add sceneId
+  tracingEnabled?: boolean; // <-- Add tracingEnabled back if needed by backend
 }
 
 interface ChatMessageResponse {
@@ -38,8 +39,9 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Ch
         projectId: params.projectId,
         thread_id: params.thread_id,
         // Include other relevant params needed by the edge function
-        contextData: params.contextData,
-        attachments: params.attachments
+        projectContext: params.projectContext, // <-- Pass projectContext instead of contextData
+        attachments: params.attachments,
+        tracingEnabled: params.tracingEnabled // <-- Pass tracingEnabled
     };
     // Conditionally add sceneId if it exists
     if (params.sceneId) {

@@ -1,46 +1,42 @@
-
 import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, User, Edit3, Info } from "lucide-react"; // Added Edit3, Info
+import { Bot, User, Edit3, Info } from "lucide-react";
 import { Message } from "@/types/message";
 import { formatDistanceToNow } from 'date-fns';
-import { Button } from "@/components/ui/button"; // Added Button
+import { Button } from "@/components/ui/button";
+import { Link } from 'react-router-dom';
 
 export interface ChatMessageProps {
   message: Message;
   showAgentLabel?: boolean;
-  showAgentName?: boolean; // Alias for showAgentLabel for backward compatibility
-  onEditContent?: (type: string, content: string, messageId: string) => void; // Keep for potential other uses
-  compact?: boolean; // Added compact prop
-  // New props for triggering scene edits
+  showAgentName?: boolean;
+  onEditContent?: (type: string, content: string, messageId: string) => void;
+  compact?: boolean;
   onEditSceneScript?: (sceneId: string) => void;
   onEditSceneVoiceover?: (sceneId: string) => void;
   onEditSceneImagePrompt?: (sceneId: string) => void;
   onEditSceneDescription?: (sceneId: string) => void;
 }
 
-export function ChatMessage({ 
-  message, 
+export function ChatMessage({
+  message,
   showAgentLabel = false,
-  showAgentName,  // Added for backward compatibility
+  showAgentName,
   onEditContent,
-  compact = false, // Default value for compact
-  // Destructure new props
+  compact = false,
   onEditSceneScript,
   onEditSceneVoiceover,
   onEditSceneImagePrompt,
   onEditSceneDescription
 }: ChatMessageProps) {
-  
-  // Use showAgentName as fallback for showAgentLabel for compatibility
+
   const shouldShowAgentLabel = showAgentLabel || showAgentName;
-  
+
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isAdminUpdate = isSystem && message.content?.startsWith("An administrator updated");
   const hasSceneId = !!message.sceneId;
-  
-  // Format time display
+
   const getTimeDisplay = () => {
     try {
       if (message.createdAt) {
@@ -51,11 +47,10 @@ export function ChatMessage({
       return '';
     }
   };
-  
-  // Get agent name from type
+
   const getAgentLabel = () => {
     if (!message.agentType) return 'Assistant';
-    
+
     switch (message.agentType) {
       case 'main': return 'Assistant';
       case 'script': return 'Script Writer';
@@ -68,22 +63,20 @@ export function ChatMessage({
       default: return message.agentType.charAt(0).toUpperCase() + message.agentType.slice(1);
     }
   };
-  
+
   const handleEditContent = (type: string) => {
     if (onEditContent && message.content && message.id) {
       onEditContent(type, message.content, message.id);
     }
   };
-  
-  // Ensure message content exists and is a string
-  const safeContent = message.content ? 
-    (typeof message.content === 'string' ? message.content : JSON.stringify(message.content)) 
+
+  const safeContent = message.content ?
+    (typeof message.content === 'string' ? message.content : JSON.stringify(message.content))
     : '';
-  
+
   return (
-    <div className={`flex items-start gap-3 ${compact ? 'mb-2' : 'mb-4'} ${isAdminUpdate ? 'bg-blue-50 dark:bg-blue-900/30 p-2 rounded-md' : ''}`}>
-      {/* Avatar */}
-      <Avatar className={`${compact ? 'h-8 w-8' : 'h-10 w-10'} mt-1`}>
+    <div className={`flex items-start gap-3 ${compact ? 'mb-2' : 'mb-4'} ${isAdminUpdate ? 'bg-blue-50 dark:bg-blue-900/30 p-2 rounded-md' : ''} ${isUser ? 'flex-row-reverse' : ''}`}>
+      <Avatar className={`${compact ? 'h-8 w-8' : 'h-10 w-10'} mt-1 rounded-full`}>
         {isUser ? (
           <AvatarFallback className="bg-primary text-primary-foreground">
             <User className="h-4 w-4" />
@@ -98,28 +91,38 @@ export function ChatMessage({
           </AvatarFallback>
         )}
       </Avatar>
-      
-      {/* Message content */}
-      <div className="flex-1 space-y-1">
-        <div className="flex items-center gap-2">
-          <p className="font-medium text-sm">
-            {isUser ? 'You' : isSystem ? (isAdminUpdate ? 'Admin Update' : 'System') : (shouldShowAgentLabel ? getAgentLabel() : 'Assistant')}
-            {/* Display Scene ID for non-user/non-system messages */}
-            {!isUser && !isSystem && hasSceneId && (
-              <span className="text-xs text-muted-foreground ml-2">(Scene: {message.sceneId})</span>
+
+      <div className="flex-1">
+        {/* Message Bubble */}
+        <div className={`relative rounded-lg px-3 py-2 max-w-[80%] ${isUser ? 'bg-green-100 dark:bg-green-800 text-gray-900 dark:text-gray-100 ml-auto' : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 mr-auto'}`}>
+          {/* Sender Name/Label */}
+          <p className="font-medium text-sm mb-1">
+            {message.senderName ? message.senderName : (isUser ? 'You' : isSystem ? (isAdminUpdate ? 'Admin Update' : 'System') : (shouldShowAgentLabel ? getAgentLabel() : 'Assistant'))}
+            {/* Display Scene ID and Project ID if available */}
+            {(!isUser && !isSystem) && (hasSceneId || message.projectId) && (
+              <span className="text-xs text-muted-foreground ml-2">
+                (
+                {hasSceneId && `Scene: ${message.sceneId}`}
+                {hasSceneId && message.projectId && ', '}
+                {message.projectId && (
+                  <>
+                    Project: <Link to={`/canvas/${message.projectId}`} className="text-blue-500 hover:underline">{message.projectId}</Link>
+                  </>
+                )}
+                )
+              </span>
             )}
           </p>
-          <p className="text-xs text-muted-foreground">{getTimeDisplay()}</p>
+          {/* Message Content */}
+          <div className={`prose dark:prose-invert prose-sm max-w-none break-words ${isAdminUpdate ? 'text-blue-800 dark:text-blue-200' : ''}`}>
+            {safeContent}
+          </div>
+          {/* Timestamp */}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">{getTimeDisplay()}</p>
         </div>
-        
-        <div className={`prose dark:prose-invert prose-sm max-w-none ${isAdminUpdate ? 'text-blue-800 dark:text-blue-200' : ''}`}>
-          {safeContent}
-        </div>
+      </div>
 
-        {/* If there are attachments, we would render them here */}
-
-        {/* Scene Edit Buttons - Show only for agent messages with a sceneId and if handlers are provided */}
-        {!isUser && !isSystem && hasSceneId && (
+      {!isUser && !isSystem && hasSceneId && (
           <div className="flex flex-wrap mt-2 gap-2">
             {onEditSceneScript && (
               <Button variant="outline" size="sm" onClick={() => onEditSceneScript(message.sceneId!)}>
@@ -128,25 +131,23 @@ export function ChatMessage({
             )}
             {onEditSceneVoiceover && (
               <Button variant="outline" size="sm" onClick={() => onEditSceneVoiceover(message.sceneId!)}>
-                 <Edit3 className="h-3 w-3 mr-1" /> Edit Voiceover
+                <Edit3 className="h-3 w-3 mr-1" /> Edit Voiceover
               </Button>
             )}
             {onEditSceneImagePrompt && (
               <Button variant="outline" size="sm" onClick={() => onEditSceneImagePrompt(message.sceneId!)}>
-                 <Edit3 className="h-3 w-3 mr-1" /> Edit Image Prompt
+                <Edit3 className="h-3 w-3 mr-1" /> Edit Image Prompt
               </Button>
             )}
             {onEditSceneDescription && (
               <Button variant="outline" size="sm" onClick={() => onEditSceneDescription(message.sceneId!)}>
-                 <Edit3 className="h-3 w-3 mr-1" /> Edit Description
+                <Edit3 className="h-3 w-3 mr-1" /> Edit Description
               </Button>
             )}
           </div>
         )}
 
-        {/* Keep existing "Use as..." buttons if needed, maybe hide if edit buttons are shown? */}
-        {/* For now, let's keep them separate */}
-        {onEditContent && !isUser && !isSystem && !hasSceneId && ( // Only show if no scene edit buttons are shown
+        {onEditContent && !isUser && !isSystem && !hasSceneId && (
            <div className="flex mt-2 gap-2">
              <button
                onClick={() => handleEditContent('script')}
@@ -168,7 +169,6 @@ export function ChatMessage({
              </button>
            </div>
          )}
-      </div>
     </div>
   );
 }

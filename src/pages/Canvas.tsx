@@ -267,7 +267,8 @@ export default function Canvas() {
               // CanvasDetailPanelAdapter internally handles its scrolling now
               <CanvasDetailPanelAdapter
                 scene={selectedScene}
-                project={project}
+                project={project} // Already passing project
+                projects={projects} // Pass projects list
                 projectId={project?.id || ''}
                 updateScene={updateScene} // Pass updateScene for editing within the panel
               />

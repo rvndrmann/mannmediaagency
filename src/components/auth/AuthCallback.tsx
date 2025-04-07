@@ -30,13 +30,6 @@ const AuthCallback = () => {
           // Just need to get the session after the callback
           
           // First, ensure any existing corrupted sessions are cleared
-          try {
-            await supabase.auth.signOut({ scope: 'local' });
-            console.log("Local session cleared for clean state");
-          } catch (signOutErr) {
-            console.warn("Error during local signout:", signOutErr);
-            // Continue anyway
-          }
         }
         
         // Get the current session

@@ -31,8 +31,8 @@ import { useSidebar } from "@/components/ui/sidebar/context";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { useProjectContext } from "@/hooks/multi-agent/project-context"; // Import project context hook - Note: We'll fetch latest project directly now
-import { useUser } from "@/hooks/use-user"; // Import useUser hook (Added during conflict resolution)
+import { useUser } from "@/hooks/use-user"; // Import useUser hook
+import { useProjectContext } from "@/hooks/multi-agent/project-context"; // Import project context hook
 import { Notification } from "@/types/custom-order";
 import { 
   BaseNavigationItem, 
@@ -44,8 +44,9 @@ import {
 export const Navigation = () => {
   const location = useLocation();
   const { toggleSidebar } = useSidebar();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
+  const { user, isAdmin, isLoading: isUserLoading } = useUser(); // Use the hook
+  // const [isAdmin, setIsAdmin] = useState<boolean | null>(null); // Remove local state
+  // const [isLoadingAdmin, setIsLoadingAdmin] = useState(true); // Remove local state
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
   const [customOrderNotifications, setCustomOrderNotifications] = useState<number>(0);
@@ -53,39 +54,11 @@ export const Navigation = () => {
   const [latestProjectId, setLatestProjectId] = useState<string | null>(null);
   const [isLoadingLatestProject, setIsLoadingLatestProject] = useState(true);
 
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          setIsAdmin(false);
-          setIsLoadingAdmin(false);
-          return;
-        }
-        
-        const { data: adminData, error: adminError } = await supabase.rpc(
-          'check_is_admin'
-        );
-        
-        if (adminError) {
-          console.error("Error checking admin status:", adminError);
-          setIsAdmin(false);
-        } else {
-          setIsAdmin(!!adminData);
-        }
-        
-        setIsLoadingAdmin(false);
-      } catch (error) {
-        console.error("Error checking admin status:", error);
-        setIsAdmin(false);
-        setIsLoadingAdmin(false);
-      }
-    };
-
-    checkAdminStatus();
-  }, []);
-
+  // Remove the local useEffect for checking admin status, as useUser handles it.
+  // useEffect(() => {
+  //   const checkAdminStatus = async () => { ... };
+  //   checkAdminStatus();
+  // }, []);
   useEffect(() => {
     const fetchLatestProject = async () => {
       setIsLoadingLatestProject(true);
@@ -202,20 +175,8 @@ export const Navigation = () => {
       // Highlight if the path starts with /multi-agent-chat
       current: location.pathname.startsWith("/multi-agent-chat"),
     },
-    {
-      name: "Trace Analytics",
-      subtext: "Agent Interaction Analysis",
-      to: "/trace-analytics",
-      icon: BarChartBig,
-      current: location.pathname === "/trace-analytics", 
-    },
-    {
-      name: "Browser Worker AI",
-      subtext: "Web Browser Automation",
-      to: "/browser-use",
-      icon: Globe,
-      current: location.pathname === "/browser-use",
-    },
+    // Removed Trace Analytics from baseNavigation
+    // Removed Browser Worker AI from baseNavigation
     {
       name: "Dashboard",
       subtext: "Your Content Overview",
@@ -271,6 +232,26 @@ export const Navigation = () => {
 
   const combinedNavigation = [...baseNavigation, ...disabledItems];
 
+  // Define Trace Analytics item separately
+  const traceAnalyticsItem: NavigationItem = {
+    name: "Trace Analytics",
+    subtext: "Agent Interaction Analysis",
+    to: "/trace-analytics",
+    icon: BarChartBig,
+    current: location.pathname === "/trace-analytics",
+    adminOnly: true, // Mark as admin only
+  };
+
+  // Define Browser Worker AI item separately
+  const browserWorkerItem: NavigationItem = {
+    name: "Browser Worker AI",
+    subtext: "Web Browser Automation",
+    to: "/browser-use",
+    icon: Globe,
+    current: location.pathname === "/browser-use",
+    adminOnly: true, // Mark as admin only
+  };
+
   const adminItem: NavigationItem = {
     name: "Admin",
     subtext: "Admin Dashboard",
@@ -294,11 +275,12 @@ export const Navigation = () => {
     comingSoon: true,
   };
 
-  const mainNavigation: NavigationItem[] = isLoadingAdmin
-    ? combinedNavigation
+  // Construct mainNavigation based on user loading state and admin status
+  const mainNavigation: NavigationItem[] = isUserLoading
+    ? combinedNavigation // Show base items while loading
     : isAdmin
-      ? [...combinedNavigation, adminItem, adminTasksItem, integrationsItem] // Add adminTasksItem here
-      : [...combinedNavigation, integrationsItem];
+      ? [...combinedNavigation, browserWorkerItem, traceAnalyticsItem, adminItem, adminTasksItem, integrationsItem] // Add all admin items if admin
+      : [...combinedNavigation, integrationsItem]; // Only add non-admin items otherwise
 
   const legalNavigation: BaseNavigationItem[] = [
     {

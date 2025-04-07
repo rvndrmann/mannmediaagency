@@ -4,6 +4,7 @@ import { Conversation, TraceData } from "@/integrations/supabase/rpc-types";
 import { TraceDashboard } from "@/components/traces/TraceDashboard";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useUser } from "@/hooks/use-user"; // Import useUser hook
 import { 
   Table, 
   TableBody, 
@@ -23,33 +24,33 @@ import {
 } from "@/components/ui/card";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowLeft, Clock, MessageSquare, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import { OpenAITraceIntegration } from "@/components/traces/OpenAITraceIntegration";
+import { AlertCircle } from "lucide-react"; // Import icon for access denied
 
 export default function TraceAnalytics() {
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, isAdmin, isLoading: isUserLoading } = useUser(); // Use the hook
+  const navigate = useNavigate(); // Hook for navigation
+
+  // Local state for conversation/trace data
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [traceData, setTraceData] = useState<TraceData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingData, setLoadingData] = useState<boolean>(true); // Renamed to avoid conflict
   const [error, setError] = useState<string | null>(null);
+  const userId = user?.id; // Get userId from the hook
 
   useEffect(() => {
-    async function getUserIdAndConversations() {
+    async function getConversations() { // Renamed function
+      if (!userId) return; // Guard against missing userId
+
       try {
-        setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          toast.error("You must be signed in to view trace analytics");
-          return;
-        }
-        
-        setUserId(user.id);
+        setLoadingData(true); // Use renamed state setter
+        // No need to fetch user again, already available from useUser hook
         
         const { data, error: rpcError } = await supabase
-          .rpc<Conversation[]>('get_user_conversations', { 
-            user_id_param: user.id 
+          .rpc<Conversation[]>('get_user_conversations', {
+            user_id_param: userId // Use userId from hook
           });
         
         if (rpcError) {
@@ -65,22 +66,29 @@ export default function TraceAnalytics() {
         setError("Failed to load conversation data");
         toast.error("Failed to load conversation data");
       } finally {
-        setLoading(false);
+        setLoadingData(false); // Use renamed state setter
       }
     }
-    
-    getUserIdAndConversations();
-  }, []);
+
+    // Fetch conversations only if user is loaded, is an admin, and has an ID
+    if (!isUserLoading && isAdmin && userId) {
+      getConversations();
+    } else if (!isUserLoading && !isAdmin) {
+      // If loaded and not admin, clear loading state and potentially show message later
+      setLoadingData(false);
+    }
+    // If user is not signed in, the useUser hook handles it, and the admin check will fail.
+  }, [userId, isAdmin, isUserLoading]); // Add dependencies
   
   const getConversationTrace = async (conversationId: string) => {
     if (!userId) return;
     
     try {
-      setLoading(true);
+      setLoadingData(true); // Use renamed state setter
       const { data, error } = await supabase
-        .rpc<TraceData>('get_conversation_trace', { 
+        .rpc<TraceData>('get_conversation_trace', {
           conversation_id: conversationId,
-          user_id_param: userId
+          user_id_param: userId // Use userId from hook
         });
       
       if (error) {
@@ -96,7 +104,7 @@ export default function TraceAnalytics() {
       console.error("Error fetching trace:", err);
       toast.error("Failed to load trace data");
     } finally {
-      setLoading(false);
+      setLoadingData(false); // Use renamed state setter
     }
   };
   
@@ -105,18 +113,9 @@ export default function TraceAnalytics() {
     setTraceData(null);
   };
   
-  if (!userId && !loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)]">
-        <h1 className="text-2xl font-bold mb-4">Sign in to view trace analytics</h1>
-        <Button asChild>
-          <Link to="/login">Sign In</Link>
-        </Button>
-      </div>
-    );
-  }
-  
-  if (loading && !traceData) {
+  // --- Loading State ---
+  // Show loading spinner while user data or conversation data is loading
+  if (isUserLoading || (isAdmin && loadingData && !traceData && !error)) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
@@ -124,6 +123,30 @@ export default function TraceAnalytics() {
       </div>
     );
   }
+
+  // --- Access Denied State ---
+  // Show access denied if user is loaded but not an admin
+  if (!isUserLoading && !isAdmin) {
+    return (
+      <div className="container mx-auto py-8 flex flex-col items-center justify-center h-[calc(100vh-8rem)]">
+         <Card className="w-full max-w-md text-center">
+           <CardHeader>
+             <CardTitle className="flex items-center justify-center text-destructive">
+               <AlertCircle className="h-6 w-6 mr-2" /> Access Denied
+             </CardTitle>
+           </CardHeader>
+           <CardContent>
+             <p>You do not have permission to view this page.</p>
+           </CardContent>
+           <CardFooter className="justify-center">
+             <Button onClick={() => navigate('/')}>Go to Dashboard</Button>
+           </CardFooter>
+         </Card>
+       </div>
+    );
+  }
+
+  // --- Error State (Keep existing error handling) ---
   
   if (error) {
     return (

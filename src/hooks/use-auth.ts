@@ -9,6 +9,48 @@ export function useAuth() {
   const [isAdminLoading, setIsAdminLoading] = useState(true); // Separate loading for admin check
   const [error, setError] = useState<Error | null>(null);
 
+  // Function to ensure a default project exists for the user
+  const ensureDefaultProject = useCallback(async (userId: string) => {
+    if (!userId) return;
+
+    try {
+      console.log(`[useAuth] Checking for existing projects for user ${userId}`);
+      // Check if the user already has any projects
+      const { count, error: countError } = await supabase
+        .from('canvas_projects')
+        .select('*', { count: 'exact', head: true }) // Efficiently count rows
+        .eq('user_id', userId);
+
+      if (countError) {
+        console.error('[useAuth] Error checking project count:', countError);
+        return; // Don't proceed if we can't check
+      }
+
+      console.log(`[useAuth] User ${userId} has ${count ?? 0} projects.`);
+
+      // If the user has no projects, create a default one
+      if (count === 0) {
+        console.log(`[useAuth] No projects found for user ${userId}. Creating default project.`);
+        const { error: insertError } = await supabase
+          .from('canvas_projects')
+          .insert({
+            user_id: userId,
+            title: 'My First Project', // Default title
+            // Add any other required default fields here if necessary
+          });
+
+        if (insertError) {
+          console.error('[useAuth] Error creating default project:', insertError);
+        } else {
+          console.log(`[useAuth] Default project created successfully for user ${userId}.`);
+          // Optionally: Trigger a refresh or update relevant state if needed elsewhere
+        }
+      }
+    } catch (err) {
+      console.error('[useAuth] Exception ensuring default project:', err);
+    }
+  }, []); // useCallback ensures the function identity is stable
+
   // Function to check admin status
   const checkAdminStatus = useCallback(async (userId: string | undefined) => {
     if (!userId) {
@@ -74,6 +116,7 @@ export function useAuth() {
           setUser(currentUser);
           console.log('User set from session in auth hook:', currentUser.id);
           checkAdminStatus(currentUser.id); // Check admin status
+          ensureDefaultProject(currentUser.id); // Ensure default project exists
           // Update localStorage for future reference
           localStorage.setItem('auth_confirmed', 'true');
           localStorage.setItem('user_email', sessionData.session.user.email || 'unknown');
@@ -115,7 +158,9 @@ export function useAuth() {
         setUser(user);
         console.log('User set from getUser in auth hook:', user ? user.id : 'No user');
         checkAdminStatus(user?.id); // Check admin status
-        
+        if (user) {
+          ensureDefaultProject(user.id); // Ensure default project exists
+        }
         // Update localStorage for future reference if we got a user
         if (user) {
           localStorage.setItem('auth_confirmed', 'true');
@@ -156,6 +201,9 @@ export function useAuth() {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         checkAdminStatus(currentUser?.id); // Check admin status on sign in/refresh
+        if (currentUser && event === 'SIGNED_IN') { // Only ensure on initial SIGNED_IN
+          ensureDefaultProject(currentUser.id);
+        }
         // Update localStorage for future reference
         if (session?.user) {
           localStorage.setItem('auth_confirmed', 'true');

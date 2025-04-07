@@ -30,13 +30,6 @@ const AuthCallback = () => {
           // Just need to get the session after the callback
           
           // First, ensure any existing corrupted sessions are cleared
-          try {
-            await supabase.auth.signOut({ scope: 'local' });
-            console.log("Local session cleared for clean state");
-          } catch (signOutErr) {
-            console.warn("Error during local signout:", signOutErr);
-            // Continue anyway
-          }
         }
         
         // Get the current session
@@ -64,7 +57,10 @@ const AuthCallback = () => {
           localStorage.setItem('auth_timestamp', new Date().toISOString());
           
           // Force a refresh before redirecting to ensure the session is available to other components
-          window.location.href = "/canvas";
+          // Add a small delay before redirecting to allow session storage to settle
+          setTimeout(() => {
+            window.location.href = "/canvas";
+          }, 500);
           return;
         }
 
@@ -99,7 +95,10 @@ const AuthCallback = () => {
                 localStorage.setItem('auth_timestamp', new Date().toISOString());
                 
                 // Force a refresh before redirecting to ensure the session is available to other components
-                window.location.href = "/canvas";
+                // Add a small delay before redirecting to allow session storage to settle
+                setTimeout(() => {
+                  window.location.href = "/canvas";
+                }, 500);
                 return;
               }
               

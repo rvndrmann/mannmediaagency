@@ -50,14 +50,54 @@ export const Navigation = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
   const [customOrderNotifications, setCustomOrderNotifications] = useState<number>(0);
-  const { activeProject } = useProjectContext(); // Get active project ID from context
-  console.log('[Navigation.tsx] Active Project ID from context:', activeProject); // DEBUG LOG
+  // const { activeProject } = useProjectContext(); // No longer needed for this link
+  const [latestProjectId, setLatestProjectId] = useState<string | null>(null);
+  const [isLoadingLatestProject, setIsLoadingLatestProject] = useState(true);
 
   // Remove the local useEffect for checking admin status, as useUser handles it.
   // useEffect(() => {
   //   const checkAdminStatus = async () => { ... };
   //   checkAdminStatus();
   // }, []);
+  useEffect(() => {
+    const fetchLatestProject = async () => {
+      setIsLoadingLatestProject(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.id) {
+          console.log('[Navigation.tsx] No user session found for fetching latest project.');
+          setLatestProjectId(null);
+          setIsLoadingLatestProject(false);
+          return;
+        }
+
+        console.log('[Navigation.tsx] Fetching latest project for user:', session.user.id);
+        const { data, error } = await supabase
+          .from('canvas_projects')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(); // Use maybeSingle to handle 0 or 1 result
+
+        if (error) {
+          console.error("[Navigation.tsx] Error fetching latest project:", error);
+          setLatestProjectId(null);
+        } else {
+          console.log('[Navigation.tsx] Fetched latest project ID:', data?.id);
+          setLatestProjectId(data?.id || null);
+        }
+      } catch (error) {
+        console.error("[Navigation.tsx] Exception fetching latest project:", error);
+        setLatestProjectId(null);
+      } finally {
+        setIsLoadingLatestProject(false);
+      }
+    };
+
+    fetchLatestProject();
+  }, []); // Fetch only once on mount
+
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
@@ -129,10 +169,11 @@ export const Navigation = () => {
     {
       name: "Multi-Agent Chat",
       subtext: "AI Collaboration",
-      // Dynamically set the 'to' link based on activeProject
-      to: activeProject ? `/multi-agent-chat/${activeProject}` : "/multi-agent-chat",
+      // Link to latest project if available, otherwise base path
+      to: latestProjectId ? `/multi-agent-chat/${latestProjectId}` : "/multi-agent-chat",
       icon: MessageSquare,
-      current: location.pathname === "/multi-agent-chat",
+      // Highlight if the path starts with /multi-agent-chat
+      current: location.pathname.startsWith("/multi-agent-chat"),
     },
     // Removed Trace Analytics from baseNavigation
     // Removed Browser Worker AI from baseNavigation

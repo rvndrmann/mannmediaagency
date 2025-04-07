@@ -2,20 +2,21 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-export const SUPABASE_URL = "https://avdwgvjhufslhqrrmxgo.supabase.co";
-export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZHdndmpodWZzbGhxcnJteGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4Mzg3OTMsImV4cCI6MjA1NDQxNDc5M30.NYkKpNhStznwM0M-ZwyANUJNoGsYDM7xF2oMaWQ92w4";
+// Read from environment variables provided by Vite
+// Ensure you have a .env file or configure these in your deployment environment
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Basic check to ensure variables are loaded during runtime
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("Supabase URL:", SUPABASE_URL ? 'Loaded' : 'Missing');
+  console.error("Supabase Anon Key:", SUPABASE_ANON_KEY ? 'Loaded' : 'Missing');
+  throw new Error("Supabase URL and Anon Key must be provided in environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)");
+}
 // Create a function to initialize the Supabase client
 const createSupabaseClient = () => {
-  // Clear any potentially corrupted auth data
-  if (typeof window !== 'undefined') {
-    // Only attempt to clear if we detect issues
-    const authConfirmed = localStorage.getItem('auth_confirmed');
-    if (!authConfirmed) {
-      localStorage.removeItem('supabase.auth.token');
-    }
-  }
-  
+  // Note: Removed logic that cleared localStorage.removeItem('supabase.auth.token')
+  // as it might interfere with the PKCE flow.
   return createClient<Database>(
     SUPABASE_URL,
     SUPABASE_ANON_KEY,

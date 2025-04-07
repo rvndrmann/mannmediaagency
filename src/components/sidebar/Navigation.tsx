@@ -32,6 +32,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { useProjectContext } from "@/hooks/multi-agent/project-context"; // Import project context hook - Note: We'll fetch latest project directly now
+import { useUser } from "@/hooks/use-user"; // Import useUser hook (Added during conflict resolution)
 import { Notification } from "@/types/custom-order";
 import { 
   BaseNavigationItem, 

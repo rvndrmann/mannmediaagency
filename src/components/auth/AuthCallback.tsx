@@ -57,7 +57,10 @@ const AuthCallback = () => {
           localStorage.setItem('auth_timestamp', new Date().toISOString());
           
           // Force a refresh before redirecting to ensure the session is available to other components
-          window.location.href = "/canvas";
+          // Add a small delay before redirecting to allow session storage to settle
+          setTimeout(() => {
+            window.location.href = "/canvas";
+          }, 500);
           return;
         }
 
@@ -92,7 +95,10 @@ const AuthCallback = () => {
                 localStorage.setItem('auth_timestamp', new Date().toISOString());
                 
                 // Force a refresh before redirecting to ensure the session is available to other components
-                window.location.href = "/canvas";
+                // Add a small delay before redirecting to allow session storage to settle
+                setTimeout(() => {
+                  window.location.href = "/canvas";
+                }, 500);
                 return;
               }
               

@@ -96,7 +96,7 @@ interface RROIntentRequestBody {
   parameters: Record<string, any>;
   projectId?: string;
   sceneId?: string;
-  threadId?: string;
+  // threadId?: string; // We will fetch this from the DB based on projectId
 }
 
 interface RROApproveScriptRequestBody {
@@ -259,8 +259,47 @@ serve(async (req: Request): Promise<Response> => {
       // --- End /approve script Workflow ---
 
     } else if (isIntentRequest(body)) {
-      // --- Handle Intent-Based Routing (Existing Logic) ---
+      // --- Handle Intent-Based Routing ---
       console.log(`Handling intent-based request: ${body.intent}`);
+
+      // --- Fetch Existing Thread ID ---
+      let existingThreadId: string | null = null;
+      let initialThreadLookupError: string | null = null;
+      if (body.projectId) {
+        try {
+          console.log(`Looking up thread ID for project: ${body.projectId}`);
+          const { data: threadData, error: threadError } = await supabaseClient!
+            .from('project_threads')
+            .select('openai_thread_id')
+            .eq('project_id', body.projectId)
+            .single(); // Use single() as project_id is PK
+
+          if (threadError && threadError.code !== 'PGRST116') { // Ignore 'No rows found' error
+            throw threadError;
+          }
+          if (threadData) {
+            existingThreadId = threadData.openai_thread_id;
+            console.log(`Found existing thread ID: ${existingThreadId}`);
+          } else {
+            console.log(`No existing thread ID found for project: ${body.projectId}`);
+          }
+        } catch (error) {
+           console.error(`Error fetching thread ID for project ${body.projectId}:`, error);
+           initialThreadLookupError = error instanceof Error ? error.message : 'Unknown error fetching thread ID.';
+           // Decide if this error should halt processing or just be logged
+           // For now, we'll log it and potentially proceed without a threadId
+        }
+      } else {
+        console.warn('No projectId provided in intent request body, cannot manage thread persistence.');
+        // Depending on requirements, might want to return an error here
+      }
+      // --- End Fetch Existing Thread ID ---
+
+      // If lookup failed critically, maybe return error early
+      if (initialThreadLookupError && !existingThreadId) {
+         // Maybe return error response here if thread lookup is mandatory
+         // For now, continue and let agent potentially create a new one
+      }
       switch (body.intent) {
         case 'generate_script': {
           const agentName = 'script-agent';
@@ -271,7 +310,7 @@ serve(async (req: Request): Promise<Response> => {
             projectId: body.projectId,
             sceneId: body.sceneId, // Include sceneId if available/relevant
             userRequest: body.parameters?.userRequest,
-            threadId: body.threadId,
+            threadId: existingThreadId, // Pass fetched or null threadId
             ...body.parameters, // Spread remaining parameters
           };
           // Remove undefined keys to avoid issues with function expecting defined values
@@ -311,7 +350,37 @@ serve(async (req: Request): Promise<Response> => {
                     if (typeof invokeData === 'object' && invokeData !== null && 'status' in invokeData) {
                         if (invokeData.status === 'success') {
                           determinedAction = `Successfully invoked ${agentName} for ${toolName}.`;
-                          mcpCallOutcome = invokeData.result; // Store the actual result
+                          // IMPORTANT: Assumes agent function now returns { result: ..., openai_thread_id: '...' }
+                          mcpCallOutcome = invokeData.result; // Store the primary result
+                          // Use block scope to avoid redeclaration errors
+                          {
+                            const agentReturnedThreadId = invokeData.openai_thread_id;
+                            // If no thread existed before AND the agent returned one (likely created it)
+                            if (!existingThreadId && agentReturnedThreadId && body.projectId) {
+                              console.log(`Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
+                              try {
+                                const { error: upsertError } = await supabaseClient!
+                                  .from('project_threads')
+                                  .upsert({
+                                    project_id: body.projectId,
+                                    openai_thread_id: agentReturnedThreadId,
+                                    updated_at: new Date().toISOString(), // Explicitly set update time
+                                  }, { onConflict: 'project_id' }); // Use upsert for safety
+
+                                if (upsertError) {
+                                  throw upsertError;
+                                }
+                                console.log(`Successfully saved new thread ID mapping for project ${body.projectId}.`);
+                              } catch (dbError) {
+                                console.error(`Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
+                                // Log error, but maybe don't fail the whole request? Depends on requirements.
+                              }
+                            } else if (existingThreadId && agentReturnedThreadId && existingThreadId !== agentReturnedThreadId) {
+                                // Log if the agent somehow returned a *different* thread ID than expected
+                                console.warn(`Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
+                                // Optionally update the DB record here if the agent's ID is considered more authoritative
+                            }
+                          }
                         } else if (invokeData.status === 'error') {
                           determinedAction = `Error reported by ${agentName} for ${toolName}.`;
                           // Try to extract a meaningful error message
@@ -354,7 +423,7 @@ serve(async (req: Request): Promise<Response> => {
             projectId: body.projectId,
             sceneId: body.sceneId,
             userRequest: body.parameters?.userRequest,
-            threadId: body.threadId,
+            threadId: existingThreadId, // Pass fetched or null threadId
             ...body.parameters,
           };
           Object.keys(mcpArguments).forEach(key => mcpArguments[key] === undefined && delete mcpArguments[key]);
@@ -388,7 +457,34 @@ serve(async (req: Request): Promise<Response> => {
                     if (typeof invokeData === 'object' && invokeData !== null && 'status' in invokeData) {
                         if (invokeData.status === 'success') {
                           determinedAction = `Successfully invoked ${agentName} for ${toolName}.`;
-                          mcpCallOutcome = invokeData.result;
+                          // IMPORTANT: Assumes agent function now returns { result: ..., openai_thread_id: '...' }
+                          mcpCallOutcome = invokeData.result; // Store the primary result
+                          // Use block scope to avoid redeclaration errors
+                          {
+                            const agentReturnedThreadId = invokeData.openai_thread_id;
+                            // If no thread existed before AND the agent returned one (likely created it)
+                            if (!existingThreadId && agentReturnedThreadId && body.projectId) {
+                              console.log(`Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
+                              try {
+                                const { error: upsertError } = await supabaseClient!
+                                  .from('project_threads')
+                                  .upsert({
+                                    project_id: body.projectId,
+                                    openai_thread_id: agentReturnedThreadId,
+                                    updated_at: new Date().toISOString(),
+                                  }, { onConflict: 'project_id' });
+
+                                if (upsertError) {
+                                  throw upsertError;
+                                }
+                                console.log(`Successfully saved new thread ID mapping for project ${body.projectId}.`);
+                              } catch (dbError) {
+                                console.error(`Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
+                              }
+                            } else if (existingThreadId && agentReturnedThreadId && existingThreadId !== agentReturnedThreadId) {
+                                console.warn(`Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
+                            }
+                          }
                         } else if (invokeData.status === 'error') {
                           determinedAction = `Error reported by ${agentName} for ${toolName}.`;
                           const agentError = invokeData.error;
@@ -425,7 +521,7 @@ serve(async (req: Request): Promise<Response> => {
           const mcpArguments: Record<string, any> = {
             projectId: body.projectId,
             sceneId: body.sceneId,
-            threadId: body.threadId,
+            threadId: existingThreadId, // Pass fetched or null threadId
             ...body.parameters,
           };
           Object.keys(mcpArguments).forEach(key => mcpArguments[key] === undefined && delete mcpArguments[key]);
@@ -459,7 +555,34 @@ serve(async (req: Request): Promise<Response> => {
                      if (typeof invokeData === 'object' && invokeData !== null && 'status' in invokeData) {
                         if (invokeData.status === 'success') {
                           determinedAction = `Successfully invoked ${agentName} for ${toolName}.`;
-                          mcpCallOutcome = invokeData.result;
+                          // IMPORTANT: Assumes agent function now returns { result: ..., openai_thread_id: '...' }
+                          mcpCallOutcome = invokeData.result; // Store the primary result
+                          // Use block scope to avoid redeclaration errors
+                          {
+                            const agentReturnedThreadId = invokeData.openai_thread_id;
+                            // If no thread existed before AND the agent returned one (likely created it)
+                            if (!existingThreadId && agentReturnedThreadId && body.projectId) {
+                              console.log(`Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
+                              try {
+                                const { error: upsertError } = await supabaseClient!
+                                  .from('project_threads')
+                                  .upsert({
+                                    project_id: body.projectId,
+                                    openai_thread_id: agentReturnedThreadId,
+                                    updated_at: new Date().toISOString(),
+                                  }, { onConflict: 'project_id' });
+
+                                if (upsertError) {
+                                  throw upsertError;
+                                }
+                                console.log(`Successfully saved new thread ID mapping for project ${body.projectId}.`);
+                              } catch (dbError) {
+                                console.error(`Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
+                              }
+                            } else if (existingThreadId && agentReturnedThreadId && existingThreadId !== agentReturnedThreadId) {
+                                console.warn(`Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
+                            }
+                          }
                         } else if (invokeData.status === 'error') {
                           determinedAction = `Error reported by ${agentName} for ${toolName}.`;
                           const agentError = invokeData.error;
@@ -498,136 +621,150 @@ serve(async (req: Request): Promise<Response> => {
             aspect_ratio: body.parameters?.aspect_ratio,
             projectId: body.projectId,
             sceneId: body.sceneId,
-            parameters: body.parameters, // Pass other relevant params
+            // Note: threadId is not typically needed for async image generation tasks
           };
-          const taskData: AgentTaskInput = {
+          const task: AgentTaskInput = {
             assigned_agent,
             input_payload,
             project_id: body.projectId,
             scene_id: body.sceneId,
             status: 'pending',
           };
+          console.log(`Creating task for ${assigned_agent}:`, task);
+          try {
+            const { data: newTask, error } = await supabaseClient!
+              .from('tasks')
+              .insert(task)
+              .select()
+              .single();
 
-          console.log(`Attempting to create task for ${assigned_agent}...`, taskData);
-          const { data, error } = await supabaseClient!
-            .from('agent_tasks')
-            .insert(taskData)
-            .select('id')
-            .single();
-
-          if (error) {
-            console.error(`Error creating task for ${assigned_agent}:`, error);
-            determinedAction = `Error creating task for ${assigned_agent}`;
-            taskCreationError = error.message;
-          } else if (data) {
-            taskId = data.id;
+            if (error) throw error;
+            taskId = newTask.id; // Store the created task ID
             determinedAction = `Task created for ${assigned_agent} with ID: ${taskId}`;
-            console.log(determinedAction);
-          } else {
-               console.error(`Task creation for ${assigned_agent} did not return data or error.`);
-               determinedAction = `Task creation issue for ${assigned_agent}.`;
-               taskCreationError = 'Task creation did not return data or error.';
+            mcpCallOutcome = { taskId: taskId }; // Return task ID as outcome
+          } catch (error) {
+            console.error(`Error creating task for ${assigned_agent}:`, error);
+            taskCreationError = error instanceof Error ? error.message : 'Unknown error creating task.';
+            determinedAction = `Error creating task for ${assigned_agent}.`;
           }
-          break;
+          break; // Added break statement
         }
         case 'update_scene': { // Use block scope
-           // Keep placeholder as requested, or implement direct update later
-           determinedAction = "Direct DB update needed (Not implemented)";
-           console.log(determinedAction, { projectId: body.projectId, sceneId: body.sceneId, parameters: body.parameters });
-           // Example of direct update (if simple):
-           // const { error: updateError } = await supabaseClient!
-           //   .from('scenes')
-           //   .update({ name: body.parameters.name }) // Example: update scene name
-           //   .eq('id', body.sceneId)
-           //   .eq('project_id', body.projectId);
-           // if (updateError) { console.error('Error updating scene:', updateError); }
-           break;
+          const assigned_agent = 'SceneUpdateWorker'; // Or a direct function call if synchronous
+          const input_payload = {
+            taskType: 'update_scene',
+            sceneId: body.sceneId || body.parameters?.sceneId, // Get sceneId from standard location or parameters
+            updates: body.parameters?.updates, // Expecting an object like { scene_script: '...', image_prompt: '...' }
+            projectId: body.projectId,
+            // Note: threadId is not typically needed for async scene updates
+          };
+          // Basic validation
+          if (!input_payload.sceneId || !input_payload.updates || typeof input_payload.updates !== 'object' || Object.keys(input_payload.updates).length === 0) {
+              mcpCallError = 'Missing sceneId or updates for update_scene intent.';
+              determinedAction = `Error: Invalid parameters for ${body.intent}.`;
+              break; // Exit case
           }
+
+          const task: AgentTaskInput = {
+            assigned_agent,
+            input_payload,
+            project_id: body.projectId,
+            scene_id: input_payload.sceneId,
+            status: 'pending',
+          };
+          console.log(`Creating task for ${assigned_agent}:`, task);
+          try {
+            const { data: newTask, error } = await supabaseClient!
+              .from('tasks')
+              .insert(task)
+              .select()
+              .single();
+
+            if (error) throw error;
+            taskId = newTask.id; // Store the created task ID
+            determinedAction = `Task created for ${assigned_agent} with ID: ${taskId}`;
+            mcpCallOutcome = { taskId: taskId }; // Return task ID as outcome
+          } catch (error) {
+            console.error(`Error creating task for ${assigned_agent}:`, error);
+            taskCreationError = error instanceof Error ? error.message : 'Unknown error creating task.';
+            determinedAction = `Error creating task for ${assigned_agent}.`;
+          }
+          break; // Added break statement
+        }
         default:
-          determinedAction = `RRO determined action: Unknown intent received - ${body.intent}`;
-          console.log(determinedAction);
-          // Handle unknown intent, maybe return an error or log it
-          break;
+          console.log(`Unknown intent: ${body.intent}`);
+          determinedAction = `Unknown intent received: ${body.intent}`;
+          mcpCallError = `The requested intent '${body.intent}' is not recognized.`;
+          // Set status to indicate a client error (bad request)
+          // finalStatus = 400; // This will be handled in response generation
       }
       // --- End Intent-Based Routing ---
+
     } else {
-      // --- Handle Invalid Request Body ---
-      determinedAction = 'Invalid request body structure. Expected either { intent: "..." } or { projectId: "..." }.';
-      console.error(determinedAction, body);
-      mcpCallError = determinedAction; // Use mcpCallError to signal failure
-      // --- End Invalid Request Body ---
+      // Handle cases where the request body doesn't match known structures
+      console.error('Invalid request body structure:', body);
+      determinedAction = 'Invalid request body structure.';
+      mcpCallError = 'The request body did not match expected formats (ApproveScript or IntentRequest).';
+      // finalStatus = 400; // This will be handled in response generation
     }
 
-
-    // Construct response payload
-    const responsePayload: Record<string, any> = {
-      message: 'Request processed by Request Router Orchestrator.', // Default message
+    // --- Response Generation ---
+    // Determine final status based on errors or outcomes
+    let finalStatus = 200;
+    let responseBody: Record<string, any> = { // Explicit type
       actionTaken: determinedAction,
-      receivedIntent: body.intent,
-      operationType: '', // 'mcp_call', 'task_creation', 'direct_action', or 'unknown'
-      outcome: {}, // Holds result or error details
+      // IMPORTANT: Only return the primary outcome, not the internal thread ID details
+      outcome: mcpCallOutcome, // Use the processed outcome
     };
 
-    let status = 200; // Default OK status
-
-    // Determine outcome based on which variables are set
-    if (mcpCallOutcome !== null) {
-        responsePayload.operationType = 'mcp_call';
-        responsePayload.message = 'MCP-style function call successful.';
-        responsePayload.outcome = { status: 'success', result: mcpCallOutcome };
-        status = 200; // OK, result included
-    } else if (mcpCallError !== null) {
-        responsePayload.operationType = 'mcp_call';
-        responsePayload.message = 'MCP-style function call failed.';
-        responsePayload.outcome = { status: 'error', error: mcpCallError };
-        // Use 500 for server-side errors during invocation or agent errors
-        status = 500;
-    } else if (taskId !== null) {
-        responsePayload.operationType = 'task_creation';
-        responsePayload.message = 'Asynchronous task created successfully.';
-        responsePayload.outcome = { status: 'success', taskId: taskId };
-        status = 201; // Created
-    } else if (taskCreationError !== null) {
-        responsePayload.operationType = 'task_creation';
-        responsePayload.message = 'Asynchronous task creation failed.';
-        responsePayload.outcome = { status: 'error', error: taskCreationError };
-        status = 500; // Internal Server Error
-    } else if (body.intent === 'update_scene') {
-        responsePayload.operationType = 'direct_action';
-        responsePayload.message = 'Scene update requested (implementation pending).';
-        // No specific outcome data needed for placeholder
-        status = 200; // OK, action noted
+    if (taskCreationError) {
+      finalStatus = 500; // Internal Server Error for task creation failure
+      responseBody.error = `Failed to create task: ${taskCreationError}`;
+      delete responseBody.outcome; // Don't include outcome if there was an error
+    } else if (mcpCallError) {
+      // If an MCP-style call resulted in an error
+      finalStatus = determinedAction.startsWith('Unknown intent') || determinedAction.startsWith('Error: Invalid parameters') || determinedAction.startsWith('Invalid request body') ? 400 : 500; // Use 400 for client errors, 500 otherwise
+      responseBody.error = `MCP call failed: ${mcpCallError}`;
+      delete responseBody.outcome; // Don't include outcome if there was an error
+    } else if (taskId) {
+      // If a task was created successfully, ensure outcome reflects this if not already set
+      if (responseBody.outcome === null) {
+         responseBody.outcome = { taskId: taskId };
+      }
+      // Status remains 200 (or maybe 202 Accepted if preferred for async tasks)
+    } else if (mcpCallOutcome !== null) { // Check if outcome has been set from a direct call
+      // Outcome is already set in responseBody initialization
+      // Status remains 200
     } else {
-        // Handle unknown intent or cases where no action was taken/failed silently
-        responsePayload.operationType = 'unknown';
-        responsePayload.message = determinedAction.includes('Unknown intent') ? determinedAction : 'No specific action taken or outcome determined.';
-        if (determinedAction.includes('Unknown intent')) {
-             status = 400; // Bad Request for unknown intent
-        } else {
-             // If it wasn't explicitly unknown, but no other outcome, assume error
-             status = 500;
-             responsePayload.message = determinedAction; // Use the determined action as the message
-             responsePayload.outcome = { status: 'error', error: 'Processing failed without specific error details.' };
-        }
+       // If no specific outcome, error, or task ID, it might indicate an unexpected path
+       // Check if determinedAction indicates success or a handled state
+       if (!determinedAction.toLowerCase().includes('success') && !determinedAction.toLowerCase().includes('task created')) {
+          // If no positive action was determined and no error was explicitly set,
+          // it might be an unhandled case or a logic path that didn't set an outcome.
+          console.warn(`Request completed without explicit success outcome or error. Action: ${determinedAction}`);
+          // Optionally set a default error or adjust status if this state is unexpected.
+          // For now, let it return 200 with the determinedAction and null outcome.
+          if (responseBody.outcome === null) {
+             // Set outcome to null explicitly if it wasn't set
+             responseBody.outcome = null;
+          }
+       }
     }
 
-    return new Response(JSON.stringify(responsePayload), {
+
+    console.log(`RRO Final Response (Status ${finalStatus}):`, responseBody);
+    return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: status, // Use determined status code
-    })
-  } catch (error: unknown) {
-    console.error('Error in RRO:', error)
-    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
-    // Check if the error is due to invalid JSON
-    if (error instanceof SyntaxError && error.message.includes('JSON')) {
-        return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400, // Bad Request
-        });
-    }
-    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: finalStatus,
+    });
+
+  } catch (error) {
+    // Catch any unexpected errors during request processing
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    console.error('Unexpected error in RRO serve function:', error);
+    return new Response(JSON.stringify({ error: 'Internal Server Error', detail: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
-    })
+    });
   }
-})
+});

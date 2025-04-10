@@ -35,11 +35,14 @@ export interface MCPServerInfo {
 
 export interface MCPServer {
   id: string;
+  name: string;
   url: string;
   updateInterval: number;
   isConnected: () => boolean;
   listTools?: () => Promise<MCPToolDefinition[]>;
   executeTool?: (toolName: string, parameters: any) => Promise<MCPToolExecutionResult>;
+  command?: string;
+  args?: string[];
 }
 
 export interface MCPContext {

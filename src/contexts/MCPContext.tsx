@@ -15,7 +15,7 @@ export interface MCPContext {
   // Tools and servers
   mcpTools: any[];
   mcpServers: MCPServer[];
-  
+  addMcpServer: (server: MCPServer) => void;
   // Configuration
   useMcp: boolean;
   setUseMcp: (useMcp: boolean) => void;
@@ -58,11 +58,12 @@ const defaultValue: MCPContext = {
   mcpTools: [],
   mcpServers: [],
   useMcp: true, // Default to true for better compatibility
-  setUseMcp: () => {},
-  registerTool: () => {},
+  setUseMcp: () => { },
+  registerTool: () => { },
   unregisterTool: () => {},
   connectionStats: defaultConnectionStats,
-  connectionMetrics: defaultConnectionMetrics
+  connectionMetrics: defaultConnectionMetrics,
+  addMcpServer: () => { }
 };
 
 const MCPContext = createContext<MCPContext>(defaultValue);
@@ -81,18 +82,52 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
   const [lastError, setLastError] = useState<Error | null>(null);
   const [mcpTools, setMcpTools] = useState<any[]>([]);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [useMcp, setUseMcp] = useState<boolean>(true); // Default to true for better compatibility
+  const [useMcp, setUseMcp] = useState<boolean>(true);
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
   const [connectionStats, setConnectionStats] = useState<MCPConnectionStats>(defaultConnectionStats);
   const [connectionMetrics, setConnectionMetrics] = useState<MCPConnectionMetrics>(defaultConnectionMetrics);
 
+  const addMcpServer = (server: MCPServer) => {
+    setMcpServers(prev => {
+      const existingServer = prev.find(s => s.name === server.name);
+      if (existingServer) {
+        return prev;
+      }
+      return [...prev, server];
+    });
+  };
+
   // Attempt to connect to MCP on component mount or when projectId changes
   useEffect(() => {
     if (projectId && useMcp && status === 'disconnected' && !isConnecting) {
+      // Add Playwright MCP server
+      addMcpServer({
+        id: 'playwright-mcp',
+        name: 'playwright',
+        url: 'http://localhost:8931/sse', // Placeholder URL
+        updateInterval: 5000, // Placeholder update interval
+        command: 'npx',
+        args: ['@playwright/mcp@latest', '--vision'],
+        isConnected: () => true, // Mock isConnected for now
+        executeTool: async (toolName: string, params: any) => {
+          console.log(`Executing Playwright MCP tool: ${toolName}`, params);
+          // Simulate a delay
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Mock response
+          return {
+            success: true,
+            result: `Successfully called tool ${toolName} on Playwright MCP`,
+          };
+        },
+        listTools: async () => {
+          return []; // Mock listTools for now
+        }
+      });
       attemptConnection();
     }
     // We only want to attempt connection when these dependencies change
-  }, [projectId, useMcp, status, isConnecting]);
+  }, [projectId, useMcp, status, isConnecting, addMcpServer]);
 
   const attemptConnection = async () => {
     if (isConnecting) return false;
@@ -212,6 +247,7 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
     lastError,
     mcpTools,
     mcpServers,
+    addMcpServer,
     useMcp,
     setUseMcp,
     registerTool,

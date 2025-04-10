@@ -1,4 +1,3 @@
-
 // --- Imports ---
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom"; // <-- Import useNavigate
@@ -69,12 +68,12 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     console.log("[Chat Init] Falling back to initialMessages prop or empty array.");
     return options.initialMessages || [];
   });
-  
+
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   // Remove activeAgent state
   // const [activeAgent, setActiveAgent] = useState<AgentType>("main");
-  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null); // <-- Add state for thread_id
+  // const [currentThreadId, setCurrentThreadId] = useState<string | null>(null); // <-- REMOVED: Thread ID is now managed by the backend orchestrator
   const [pendingAttachments, setPendingAttachments] = useState<any[]>([]);
   const [userCredits, setUserCredits] = useState<{ credits_remaining: number } | null>(null);
   // Remove performance/tool execution toggles if not used by new backend
@@ -99,14 +98,13 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const previousProjectIdRef = useRef<string | undefined>(options.projectId); // Initialize ref here
 
   // Effect to handle PROJECT ID CHANGES after initial load
-  // Effect to handle PROJECT ID CHANGES after initial load (Removed duplicate comment)
   useEffect(() => {
     // This effect now only handles updating context or resetting state when projectId changes.
     // Initial loading is done in useState.
     console.log(`[Project Change Effect] Running for projectId: ${options.projectId}`);
-    
+
     // Use the ref declared outside the effect
-    
+
     if (options.projectId && options.projectId !== previousProjectIdRef.current) {
       console.log(`[Project Change Effect] Project ID changed from ${previousProjectIdRef.current} to ${options.projectId}. Reloading state.`);
       // Project ID has actually changed, load state for the new project
@@ -125,7 +123,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       }
       // Set messages for the new project, falling back to initial/empty
       setMessages(loadedMessages || options.initialMessages || []);
-      setCurrentThreadId(null); // Reset thread ID when project changes
+      // setCurrentThreadId(null); // REMOVED: No longer managed here
 
       // Update project context
       projectContext.setActiveProject(options.projectId);
@@ -141,7 +139,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
        console.log(`[Project Change Effect] Project ID removed (was ${previousProjectIdRef.current}). Clearing state.`);
        // Project ID was removed, clear messages
        setMessages(options.initialMessages || []);
-       setCurrentThreadId(null);
+       // setCurrentThreadId(null); // REMOVED: No longer managed here
     } else {
        // Project ID is the same or still undefined, do nothing related to message state loading here.
        // We still might need to update the project context if other details changed,
@@ -165,7 +163,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     }
 
     const storageKey = `multiAgentChatHistory_${options.projectId}`;
-    
+
     if (messages.length > 0) { // Save if messages exist
       console.log(`[Chat Save Effect] Saving ${messages.length} messages for projectId: ${options.projectId}`);
       try {
@@ -208,32 +206,32 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    
+
     if (isLoading) {
       console.log("Already loading, ignoring submit");
       return;
     }
-    
+
     if (!input.trim() && pendingAttachments.length === 0) {
       toast.error("Please enter a message or attach a file");
       return;
     }
-    
+
     await handleSendMessage(input, pendingAttachments);
     setInput("");
     setPendingAttachments([]);
   };
-  
+
   // Remove agent switching logic
   // const switchAgent = (agentId: AgentType) => { ... };
   // const getAgentName = (agentType: AgentType): string => { ... };
-  
+
   const clearChat = () => {
     // Preserve any system context messages if needed, otherwise clear all
     // const systemMessages = messages.filter(msg => msg.role === 'system' && msg.type === 'context');
     setMessages([]); // Clear state messages - this triggers the save effect which removes from localStorage
-    setCurrentThreadId(null); // Reset thread ID on clear
-    
+    // setCurrentThreadId(null); // REMOVED: No longer managed here
+
     // Explicitly clear localStorage as well (belt-and-suspenders)
     if (options.projectId) {
       const storageKey = `multiAgentChatHistory_${options.projectId}`;
@@ -244,15 +242,15 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       }
     }
   };
-  
+
   const addAttachments = (newAttachments: any[]) => {
     setPendingAttachments(prev => [...prev, ...newAttachments]);
   };
-  
+
   const removeAttachment = (id: string) => {
     setPendingAttachments(prev => prev.filter(attachment => attachment.id !== id));
   };
-  
+
   // Keep instruction update logic if UI allows editing (though it won't affect backend directly now)
   const updateAgentInstructions = (agentType: string, instructions: string) => { // Use string for agentType key
     setAgentInstructions(prev => ({
@@ -264,22 +262,22 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const getAgentInstructions = (agentType: string): string => { // Use string
     return agentInstructions[agentType] || "";
   };
-  
+
   // Remove performance/tool toggles if not used
   // const togglePerformanceMode = () => { ... };
   // const toggleDirectToolExecution = () => { ... };
-  
+
   // Keep tracing toggle if used
   const toggleTracing = () => {
     // ... (keep existing logic)
   };
-  
+
   // Remove setProjectContext if options.projectId is sufficient
   // const setProjectContext = (projectId: string, context?: any) => { ... };
-  
+
   // Remove old handoff function
   // const processHandoff = async (...) => { ... };
-  
+
   // --- Update handleSendMessage ---
   const handleSendMessage = useCallback(async (messageText: string, attachments: any[] = []) => {
     if (options.projectId === "admin") {
@@ -499,328 +497,204 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       console.log("Preventing duplicate submission - too soon after last submission");
       return;
     }
-
-    // Clear any pending timeout
-    if (processingTimeoutRef.current) {
-      window.clearTimeout(processingTimeoutRef.current);
-      processingTimeoutRef.current = null;
-    }
-
-    // Set a timeout to reset processing state if something goes wrong
-    processingTimeoutRef.current = window.setTimeout(() => {
-      if (processingRef.current && submissionIdRef.current === submissionId) {
-        console.log("Processing timeout reached, resetting state");
-        processingRef.current = false;
-        setIsLoading(false);
-        submissionIdRef.current = null;
-
-        // Add error message
-        const timeoutErrorId = uuidv4();
-
-        setMessages(prev => [
-          ...prev,
-          {
-            id: timeoutErrorId,
-            role: 'system',
-            content: 'The request timed out. Please try again.',
-            createdAt: new Date().toISOString(),
-            type: 'error',
-            status: 'error'
-          }
-        ]);
-
-        toast.error("Request timed out. Please try again.");
-      }
-    }, 240000) as unknown as number; // 4 minute safety timeout (longer than backend polling)
-
-    // Update tracking refs
     lastSubmissionTimeRef.current = now;
     processingRef.current = true;
-    submissionIdRef.current = submissionId;
+    submissionIdRef.current = submissionId; // Store the current submission ID
 
-    try {
-      setIsLoading(true);
-      
-      // Create user message
-      const userMessage: Message = {
-        id: messageId,
-        role: "user",
-        content: messageText,
-        createdAt: new Date().toISOString(),
-        attachments: attachments.length > 0 ? attachments : undefined
-      };
-      
-      // Add user message to chat history
-      setMessages(prev => [...prev, userMessage]);
-      
-      // Update chat session if we have one
-      if (options.sessionId) {
-        updateChatSession(options.sessionId, [...messages, userMessage]);
-      }
-      
-      // Generate unique IDs for this conversation
-      const runId = uuidv4();
-      const groupId = options.sessionId || uuidv4();
-      
-      try {
-        // Prepare the FULL project context for the backend agent
-        const fullProjectContext = {
-          currentProject: projectContext.projectDetails, // Use details from the context hook
-          allProjects: projectContext.projects, // Use projects from the context hook
-        };
-
-        // --- DEBUG LOGGING ---
-        console.log(`[handleSendMessage] Sending message for projectId: ${options.projectId}`);
-        console.log(`[handleSendMessage] Context being sent:`, {
-            currentProjectTitle: fullProjectContext.currentProject?.title, // Log title for easy identification
-            currentProjectId: fullProjectContext.currentProject?.id,
-            allProjectsCount: fullProjectContext.allProjects?.length
-        });
-        // console.log("[handleSendMessage] Full projectDetails:", JSON.stringify(fullProjectContext.currentProject, null, 2)); // Uncomment for verbose details
-        // --- END DEBUG LOGGING ---
-        // --- Call the new Supabase Edge Function ---
-        console.log(`[handleSendMessage] Invoking Supabase function 'multi-agent-chat' with input: "${messageText}"`);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-    if (!accessToken) {
-      console.error("No access token found. Cannot call function securely.");
-      toast.error("Authentication error. Please log in again.");
-      setIsLoading(false); // Ensure loading state is reset
-      return; // Stop execution if no token
+    // Set a timeout to reset processing state in case of unexpected hangs
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
     }
-        
-        // --- Roo Debug Logging ---
-        console.log('[Roo Debug] Preparing to invoke multi-agent-chat function.');
-        console.log('[Roo Debug] messageText:', messageText);
-        console.log('[Roo Debug] options.projectId:', options.projectId);
-        console.log('[Roo Debug] currentThreadId (from state):', currentThreadId); // Log thread ID from state
-        console.log('[Roo Debug] attachments:', attachments);
-        // --- End Roo Debug Logging ---
+    processingTimeoutRef.current = window.setTimeout(() => {
+      if (processingRef.current && submissionIdRef.current === submissionId) {
+        console.warn(`Processing timeout reached for submission ${submissionId}. Resetting state.`);
+        setIsLoading(false);
+        processingRef.current = false;
+        submissionIdRef.current = null;
+        toast.error("Request timed out. Please try again.");
+      }
+    }, 60000); // 60-second timeout
 
-        // --- Roo Debug Logging ---
-        console.log('[Roo Debug] Preparing to invoke multi-agent-chat function.');
-        console.log('[Roo Debug] messageText:', messageText);
-        console.log('[Roo Debug] options.projectId:', options.projectId);
-        console.log('[Roo Debug] currentThreadId (from state):', currentThreadId); // Log thread ID from state
-        console.log('[Roo Debug] attachments:', attachments);
-        console.log('[Roo Debug] Retrieved accessToken:', accessToken); // Log the token
-        // --- End Roo Debug Logging ---
+    setIsLoading(true);
 
-        const { data: functionResponse, error: functionError } = await supabase.functions.invoke(
-          'multi-agent-chat',
-          {
-            body: { input: messageText, projectId: options.projectId },
-            headers: {
-              Authorization: `Bearer ${accessToken}` // Pass the token
-            }
-          }
-        );
+    // Add user message immediately
+    const userMessage: Message = {
+      id: messageId,
+      role: "user",
+      content: messageText.trim(),
+      createdAt: new Date().toISOString(),
+      attachments: attachments.length > 0 ? attachments : undefined,
+    };
+    const messagesBeforeAssistant = [...messages, userMessage];
+    setMessages(messagesBeforeAssistant);
 
-        console.log("[handleSendMessage] Received response from Supabase function:", { functionResponse, functionError });
+    // Clear pending attachments after adding them to the message
+    setPendingAttachments([]);
 
-        if (functionError) {
-          console.error("Error invoking Supabase function:", functionError);
-          throw new Error(`Failed to get response from agent: ${functionError.message}`);
+    // --- Call Backend Orchestrator ---
+    try {
+      // Ensure user is authenticated
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        throw new Error("User not authenticated.");
+      }
+
+      // --- Prepare data for the backend ---
+      // 1. Determine intent (simple example, replace with actual NLU/intent detection if needed)
+      let intent = 'unknown';
+      if (/script/i.test(messageText)) intent = 'generate_script'; // Basic keyword matching
+      if (/refine|change|update/i.test(messageText) && /script/i.test(messageText)) intent = 'refine_script';
+      if (/prompt/i.test(messageText)) intent = 'generate_prompt';
+      if (/image/i.test(messageText)) intent = 'generate_image'; // Example for image generation intent
+      // Add more sophisticated intent detection logic here if required
+
+      // 2. Prepare attachment details (example: just URLs)
+      const attachmentDetails = attachments.map(att => ({
+        id: att.id,
+        url: att.url, // Assuming attachments have a URL
+        type: att.type // Assuming attachments have a type (e.g., 'image', 'video')
+      }));
+
+      // 3. Call the orchestrator function
+      console.log(`[Roo Debug] Calling request-router-orchestrator with intent: ${intent}`);
+      // console.log('[Roo Debug] currentThreadId (from state):', currentThreadId); // REMOVED: No longer managed here
+
+      const { data: orchestratorResponse, error: orchestratorError } = await supabase.functions.invoke(
+        'request-router-orchestrator',
+        {
+          body: {
+            intent: intent, // Send determined intent
+            parameters: {
+              userRequest: messageText, // Pass the original user message
+              attachments: attachmentDetails, // Pass processed attachment info
+              // Add other relevant parameters from the hook's state or options if needed
+            },
+            projectId: options.projectId,
+            sceneId: options.sceneId, // Pass sceneId if available
+            // threadId: currentThreadId, // REMOVED: Orchestrator handles thread lookup/creation
+          },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
+      );
 
-        // Process and add assistant message(s) from functionResponse.output
-        let assistantMessages: Message[] = [];
-        // Check functionResponse first, then its 'content' property
-        if (functionResponse && functionResponse.response) {
-          console.log('[handleSendMessage] Processing valid response content:', functionResponse.response); // Added verification log
-          // Handle string, object, or potentially other types returned by the function's runOrchestrator
-          if (typeof functionResponse.response === 'string') {
-            assistantMessages.push({
-              id: uuidv4(),
-              role: 'assistant',
-              content: functionResponse.response, // Changed from .output
-              createdAt: new Date().toISOString(),
-              // Keep type as 'text' or remove if default is sufficient
-              type: 'text',
-            });
-          } else if (typeof functionResponse.response === 'object' && functionResponse.response !== null) { // Changed from .output
-              // Handle structured object output (e.g., JSON)
-              assistantMessages.push({
-                  id: uuidv4(),
-                  role: 'assistant',
-                  content: JSON.stringify(functionResponse.response, null, 2), // Stringify for display // Changed from .output
-                  createdAt: new Date().toISOString(),
-                  type: 'json', // Indicate it's structured data
-              });
-          } else {
-              // Handle other potential types (e.g., number, boolean) by stringifying them
-              assistantMessages.push({
-                  id: uuidv4(),
-                  role: 'assistant',
-                  content: `Received unexpected data type: ${JSON.stringify(functionResponse.response)}`, // Changed from .output
-                  createdAt: new Date().toISOString(),
-                  type: 'error',
-              });
-          }
-        } else {
-          console.warn("Supabase function response was empty or invalid:", functionResponse);
-           // Optionally add a system message indicating no response
-          assistantMessages.push({
+      if (orchestratorError) {
+        // Try to get more details from the error context if available
+        let detailMessage = orchestratorError.message;
+         try {
+           const ctx = JSON.parse(orchestratorError.context || '{}');
+           if (ctx.error) detailMessage = ctx.error;
+         } catch(e) { /* Ignore parsing error */ }
+        throw new Error(detailMessage); // Throw the potentially more detailed error
+      }
+
+      console.log('[Roo Debug] Orchestrator Response:', orchestratorResponse);
+
+      // --- Process Orchestrator Response ---
+      if (orchestratorResponse && orchestratorResponse.outcome) {
+        // Extract potential thread ID returned by the backend (though we don't store it here anymore)
+        // const receivedThreadId = orchestratorResponse.openai_thread_id; // Check if backend sends it back
+        // console.log('[Roo Debug] Received threadId from backend:', receivedThreadId); // REMOVED: No longer needed
+
+        // REMOVED: No longer managing threadId state in frontend
+        // if (receivedThreadId && receivedThreadId !== currentThreadId) {
+        //     console.log(`[Roo Debug] Updating currentThreadId state from ${currentThreadId} to ${receivedThreadId}`);
+        //     setCurrentThreadId(receivedThreadId);
+        // } else if (receivedThreadId && receivedThreadId === currentThreadId) {
+        //     console.log(`[Roo Debug] Received threadId ${receivedThreadId} matches current state.`);
+        // } else if (!receivedThreadId) {
+        //     console.log(`[Roo Debug] No threadId received from backend.`);
+        // }
+
+
+        // Handle different types of outcomes (direct response, task ID, etc.)
+        let assistantMessagesToAdd: Message[] = [];
+
+        if (orchestratorResponse.outcome.taskId) {
+          // Task was created, add a system message
+          assistantMessagesToAdd.push({
             id: uuidv4(),
             role: 'system',
-            content: "The agent did not provide a response.",
+            content: `Task created successfully (ID: ${orchestratorResponse.outcome.taskId}). ${orchestratorResponse.actionTaken || ''}`,
             createdAt: new Date().toISOString(),
-            type: 'error',
+            type: 'system', // Use 'system' type for info messages
           });
-        }
-
-        // --- Roo: Check for and update threadId from response ---
-        if (typeof functionResponse === 'object' && functionResponse !== null && typeof functionResponse.threadId === 'string') {
-            const receivedThreadId = functionResponse.threadId;
-            if (receivedThreadId && receivedThreadId !== currentThreadId) {
-                console.log(`[Roo Debug] Updating currentThreadId state from ${currentThreadId} to ${receivedThreadId}`);
-                setCurrentThreadId(receivedThreadId);
-            } else if (receivedThreadId && receivedThreadId === currentThreadId) {
-                 console.log(`[Roo Debug] Received threadId ${receivedThreadId} matches current state.`);
-            }
-        } else {
-            console.log('[Roo Debug] No threadId found in backend response object.');
-        }
-        // --- End Roo ---
-  
-        let handoffDetected = false;
-        const handoffTriggerMessage = "Okay, the script and scene plan is finalized and ready for video generation.";
-
-        if (assistantMessages.length > 0) {
-           // Check for handoff message BEFORE adding to state
-           for (const msg of assistantMessages) {
-             if (msg.role === 'assistant' && msg.content === handoffTriggerMessage) {
-               handoffDetected = true;
-               console.log("[Handoff] Detected planner agent confirmation message.");
-               break; // Found the trigger message
+        } else if (orchestratorResponse.outcome.script || orchestratorResponse.outcome.generatedPrompt || orchestratorResponse.outcome.message) {
+           // Direct content response from an agent
+           const content = orchestratorResponse.outcome.script || orchestratorResponse.outcome.generatedPrompt || orchestratorResponse.outcome.message || "Received response.";
+           assistantMessagesToAdd.push({
+             id: uuidv4(),
+             role: 'assistant',
+             content: content,
+             createdAt: new Date().toISOString(),
+             metadata: { // Include action taken for context
+                 actionTaken: orchestratorResponse.actionTaken,
+                 ...(orchestratorResponse.outcome.updatedTable && { updatedTable: orchestratorResponse.outcome.updatedTable }),
+                 ...(orchestratorResponse.outcome.updatedId && { updatedId: orchestratorResponse.outcome.updatedId }),
+                 ...(orchestratorResponse.outcome.updatedField && { updatedField: orchestratorResponse.outcome.updatedField }),
              }
-           }
+           });
+        } else {
+             // Generic success message if no specific content but action was taken
+             assistantMessagesToAdd.push({
+               id: uuidv4(),
+               role: 'system', // Or 'assistant' if preferred
+               content: orchestratorResponse.actionTaken || 'Request processed successfully.',
+               createdAt: new Date().toISOString(),
+               type: 'system', // Use 'system' type for info messages
+             });
+        }
 
-           setMessages(prev => [...prev, ...assistantMessages]);
+        // Add the assistant/system messages to the state
+        if (assistantMessagesToAdd.length > 0) {
+           console.log(`[Roo Debug] Adding ${assistantMessagesToAdd.length} assistant/system messages.`);
+           setMessages(prev => [...prev, ...assistantMessagesToAdd]);
            // Update session context if applicable
-           // Ensure userMessage is included correctly in the session update
            if (options.sessionId) {
-             // Use the state *after* userMessage was added but *before* assistant messages
-             const messagesBeforeAssistant = [...messages, userMessage]; // Assuming userMessage is defined in outer scope
-             updateChatSession(options.sessionId, [...messagesBeforeAssistant, ...assistantMessages]);
+             updateChatSession(options.sessionId, [...messagesBeforeAssistant, ...assistantMessagesToAdd]);
            }
         }
 
-        // --- BEGIN Handoff Execution (if detected) ---
-        if (handoffDetected) {
-            console.log("[Handoff] Triggering generation orchestrator...");
-            toast.info("Script plan finalized. Starting video generation process...");
-            // No need to set isLoading(true) here again, it's already true from the start of handleSendMessage
-
-            // Reuse logic similar to /approve script command
-            try {
-              const { data: sessionData } = await supabase.auth.getSession();
-              const accessToken = sessionData?.session?.access_token;
-              if (!accessToken) {
-                throw new Error("User not authenticated for handoff.");
-              }
-              if (!options.projectId) {
-                 throw new Error("Cannot start generation: No project ID available.");
-              }
-
-              // Call the orchestrator function to start generation
-              const { error: orchestratorError } = await supabase.functions.invoke(
-                'request-router-orchestrator', // Target function for generation
-                {
-                  body: { projectId: options.projectId },
-                  headers: { Authorization: `Bearer ${accessToken}` },
-                }
-              );
-
-              if (orchestratorError) {
-                 let detailMessage = orchestratorError.message;
-                 try {
-                   const ctx = JSON.parse(orchestratorError.context || '{}');
-                   if (ctx.error) detailMessage = ctx.error;
-                 } catch(e) { /* Ignore parsing error */ }
-                throw new Error(detailMessage);
-              }
-
-              // Add a system message confirming the handoff trigger
-              const handoffSystemMessage: Message = {
-                 id: uuidv4(),
-                 role: 'system',
-                 content: `Video generation process initiated for project ${options.projectId}.`,
-                 createdAt: new Date().toISOString(),
-              };
-              setMessages(prev => [...prev, handoffSystemMessage]);
-              toast.success("Video generation process started successfully.");
-
-            } catch (error) {
-               console.error("Error triggering generation orchestrator during handoff:", error);
-               const errorMessageContent = error instanceof Error ? error.message : "Unknown error occurred.";
-               const errorSystemMessage: Message = {
-                 id: uuidv4(),
-                 role: 'system',
-                 content: `Failed to start video generation process after script approval: ${errorMessageContent}`,
-                 createdAt: new Date().toISOString(),
-                 type: 'error',
-               };
-               setMessages(prev => [...prev, errorSystemMessage]);
-               toast.error(`Failed to start generation: ${errorMessageContent}`);
-            }
-            // Note: isLoading will be set to false in the main finally block
-        }
-        // --- END Handoff Execution ---
-      } catch (error) {
-        console.error("Error in chat processing:", error);
-        
-        // Add error message to chat
-        const errorMessage: Message = {
-          id: uuidv4(),
-          role: "system",
-          content: error instanceof Error 
-            ? `Error: ${error.message}` 
-            : "An unknown error occurred while processing your request.",
-          createdAt: new Date().toISOString(),
-          type: "error",
-          status: "error"
-        };
-        
-        setMessages(prev => [...prev, errorMessage]);
-        toast.error("Failed to process message");
+      } else if (orchestratorResponse && orchestratorResponse.error) {
+         // Handle errors reported by the orchestrator/agent
+         throw new Error(orchestratorResponse.error); // Throw the error message from the backend
+      } else {
+         // Handle unexpected response structure
+         console.warn("Unexpected response structure from orchestrator:", orchestratorResponse);
+         // Optionally add a generic system message
+         const unexpectedResponseMessage: Message = {
+           id: uuidv4(),
+           role: 'system',
+           content: 'Received an unexpected response from the server.',
+           createdAt: new Date().toISOString(),
+           type: 'system', // Use 'system' type for warning messages
+         };
+         setMessages(prev => [...prev, unexpectedResponseMessage]);
       }
+
     } catch (error) {
-      console.error("Error in chat processing:", error);
-      toast.error("Failed to process message");
+      console.error("Error sending message:", error);
+      const errorMessageContent = error instanceof Error ? error.message : "An unknown error occurred.";
+      const errorMessage: Message = {
+        id: uuidv4(),
+        role: "system",
+        content: `Error: ${errorMessageContent}`,
+        createdAt: new Date().toISOString(),
+        type: "error",
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      toast.error(`Error: ${errorMessageContent}`);
     } finally {
-      // Reset state after processing
+      setIsLoading(false);
       processingRef.current = false;
       submissionIdRef.current = null;
-      setIsLoading(false);
-      
-      // Clear the safety timeout
       if (processingTimeoutRef.current) {
-        window.clearTimeout(processingTimeoutRef.current);
+        clearTimeout(processingTimeoutRef.current);
         processingTimeoutRef.current = null;
       }
     }
-
-    const sendAdminMessage = async (message: string) => {
-        try {
-            const { data, error } = await supabase.functions.invoke('admin-send-message', {
-                body: {
-                    message: message,
-                },
-            });
-
-            if (error) {
-                console.error('Error sending admin message:', error);
-                toast.error('Failed to send admin message.');
-            } else {
-                console.log('Admin message sent successfully:', data);
-                toast.success('Admin message sent successfully!');
-            }
-        } catch (error) {
-            console.error('Error sending admin message:', error);
-            toast.error('Failed to send admin message.');
-        }
-    };
   }, [
       isLoading,
       messages,
@@ -828,46 +702,47 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       options.sceneId,
       options.sessionId,
       updateChatSession,
-      currentThreadId,
+      supabase, // Add supabase as dependency
       canvasAgent, // <-- Add canvasAgent dependency
       projectContext.projectDetails // <-- Use CORRECT dependency
-      // Remove dependencies no longer used: activeAgent, usePerformanceModel, processHandoff
+      // currentThreadId, // REMOVED: No longer managed here
   ]);
+
+  // Function to send admin messages (if needed, otherwise remove)
+  const sendAdminMessage = async (message: string) => {
+      if (options.projectId !== "admin") {
+          console.warn("Attempted to send admin message outside of admin project.");
+          return;
+      }
+      const adminMsg: Message = {
+          id: uuidv4(),
+          role: "user", // Or a specific admin role?
+          content: message,
+          createdAt: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, adminMsg]);
+      // No AI call for admin chat
+  };
+
 
   return {
     messages,
-    setMessages,
+    setMessages, // Expose setMessages if external updates are needed
     input,
     setInput,
     isLoading,
-    // Remove activeAgent, handoffInProgress
-    // activeAgent,
-    // handoffInProgress,
-    agentInstructions, // Keep if UI uses it
-    userCredits,
-    pendingAttachments,
-    setPendingAttachments,
-    // Remove usePerformanceModel, enableDirectToolExecution if not used
-    // usePerformanceModel,
-    // enableDirectToolExecution,
-    tracingEnabled, // Keep if UI uses it
     handleSubmit,
-    // Remove switchAgent
-    // switchAgent,
     clearChat,
-    // Remove togglePerformanceMode, toggleDirectToolExecution if not used
-    // togglePerformanceMode,
-    // toggleDirectToolExecution,
-    toggleTracing, // Keep if UI uses it
     addAttachments,
     removeAttachment,
-    updateAgentInstructions, // Keep if UI uses it
-    getAgentInstructions, // Keep if UI uses it
-    // Remove setProjectContext if options.projectId is sufficient
-    // setProjectContext,
-    // Remove processHandoff
-    // processHandoff
-    currentThreadId, // Expose thread ID if needed externally
-    handleSendMessage
+    pendingAttachments,
+    agentInstructions, // Keep if UI uses them
+    updateAgentInstructions, // Keep if UI uses them
+    getAgentInstructions, // Keep if UI uses them
+    userCredits, // Keep if UI uses them
+    tracingEnabled, // Keep if UI uses them
+    toggleTracing, // Keep if UI uses them
+    sendAdminMessage, // Keep if admin chat feature is used
+    // currentThreadId, // REMOVED: No longer managed here
   };
 }

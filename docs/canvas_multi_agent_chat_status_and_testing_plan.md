@@ -1,4 +1,4 @@
-# Canvas & Multi-Agent Chat: Status and Testing Plan (June 4, 2025)
+    # Canvas & Multi-Agent Chat: Status and Testing Plan (June 4, 2025)
 
 This document summarizes the current status of the Canvas and Multi-Agent Chat features based on code review and outlines a testing plan for the active functionalities.
 

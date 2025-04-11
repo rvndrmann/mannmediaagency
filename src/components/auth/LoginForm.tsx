@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,8 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   // Debug function to check session state
   const checkAuthState = async () => {
@@ -76,6 +77,26 @@ const LoginForm = () => {
     }
   };
 
+  const handleEmailLogin = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        navigate("/canvas"); // Navigate to canvas on successful login
+      }
+    } catch (error) {
+      toast.error("Failed to sign in with email. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center px-4">
       <Card className="w-full max-w-md p-8 space-y-6 bg-gray-800/50 backdrop-blur-xl border-gray-700">
@@ -103,6 +124,49 @@ const LoginForm = () => {
           </Button>
 
           <PhoneLoginForm isSignUp={false} />
+
+          <div className="space-y-2">
+            <label
+              htmlFor="email"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-white"
+            >
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="password"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-white"
+            >
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+          <Button 
+            onClick={handleEmailLogin}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+            ) : null}
+            Login with Email
+          </Button>
 
           <div className="flex items-center gap-2 py-2 px-3 bg-blue-500/10 text-blue-300 rounded-md text-sm">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />

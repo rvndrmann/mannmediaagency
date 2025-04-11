@@ -1,4 +1,3 @@
-
 export interface MCPTool {
   name: string;
   description: string;
@@ -36,7 +35,8 @@ export interface MCPServerInfo {
 export interface MCPServer {
   id: string;
   name: string;
-  url: string;
+  sseUrl: string;
+  toolsUrl: string;
   updateInterval: number;
   isConnected: () => boolean;
   listTools?: () => Promise<MCPToolDefinition[]>;

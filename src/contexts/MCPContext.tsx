@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { MCPServer, MCPTool, MCPConnectionStats, MCPConnectionMetrics } from '@/types/mcp';
 
@@ -87,28 +86,23 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
   const [connectionStats, setConnectionStats] = useState<MCPConnectionStats>(defaultConnectionStats);
   const [connectionMetrics, setConnectionMetrics] = useState<MCPConnectionMetrics>(defaultConnectionMetrics);
 
-  const addMcpServer = (server: MCPServer) => {
+  const addMcpServer = (server: {
+    id: string;
+    name: string;
+    sseUrl: string;
+    toolsUrl: string;
+    command?: string;
+    args?: string[];
+  }) => {
     setMcpServers(prev => {
       const existingServer = prev.find(s => s.name === server.name);
       if (existingServer) {
         return prev;
       }
-      return [...prev, server];
-    });
-  };
-
-  // Attempt to connect to MCP on component mount or when projectId changes
-  useEffect(() => {
-    if (projectId && useMcp && status === 'disconnected' && !isConnecting) {
-      // Add Playwright MCP server
-      addMcpServer({
-        id: 'playwright-mcp',
-        name: 'playwright',
-        url: 'http://localhost:8931/sse', // Placeholder URL
+      return [...prev, {
+        ...server,
         updateInterval: 5000, // Placeholder update interval
-        command: 'npx',
-        args: ['@playwright/mcp@latest', '--vision'],
-        isConnected: () => true, // Mock isConnected for now
+        isConnected: () => status === 'connected',
         executeTool: async (toolName: string, params: any) => {
           console.log(`Executing Playwright MCP tool: ${toolName}`, params);
           // Simulate a delay
@@ -121,8 +115,38 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
           };
         },
         listTools: async () => {
-          return []; // Mock listTools for now
+          const response = await fetch(server.toolsUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data = await response.json();
+          return data;
         }
+      },];
+    });
+  };
+
+  // Attempt to connect to MCP on component mount or when projectId changes
+  useEffect(() => {
+    if (projectId && useMcp && status === 'disconnected' && !isConnecting) {
+      // Add Playwright MCP server
+      addMcpServer({
+        id: 'playwright-mcp',
+        name: 'playwright',
+        sseUrl: 'http://localhost:8931/sse',
+        toolsUrl: 'http://localhost:8931/tools',
+        command: 'npx',
+        args: ['@playwright/mcp@latest', '--vision'],
+      });
+
+      // Add Browser MCP server
+      addMcpServer({
+        id: 'browser-mcp',
+        name: 'browsermcp',
+        sseUrl: 'http://localhost:8931/sse',
+        toolsUrl: 'http://localhost:8931/tools',
+        command: 'npx',
+        args: ['@browsermcp/mcp@latest'],
       });
       attemptConnection();
     }
@@ -131,10 +155,10 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
 
   const attemptConnection = async () => {
     if (isConnecting) return false;
-    
+
     setIsConnecting(true);
     setStatus('connecting');
-    
+
     try {
       // Update connection attempt timestamp
       setConnectionStats(prev => ({
@@ -142,43 +166,73 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
         lastConnectionAttempt: Date.now()
       }));
 
-      // Simulate MCP connection
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // In a real implementation, this would be an actual connection to MCP
-      setStatus('connected');
-      setLastError(null);
-      
-      // Update connection metrics
-      setConnectionMetrics(prev => ({
-        ...prev,
-        successCount: prev.successCount + 1,
-        lastAttemptTime: Date.now(),
-        averageConnectTime: 
-          (prev.averageConnectTime * prev.successCount + 500) / (prev.successCount + 1)
-      }));
-      
-      // Update connection stats
-      setConnectionStats(prev => ({
-        ...prev,
-        connectedClients: prev.connectedClients + 1,
-        totalClients: prev.totalClients + 1
-      }));
-      
-      setIsConnecting(false);
+      // Establish SSE connection to MCP server
+      const eventSource = new EventSource('http://localhost:8931/sse');
+
+      eventSource.onopen = () => {
+        console.log('Connected to MCP server');
+        setStatus('connected');
+        setLastError(null);
+
+        // Update connection metrics
+        setConnectionMetrics(prev => ({
+          ...prev,
+          successCount: prev.successCount + 1,
+          lastAttemptTime: Date.now(),
+          averageConnectTime:
+            (prev.averageConnectTime * prev.successCount + 500) / (prev.successCount + 1)
+        }));
+
+        // Update connection stats
+        setConnectionStats(prev => ({
+          ...prev,
+          connectedClients: prev.connectedClients + 1,
+          totalClients: prev.totalClients + 1
+        }));
+
+        setIsConnecting(false);
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('Failed to connect to MCP:', error);
+        setStatus('error');
+        let errorMessage = 'Unknown error connecting to MCP';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        }
+        setLastError(new Error(errorMessage));
+
+        // Update connection metrics
+        setConnectionMetrics(prev => ({
+          ...prev,
+          failureCount: prev.failureCount + 1,
+          lastAttemptTime: Date.now()
+        }));
+
+        setIsConnecting(false);
+        eventSource.close();
+      };
+
+      // You can add event listeners for specific events from the MCP server here
+      // eventSource.addEventListener('tool_result', (event) => {
+      //   console.log('Tool result:', event.data);
+      // });
+
       return true;
     } catch (error) {
       console.error('Failed to connect to MCP:', error);
       setStatus('error');
       setLastError(error instanceof Error ? error : new Error('Unknown error connecting to MCP'));
-      
+
       // Update connection metrics
       setConnectionMetrics(prev => ({
         ...prev,
         failureCount: prev.failureCount + 1,
         lastAttemptTime: Date.now()
       }));
-      
+
       setIsConnecting(false);
       return false;
     }
@@ -213,21 +267,34 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
   const callTool = async (toolName: string, parameters: any) => {
     try {
       console.log(`Calling MCP tool: ${toolName}`, parameters);
-      
-      // Simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock response
-      return {
-        success: true,
-        result: {
-          message: `Successfully called tool ${toolName}`,
-          timestamp: new Date().toISOString()
-        }
-      };
+
+      const response = await fetch('http://localhost:8931/tool', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          toolName: toolName,
+          ...parameters,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Tool response:', data);
+      return data;
     } catch (error) {
       console.error(`Error calling MCP tool ${toolName}:`, error);
-      throw error;
+      let errorMessage = 'Unknown error calling MCP tool';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      throw new Error(errorMessage);
     }
   };
   

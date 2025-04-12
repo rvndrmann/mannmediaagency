@@ -8,6 +8,7 @@ import { ProfileSection } from "./sidebar/ProfileSection";
 import { Navigation } from "./sidebar/Navigation";
 
 export const Sidebar = () => {
+  const { signOut } = useAuth(); // Call useAuth at the top level
   return (
     <SidebarComponent>
       <SidebarHeader>
@@ -27,8 +28,7 @@ export const Sidebar = () => {
             variant="ghost"
             className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
             onClick={async () => {
-              const { signOut } = useAuth();
-              await signOut();
+              await signOut(); // Use the signOut function obtained from the hook
             }}
           >
             <LogOut className="mr-2 h-4 w-4" /> Sign out

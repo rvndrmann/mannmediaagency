@@ -14,14 +14,6 @@ import Auth from "./Auth";
 const Index: React.FC = () => {
   const isMobile = useIsMobile();
 
-  // Log environment variables on component mount
-  React.useEffect(() => {
-    console.log("NODE_ENV in Index:", process.env.NODE_ENV);
-    // Note: Vite uses import.meta.env for env vars prefixed with VITE_
-    // If REACT_APP_MCP_URL is not prefixed with VITE_, it might not be available here.
-    // Check your .env file and Vite configuration.
-    console.log("VITE_REACT_APP_MCP_URL in Index:", import.meta.env.VITE_REACT_APP_MCP_URL);
-  }, []);
   
   const { data: session } = useQuery({
     queryKey: ["session"],

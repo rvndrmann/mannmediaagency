@@ -20,6 +20,8 @@ import SignupForm from "./components/auth/SignupForm";
 import AuthCallback from "./components/auth/AuthCallback";
 import Admin from "./pages/Admin"; // Import existing Admin page
 import AdminTaskManagement from "./pages/AdminTaskManagement"; // Import the new Admin Task page
+import Plans from "./pages/Plans"; // Import the Plans component
+import Payment from "./pages/Payment"; // Import the Payment component
 // import WorkerTasks from "./pages/WorkerTasks"; // Removed import
 import { useAuth } from "./hooks/use-auth"; // Import useAuth hook
 import { supabase } from "./integrations/supabase/client"; // Import supabase client
@@ -129,6 +131,7 @@ function App() {
           <Route path="/custom-orders" element={<CustomOrders />} />
           <Route path="/video-projects" element={<VideoProjectPage />} />
           <Route path="/video-projects/:projectId" element={<VideoProjectPage />} />
+          <Route path="/plans" element={<Plans />} /> {/* Add the route for the plans page */}
 
           {/* Admin routes */}
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
@@ -141,6 +144,9 @@ function App() {
           <Route path="/auth/login" element={<LoginForm />} />
           <Route path="/auth/signup" element={<SignupForm />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+
+          {/* Payment routes */}
+          <Route path="/payment" element={<Payment />} /> {/* Add the route for the payment page */}
           
           {/* Fallback route for 404 */}
           <Route path="/not-found" element={<NotFound />} />

@@ -59,7 +59,7 @@ const AuthCallback = () => {
           // Force a refresh before redirecting to ensure the session is available to other components
           // Add a small delay before redirecting to allow session storage to settle
           setTimeout(() => {
-            window.location.href = "/canvas";
+            window.location.href = "/"; // Redirect to dashboard (Index page handles dashboard display)
           }, 500);
           return;
         }
@@ -97,7 +97,7 @@ const AuthCallback = () => {
                 // Force a refresh before redirecting to ensure the session is available to other components
                 // Add a small delay before redirecting to allow session storage to settle
                 setTimeout(() => {
-                  window.location.href = "/canvas";
+                  window.location.href = "/"; // Redirect to dashboard (Index page handles dashboard display)
                 }, 500);
                 return;
               }

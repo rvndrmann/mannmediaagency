@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { ProfileSection } from "./sidebar/ProfileSection";
 import { Navigation } from "./sidebar/Navigation";
 
@@ -26,7 +27,8 @@ export const Sidebar = () => {
             variant="ghost"
             className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
             onClick={async () => {
-              await supabase.auth.signOut();
+              const { signOut } = useAuth();
+              await signOut();
             }}
           >
             <LogOut className="mr-2 h-4 w-4" /> Sign out

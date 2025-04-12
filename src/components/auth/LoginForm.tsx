@@ -88,7 +88,7 @@ const LoginForm = () => {
       if (error) {
         toast.error(error.message);
       } else {
-        navigate("/canvas"); // Navigate to canvas on successful login
+        navigate("/"); // Navigate to dashboard on successful login
       }
     } catch (error) {
       toast.error("Failed to sign in with email. Please try again.");

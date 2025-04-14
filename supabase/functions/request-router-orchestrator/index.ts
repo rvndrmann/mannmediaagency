@@ -5,26 +5,27 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 // @ts-ignore Deno requires .ts extension
 import { corsHeaders } from '../_shared/cors.ts' // Assuming tsconfig allows .ts imports for Deno
 
-console.log('Request Router Orchestrator function booting up...')
+console.log(`[${new Date().toISOString()}] [RRO Boot] Request Router Orchestrator function booting up...`);
 
 // Initialize Supabase client
 let supabaseClient: SupabaseClient | null = null;
 try {
+  console.log(`[${new Date().toISOString()}] [RRO Boot] Attempting to initialize Supabase client...`);
   // @ts-ignore Deno namespace
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   // @ts-ignore Deno namespace
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
   if (!supabaseUrl || !supabaseAnonKey) {
+    console.error(`[${new Date().toISOString()}] [RRO Boot Error] Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables.`);
     throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables.');
   }
   supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-  console.log('Supabase client initialized successfully.');
+  console.log(`[${new Date().toISOString()}] [RRO Boot] Supabase client initialized successfully.`);
 } catch (error: unknown) { // Catch as unknown
   const errorMessage = error instanceof Error ? error.message : "Unknown error during Supabase client initialization.";
-  console.error('Failed to initialize Supabase client:', errorMessage);
-  // Depending on the desired behavior, you might want to prevent the function from serving
-  // if the client cannot be initialized. For now, it will log the error and continue.
+  console.error(`[${new Date().toISOString()}] [RRO Boot Error] Failed to initialize Supabase client:`, errorMessage);
+  // Let the function continue, but the client check later will fail requests.
 }
 
 // Global variables to store discovered tools
@@ -34,7 +35,7 @@ let promptAgentTools: any[] = [];
 
 // Function to discover tools from an agent
 async function discoverAgentTools(agentName: string, client: SupabaseClient): Promise<any[]> {
-  console.log(`Discovering tools for agent: ${agentName}...`);
+  console.log(`[${new Date().toISOString()}] [Tool Discovery] Discovering tools for agent: ${agentName}...`);
   const listToolsRequestBody = { action: 'list_tools' };
   try {
     // Use the provided client instance
@@ -43,28 +44,28 @@ async function discoverAgentTools(agentName: string, client: SupabaseClient): Pr
     });
 
     if (error) {
-      console.error(`Error invoking list_tools on ${agentName}:`, error.message);
+      console.error(`[${new Date().toISOString()}] [Tool Discovery Error] Error invoking list_tools on ${agentName}:`, error.message);
       return []; // Return empty array on invocation error
     }
 
     // Basic validation of the response structure
     if (data && data.status === 'success' && data.result && Array.isArray(data.result.tools)) {
-      console.log(`Successfully discovered ${data.result.tools.length} tools for ${agentName}.`);
+      console.log(`[${new Date().toISOString()}] [Tool Discovery] Successfully discovered ${data.result.tools.length} tools for ${agentName}.`);
       return data.result.tools; // Return the discovered tools
     } else {
-      console.error(`Unexpected response structure or status from ${agentName} list_tools:`, data);
+      console.error(`[${new Date().toISOString()}] [Tool Discovery Error] Unexpected response structure or status from ${agentName} list_tools:`, data);
       return []; // Return empty array on unexpected response
     }
   } catch (e: unknown) {
     const errorMessage = e instanceof Error ? e.message : String(e);
-    console.error(`Unexpected error during tool discovery for ${agentName}:`, errorMessage);
+    console.error(`[${new Date().toISOString()}] [Tool Discovery Error] Unexpected error during tool discovery for ${agentName}:`, errorMessage);
     return []; // Return empty array on unexpected error
   }
 }
 
 // Discover tools from agents at startup, only if client initialized
 if (supabaseClient) {
-  console.log('Starting agent tool discovery...');
+  console.log(`[${new Date().toISOString()}] [RRO Boot] Starting agent tool discovery...`);
   // Capture the initialized client in a variable accessible to the async scope
   const discoveryClient = supabaseClient;
   // Use an immediately invoked async function expression (IIAFE) or Promise.all directly
@@ -74,22 +75,21 @@ if (supabaseClient) {
   ]).then(([scriptTools, promptTools]) => {
     scriptAgentTools = scriptTools;
     promptAgentTools = promptTools;
-    console.log('Tool discovery completed.');
+    console.log(`[${new Date().toISOString()}] [RRO Boot] Tool discovery completed.`);
     // Optional: Log discovered tool names for verification
-    console.log(`Script Agent Tools (${scriptAgentTools.length}):`, scriptAgentTools.map(t => t?.name || 'unknown'));
-    console.log(`Prompt Agent Tools (${promptAgentTools.length}):`, promptAgentTools.map(t => t?.name || 'unknown'));
+    console.log(`[${new Date().toISOString()}] [RRO Boot] Script Agent Tools (${scriptAgentTools.length}):`, scriptAgentTools.map(t => t?.name || 'unknown'));
+    console.log(`[${new Date().toISOString()}] [RRO Boot] Prompt Agent Tools (${promptAgentTools.length}):`, promptAgentTools.map(t => t?.name || 'unknown'));
   }).catch(error => {
     // This catch handles errors from Promise.all itself (e.g., if one promise rejects unexpectedly)
     // Individual discovery errors are handled within discoverAgentTools
-    console.error('Error during the Promise.all execution for tool discovery:', error);
+    console.error(`[${new Date().toISOString()}] [RRO Boot Error] Error during the Promise.all execution for tool discovery:`, error);
   });
 } else {
     // Log if discovery is skipped due to client initialization failure
-    console.warn('Supabase client not initialized at startup. Skipping agent tool discovery.');
+    console.warn(`[${new Date().toISOString()}] [RRO Boot Warn] Supabase client not initialized at startup. Skipping agent tool discovery.`);
 }
 
 
-// Define the expected request body structure
 // Define the expected request body structure(s)
 interface RROIntentRequestBody {
   intent: string; // Required for intent-based routing
@@ -124,37 +124,48 @@ interface AgentTaskInput {
 
 
 serve(async (req: Request): Promise<Response> => {
+  const requestStartTime = Date.now();
+  console.log(`[${new Date().toISOString()}] [RRO Request Start] Received request. Method: ${req.method}, URL: ${req.url}`);
+
   // Handle preflight requests for CORS
   if (req.method === 'OPTIONS') {
+    console.log(`[${new Date().toISOString()}] [RRO CORS] Handling OPTIONS request.`);
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Ensure the request method is POST
+    console.log(`[${new Date().toISOString()}] [RRO Check Method] Validating method...`);
     if (req.method !== 'POST') {
+      console.error(`[${new Date().toISOString()}] [RRO Error] Method Not Allowed: ${req.method}`);
       return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 405,
       })
     }
+    console.log(`[${new Date().toISOString()}] [RRO Check Method] Method is POST.`);
 
     // Check if Supabase client is initialized
+    console.log(`[${new Date().toISOString()}] [RRO Check Client] Checking Supabase client initialization...`);
     if (!supabaseClient) {
-        console.error('Supabase client not initialized. Cannot process request.');
+        console.error(`[${new Date().toISOString()}] [RRO Error] Supabase client not initialized. Cannot process request.`);
         return new Response(JSON.stringify({ error: 'Internal Server Error: Supabase client not available' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 500,
         });
     }
+    console.log(`[${new Date().toISOString()}] [RRO Check Client] Supabase client is initialized.`);
 
+    console.log(`[${new Date().toISOString()}] [RRO Parse Body] Attempting to parse request body...`);
     const body = await req.json();
-    console.log('RRO received request body:', body);
+    console.log(`[${new Date().toISOString()}] [RRO Parse Body] Request body parsed:`, JSON.stringify(body)); // Log stringified body
 
     // --- Authentication Check ---
+    console.log(`[${new Date().toISOString()}] [RRO Auth] Performing authentication check...`);
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !supabaseClient) {
-      console.error('Auth header missing or Supabase client unavailable.');
-      return new Response(JSON.stringify({ error: 'Unauthorized: Missing or invalid credentials.' }), {
+    if (!authHeader) { // Removed supabaseClient check as it's done above
+      console.error(`[${new Date().toISOString()}] [RRO Auth Error] Auth header missing.`);
+      return new Response(JSON.stringify({ error: 'Unauthorized: Missing credentials.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
       });
@@ -163,13 +174,13 @@ serve(async (req: Request): Promise<Response> => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
 
     if (userError || !user) {
-      console.error('Authentication failed:', userError?.message || 'No user found.');
+      console.error(`[${new Date().toISOString()}] [RRO Auth Error] Authentication failed:`, userError?.message || 'No user found.');
       return new Response(JSON.stringify({ error: 'Unauthorized: Authentication failed.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
       });
     }
-    console.log('Authenticated user:', user.id);
+    console.log(`[${new Date().toISOString()}] [RRO Auth] Authenticated user: ${user.id}`);
     // --- End Authentication Check ---
 
     let determinedAction = 'No action determined'; // Default action message
@@ -179,15 +190,16 @@ serve(async (req: Request): Promise<Response> => {
     let mcpCallError: string | null = null; // Variable to hold potential MCP call errors
 
     // --- Request Routing ---
+    console.log(`[${new Date().toISOString()}] [RRO Route] Determining request type...`);
 
     if (isApproveScriptRequest(body)) {
       // --- Handle /approve script Workflow ---
-      console.log(`Handling 'approve script' workflow for project: ${body.projectId}`);
+      console.log(`[${new Date().toISOString()}] [RRO Route] Handling 'approve script' workflow for project: ${body.projectId}`);
       const { projectId } = body;
 
       try {
         // 1. Fetch the script from the project
-        console.log(`Fetching script for project ${projectId}...`);
+        console.log(`[${new Date().toISOString()}] [Approve Script] Fetching script for project ${projectId}...`);
         const { data: projectData, error: fetchError } = await supabaseClient!
           .from('canvas_projects')
           .select('full_script') // Assuming the column name is 'full_script'
@@ -195,28 +207,32 @@ serve(async (req: Request): Promise<Response> => {
           .single();
 
         if (fetchError || !projectData) {
+          console.error(`[${new Date().toISOString()}] [Approve Script Error] Failed to fetch project ${projectId}:`, fetchError?.message || 'No project data');
           throw new Error(`Failed to fetch project or script not found: ${fetchError?.message || 'No project data'}`);
         }
         const scriptContent = projectData.full_script;
         if (!scriptContent) {
+          console.error(`[${new Date().toISOString()}] [Approve Script Error] Script content is empty for project ${projectId}`);
           throw new Error(`Script content is empty for project ${projectId}`);
         }
-        console.log(`Script fetched successfully.`);
+        console.log(`[${new Date().toISOString()}] [Approve Script] Script fetched successfully. Length: ${scriptContent.length}`);
 
         // 2. Call divide-script function
-        console.log(`Calling 'divide-script' function...`);
+        console.log(`[${new Date().toISOString()}] [Approve Script] Calling 'divide-script' function...`);
         const { data: divideResult, error: divideError } = await supabaseClient!.functions.invoke(
           'divide-script',
           { body: { script: scriptContent } }
         );
 
         if (divideError) {
+          console.error(`[${new Date().toISOString()}] [Approve Script Error] Error calling 'divide-script':`, divideError);
           throw new Error(`Error calling 'divide-script': ${divideError.message}`);
         }
         if (!divideResult || !Array.isArray(divideResult.scenes)) {
+          console.error(`[${new Date().toISOString()}] [Approve Script Error] Invalid response from 'divide-script':`, divideResult);
           throw new Error(`Invalid response from 'divide-script': ${JSON.stringify(divideResult)}`);
         }
-        console.log(`'divide-script' returned ${divideResult.scenes.length} scenes.`);
+        console.log(`[${new Date().toISOString()}] [Approve Script] 'divide-script' returned ${divideResult.scenes.length} scenes.`);
 
         // 3. Create scene records in DB
         const scenesToInsert = divideResult.scenes.map((scene: any, index: number) => ({
@@ -229,22 +245,23 @@ serve(async (req: Request): Promise<Response> => {
         }));
 
         if (scenesToInsert.length > 0) {
-          console.log(`Inserting ${scenesToInsert.length} scenes into 'canvas_scenes'...`);
+          console.log(`[${new Date().toISOString()}] [Approve Script] Inserting ${scenesToInsert.length} scenes into 'canvas_scenes'...`);
           const { error: insertError } = await supabaseClient!
             .from('canvas_scenes')
             .insert(scenesToInsert);
 
           if (insertError) {
+            console.error(`[${new Date().toISOString()}] [Approve Script Error] Failed to insert scenes:`, insertError);
             throw new Error(`Failed to insert scenes: ${insertError.message}`);
           }
-          console.log(`Scenes inserted successfully.`);
+          console.log(`[${new Date().toISOString()}] [Approve Script] Scenes inserted successfully.`);
         } else {
-           console.log("No scenes generated by 'divide-script', nothing to insert.");
+           console.log("[${new Date().toISOString()}] [Approve Script] No scenes generated by 'divide-script', nothing to insert.");
         }
 
 
         // 4. Trigger Pipeline Runner (Placeholder - Implement actual trigger later)
-        console.log(`Placeholder: Triggering generation pipeline for project ${projectId}...`);
+        console.log(`[${new Date().toISOString()}] [Approve Script] Placeholder: Triggering generation pipeline for project ${projectId}...`);
         // Example: await supabaseClient!.functions.invoke('mcp-pipeline-runner', { body: { projectId } });
         // Or: await callMCPTool('pipeline_runner', 'start_project_generation', { projectId });
 
@@ -252,7 +269,7 @@ serve(async (req: Request): Promise<Response> => {
         mcpCallOutcome = { scenesCreated: scenesToInsert.length }; // Use mcpCallOutcome for success data
 
       } catch (error) {
-        console.error(`Error during 'approve script' workflow:`, error);
+        console.error(`[${new Date().toISOString()}] [Approve Script Error] Error during 'approve script' workflow:`, error);
         determinedAction = `Error processing 'approve script': ${error instanceof Error ? error.message : 'Unknown error'}`;
         mcpCallError = error instanceof Error ? error.message : 'Unknown error during approve script workflow';
       }
@@ -260,14 +277,14 @@ serve(async (req: Request): Promise<Response> => {
 
     } else if (isIntentRequest(body)) {
       // --- Handle Intent-Based Routing ---
-      console.log(`Handling intent-based request: ${body.intent}`);
+      console.log(`[${new Date().toISOString()}] [RRO Route] Handling intent-based request. Intent: ${body.intent}`);
 
       // --- Fetch Existing Thread ID ---
       let existingThreadId: string | null = null;
       let initialThreadLookupError: string | null = null;
       if (body.projectId) {
         try {
-          console.log(`Looking up thread ID for project: ${body.projectId}`);
+          console.log(`[${new Date().toISOString()}] [RRO Thread Lookup] Looking up thread ID for project: ${body.projectId}`);
           const { data: threadData, error: threadError } = await supabaseClient!
             .from('project_threads')
             .select('openai_thread_id')
@@ -275,36 +292,34 @@ serve(async (req: Request): Promise<Response> => {
             .single(); // Use single() as project_id is PK
 
           if (threadError && threadError.code !== 'PGRST116') { // Ignore 'No rows found' error
+            console.error(`[${new Date().toISOString()}] [RRO Thread Lookup Error] DB error fetching thread ID for project ${body.projectId}:`, threadError);
             throw threadError;
           }
           if (threadData) {
             existingThreadId = threadData.openai_thread_id;
-            console.log(`Found existing thread ID: ${existingThreadId}`);
+            console.log(`[${new Date().toISOString()}] [RRO Thread Lookup] Found existing thread ID: ${existingThreadId}`);
           } else {
-            console.log(`No existing thread ID found for project: ${body.projectId}`);
+            console.log(`[${new Date().toISOString()}] [RRO Thread Lookup] No existing thread ID found for project: ${body.projectId}`);
           }
         } catch (error) {
-           console.error(`Error fetching thread ID for project ${body.projectId}:`, error);
+           console.error(`[${new Date().toISOString()}] [RRO Thread Lookup Error] Exception fetching thread ID for project ${body.projectId}:`, error);
            initialThreadLookupError = error instanceof Error ? error.message : 'Unknown error fetching thread ID.';
-           // Decide if this error should halt processing or just be logged
-           // For now, we'll log it and potentially proceed without a threadId
+           // Logged error, continue and let agent handle thread creation if needed
         }
       } else {
-        console.warn('No projectId provided in intent request body, cannot manage thread persistence.');
-        // Depending on requirements, might want to return an error here
+        console.warn(`[${new Date().toISOString()}] [RRO Thread Lookup Warn] No projectId provided in intent request body, cannot manage thread persistence.`);
       }
       // --- End Fetch Existing Thread ID ---
 
-      // If lookup failed critically, maybe return error early
-      if (initialThreadLookupError && !existingThreadId) {
-         // Maybe return error response here if thread lookup is mandatory
-         // For now, continue and let agent potentially create a new one
-      }
+      // If lookup failed critically, maybe return error early (currently just logged)
+      // if (initialThreadLookupError && !existingThreadId) { ... }
+
+      console.log(`[${new Date().toISOString()}] [RRO Intent Switch] Routing based on intent: ${body.intent}`);
       switch (body.intent) {
         case 'generate_script': {
           const agentName = 'script-agent';
           const toolName = 'generate_script';
-          console.log(`Attempting MCP-style call to ${agentName} for tool ${toolName}...`);
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Attempting MCP-style call to ${agentName} for tool ${toolName}...`);
 
           const mcpArguments: Record<string, any> = { // Explicit type
             projectId: body.projectId,
@@ -323,14 +338,15 @@ serve(async (req: Request): Promise<Response> => {
           };
 
           // Check if tool exists in the discovered list
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Checking if tool '${toolName}' exists for agent '${agentName}'...`);
           if (!scriptAgentTools.some(tool => tool.name === toolName)) {
-              console.error(`Tool '${toolName}' not found for agent '${agentName}'. Available: ${scriptAgentTools.map(t => t?.name || 'unknown').join(', ')}`);
+              console.error(`[${new Date().toISOString()}] [RRO Error] Tool '${toolName}' not found for agent '${agentName}'. Available: ${scriptAgentTools.map(t => t?.name || 'unknown').join(', ')}`);
               mcpCallError = `Tool '${toolName}' is not available for agent '${agentName}'.`;
               determinedAction = `Error: Tool not found for ${agentName}.`;
               // Skip invocation, error is set, proceed to response generation
           } else {
               // Tool found, proceed with invocation
-              console.log('Invoking function with body:', JSON.stringify(mcpRequestBody, null, 2));
+              console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Tool found. Invoking ${agentName} with body:`, JSON.stringify(mcpRequestBody, null, 2));
 
               // Use try/catch for the async operation
               try {
@@ -341,23 +357,25 @@ serve(async (req: Request): Promise<Response> => {
 
                   if (invokeError) {
                     // Handle errors specifically from the invocation itself (network, function not found, etc.)
-                    console.error(`Error invoking ${agentName}:`, invokeError);
+                    console.error(`[${new Date().toISOString()}] [RRO Error] Error invoking ${agentName}:`, invokeError);
                     determinedAction = `Error invoking ${agentName}`;
                     mcpCallError = invokeError.message;
                   } else if (invokeData) {
-                    console.log(`${agentName} response:`, invokeData);
+                    console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] ${agentName} response received:`, invokeData);
                     // Check the structure of the returned data for MCP compliance
                     if (typeof invokeData === 'object' && invokeData !== null && 'status' in invokeData) {
                         if (invokeData.status === 'success') {
                           determinedAction = `Successfully invoked ${agentName} for ${toolName}.`;
                           // IMPORTANT: Assumes agent function now returns { result: ..., openai_thread_id: '...' }
                           mcpCallOutcome = invokeData.result; // Store the primary result
+                          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Agent call successful. Outcome:`, mcpCallOutcome);
                           // Use block scope to avoid redeclaration errors
                           {
                             const agentReturnedThreadId = invokeData.openai_thread_id;
+                            console.log(`[${new Date().toISOString()}] [RRO Thread Save] Checking if thread ID needs saving. Existing: ${existingThreadId}, Returned: ${agentReturnedThreadId}, Project: ${body.projectId}`);
                             // If no thread existed before AND the agent returned one (likely created it)
                             if (!existingThreadId && agentReturnedThreadId && body.projectId) {
-                              console.log(`Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
+                              console.log(`[${new Date().toISOString()}] [RRO Thread Save] Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
                               try {
                                 const { error: upsertError } = await supabaseClient!
                                   .from('project_threads')
@@ -370,15 +388,17 @@ serve(async (req: Request): Promise<Response> => {
                                 if (upsertError) {
                                   throw upsertError;
                                 }
-                                console.log(`Successfully saved new thread ID mapping for project ${body.projectId}.`);
+                                console.log(`[${new Date().toISOString()}] [RRO Thread Save] Successfully saved new thread ID mapping for project ${body.projectId}.`);
                               } catch (dbError) {
-                                console.error(`Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
+                                console.error(`[${new Date().toISOString()}] [RRO Thread Save Error] Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
                                 // Log error, but maybe don't fail the whole request? Depends on requirements.
                               }
                             } else if (existingThreadId && agentReturnedThreadId && existingThreadId !== agentReturnedThreadId) {
                                 // Log if the agent somehow returned a *different* thread ID than expected
-                                console.warn(`Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
+                                console.warn(`[${new Date().toISOString()}] [RRO Thread Save Warn] Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
                                 // Optionally update the DB record here if the agent's ID is considered more authoritative
+                            } else {
+                                console.log(`[${new Date().toISOString()}] [RRO Thread Save] No thread ID update needed.`);
                             }
                           }
                         } else if (invokeData.status === 'error') {
@@ -386,28 +406,28 @@ serve(async (req: Request): Promise<Response> => {
                           // Try to extract a meaningful error message
                           const agentError = invokeData.error;
                           mcpCallError = typeof agentError === 'string' ? agentError : (agentError?.message || JSON.stringify(agentError) || 'Unknown error structure from agent.');
-                          console.error(`${agentName} returned error:`, mcpCallError);
+                          console.error(`[${new Date().toISOString()}] [RRO Error] ${agentName} returned error:`, mcpCallError);
                         } else {
                           // Handle cases where 'status' is present but not 'success' or 'error'
                            determinedAction = `Unexpected status value from ${agentName}: ${invokeData.status}`;
                            mcpCallError = `Unexpected status: ${JSON.stringify(invokeData)}`;
-                           console.error(mcpCallError);
+                           console.error(`[${new Date().toISOString()}] [RRO Error]`, mcpCallError);
                         }
                     } else {
                        // Handle cases where the response is not in the expected MCP format
                        determinedAction = `Unexpected response structure from ${agentName}. Expected { status: '...', ... }`;
                        mcpCallError = `Unexpected response format: ${JSON.stringify(invokeData)}`;
-                       console.error(mcpCallError);
+                       console.error(`[${new Date().toISOString()}] [RRO Error]`, mcpCallError);
                     }
                   } else {
                     // Handle cases where invocation succeeds but returns no data (should ideally not happen with sync calls)
-                    console.error(`Invocation of ${agentName} did not return data or specific error.`);
+                    console.error(`[${new Date().toISOString()}] [RRO Error] Invocation of ${agentName} did not return data or specific error.`);
                     determinedAction = `Invocation issue with ${agentName}: No data returned.`;
                     mcpCallError = 'Invocation completed without returning data or a specific error.';
                   }
               } catch (e: unknown) {
                   // Catch any other unexpected errors during the invoke call
-                  console.error(`Unexpected error during ${agentName} invocation:`, e);
+                  console.error(`[${new Date().toISOString()}] [RRO Error] Unexpected error during ${agentName} invocation:`, e);
                   determinedAction = `Unexpected error during ${agentName} invocation.`;
                   mcpCallError = e instanceof Error ? e.message : String(e);
               }
@@ -417,7 +437,7 @@ serve(async (req: Request): Promise<Response> => {
         case 'refine_script': {
           const agentName = 'script-agent';
           const toolName = 'refine_script';
-          console.log(`Attempting MCP-style call to ${agentName} for tool ${toolName}...`);
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Attempting MCP-style call to ${agentName} for tool ${toolName}...`);
 
           const mcpArguments: Record<string, any> = {
             projectId: body.projectId,
@@ -435,13 +455,14 @@ serve(async (req: Request): Promise<Response> => {
           };
 
           // Check if tool exists in the discovered list
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Checking if tool '${toolName}' exists for agent '${agentName}'...`);
           if (!scriptAgentTools.some(tool => tool.name === toolName)) {
-              console.error(`Tool '${toolName}' not found for agent '${agentName}'. Available: ${scriptAgentTools.map(t => t?.name || 'unknown').join(', ')}`);
+              console.error(`[${new Date().toISOString()}] [RRO Error] Tool '${toolName}' not found for agent '${agentName}'. Available: ${scriptAgentTools.map(t => t?.name || 'unknown').join(', ')}`);
               mcpCallError = `Tool '${toolName}' is not available for agent '${agentName}'.`;
               determinedAction = `Error: Tool not found for ${agentName}.`;
           } else {
               // Tool found, proceed with invocation
-              console.log('Invoking function with body:', JSON.stringify(mcpRequestBody, null, 2));
+              console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Tool found. Invoking ${agentName} with body:`, JSON.stringify(mcpRequestBody, null, 2));
 
               try {
                   const { data: invokeData, error: invokeError } = await supabaseClient!.functions.invoke(agentName, {
@@ -449,22 +470,24 @@ serve(async (req: Request): Promise<Response> => {
                   });
 
                   if (invokeError) {
-                    console.error(`Error invoking ${agentName}:`, invokeError);
+                    console.error(`[${new Date().toISOString()}] [RRO Error] Error invoking ${agentName}:`, invokeError);
                     determinedAction = `Error invoking ${agentName}`;
                     mcpCallError = invokeError.message;
                   } else if (invokeData) {
-                    console.log(`${agentName} response:`, invokeData);
+                    console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] ${agentName} response received:`, invokeData);
                     if (typeof invokeData === 'object' && invokeData !== null && 'status' in invokeData) {
                         if (invokeData.status === 'success') {
                           determinedAction = `Successfully invoked ${agentName} for ${toolName}.`;
                           // IMPORTANT: Assumes agent function now returns { result: ..., openai_thread_id: '...' }
                           mcpCallOutcome = invokeData.result; // Store the primary result
+                          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Agent call successful. Outcome:`, mcpCallOutcome);
                           // Use block scope to avoid redeclaration errors
                           {
                             const agentReturnedThreadId = invokeData.openai_thread_id;
+                            console.log(`[${new Date().toISOString()}] [RRO Thread Save] Checking if thread ID needs saving. Existing: ${existingThreadId}, Returned: ${agentReturnedThreadId}, Project: ${body.projectId}`);
                             // If no thread existed before AND the agent returned one (likely created it)
                             if (!existingThreadId && agentReturnedThreadId && body.projectId) {
-                              console.log(`Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
+                              console.log(`[${new Date().toISOString()}] [RRO Thread Save] Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
                               try {
                                 const { error: upsertError } = await supabaseClient!
                                   .from('project_threads')
@@ -477,36 +500,38 @@ serve(async (req: Request): Promise<Response> => {
                                 if (upsertError) {
                                   throw upsertError;
                                 }
-                                console.log(`Successfully saved new thread ID mapping for project ${body.projectId}.`);
+                                console.log(`[${new Date().toISOString()}] [RRO Thread Save] Successfully saved new thread ID mapping for project ${body.projectId}.`);
                               } catch (dbError) {
-                                console.error(`Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
+                                console.error(`[${new Date().toISOString()}] [RRO Thread Save Error] Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
                               }
                             } else if (existingThreadId && agentReturnedThreadId && existingThreadId !== agentReturnedThreadId) {
-                                console.warn(`Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
+                                console.warn(`[${new Date().toISOString()}] [RRO Thread Save Warn] Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
+                            } else {
+                                console.log(`[${new Date().toISOString()}] [RRO Thread Save] No thread ID update needed.`);
                             }
                           }
                         } else if (invokeData.status === 'error') {
                           determinedAction = `Error reported by ${agentName} for ${toolName}.`;
                           const agentError = invokeData.error;
                           mcpCallError = typeof agentError === 'string' ? agentError : (agentError?.message || JSON.stringify(agentError) || 'Unknown error structure from agent.');
-                          console.error(`${agentName} returned error:`, mcpCallError);
+                          console.error(`[${new Date().toISOString()}] [RRO Error] ${agentName} returned error:`, mcpCallError);
                         } else {
                            determinedAction = `Unexpected status value from ${agentName}: ${invokeData.status}`;
                            mcpCallError = `Unexpected status: ${JSON.stringify(invokeData)}`;
-                           console.error(mcpCallError);
+                           console.error(`[${new Date().toISOString()}] [RRO Error]`, mcpCallError);
                         }
                     } else {
                        determinedAction = `Unexpected response structure from ${agentName}. Expected { status: '...', ... }`;
                        mcpCallError = `Unexpected response format: ${JSON.stringify(invokeData)}`;
-                       console.error(mcpCallError);
+                       console.error(`[${new Date().toISOString()}] [RRO Error]`, mcpCallError);
                     }
                   } else {
-                    console.error(`Invocation of ${agentName} did not return data or specific error.`);
+                    console.error(`[${new Date().toISOString()}] [RRO Error] Invocation of ${agentName} did not return data or specific error.`);
                     determinedAction = `Invocation issue with ${agentName}: No data returned.`;
                     mcpCallError = 'Invocation completed without returning data or a specific error.';
                   }
               } catch (e: unknown) {
-                  console.error(`Unexpected error during ${agentName} invocation:`, e);
+                  console.error(`[${new Date().toISOString()}] [RRO Error] Unexpected error during ${agentName} invocation:`, e);
                   determinedAction = `Unexpected error during ${agentName} invocation.`;
                   mcpCallError = e instanceof Error ? e.message : String(e);
               }
@@ -516,7 +541,7 @@ serve(async (req: Request): Promise<Response> => {
         case 'generate_prompt': {
           const agentName = 'prompt-agent'; // Target function name
           const toolName = 'generate_prompt';
-          console.log(`Attempting MCP-style call to ${agentName} for tool ${toolName}...`);
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Attempting MCP-style call to ${agentName} for tool ${toolName}...`);
 
           const mcpArguments: Record<string, any> = {
             projectId: body.projectId,
@@ -533,13 +558,14 @@ serve(async (req: Request): Promise<Response> => {
           };
 
           // Check if tool exists in the discovered list
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Checking if tool '${toolName}' exists for agent '${agentName}'...`);
           if (!promptAgentTools.some(tool => tool.name === toolName)) {
-              console.error(`Tool '${toolName}' not found for agent '${agentName}'. Available: ${promptAgentTools.map(t => t?.name || 'unknown').join(', ')}`);
+              console.error(`[${new Date().toISOString()}] [RRO Error] Tool '${toolName}' not found for agent '${agentName}'. Available: ${promptAgentTools.map(t => t?.name || 'unknown').join(', ')}`);
               mcpCallError = `Tool '${toolName}' is not available for agent '${agentName}'.`;
               determinedAction = `Error: Tool not found for ${agentName}.`;
           } else {
               // Tool found, proceed with invocation
-              console.log('Invoking function with body:', JSON.stringify(mcpRequestBody, null, 2));
+              console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Tool found. Invoking ${agentName} with body:`, JSON.stringify(mcpRequestBody, null, 2));
 
               try {
                   const { data: invokeData, error: invokeError } = await supabaseClient!.functions.invoke(agentName, {
@@ -547,22 +573,24 @@ serve(async (req: Request): Promise<Response> => {
                   });
 
                   if (invokeError) {
-                    console.error(`Error invoking ${agentName}:`, invokeError);
+                    console.error(`[${new Date().toISOString()}] [RRO Error] Error invoking ${agentName}:`, invokeError);
                     determinedAction = `Error invoking ${agentName}`;
                     mcpCallError = invokeError.message;
                   } else if (invokeData) {
-                    console.log(`${agentName} response:`, invokeData);
+                    console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] ${agentName} response received:`, invokeData);
                      if (typeof invokeData === 'object' && invokeData !== null && 'status' in invokeData) {
                         if (invokeData.status === 'success') {
                           determinedAction = `Successfully invoked ${agentName} for ${toolName}.`;
                           // IMPORTANT: Assumes agent function now returns { result: ..., openai_thread_id: '...' }
                           mcpCallOutcome = invokeData.result; // Store the primary result
+                          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Agent call successful. Outcome:`, mcpCallOutcome);
                           // Use block scope to avoid redeclaration errors
                           {
                             const agentReturnedThreadId = invokeData.openai_thread_id;
+                            console.log(`[${new Date().toISOString()}] [RRO Thread Save] Checking if thread ID needs saving. Existing: ${existingThreadId}, Returned: ${agentReturnedThreadId}, Project: ${body.projectId}`);
                             // If no thread existed before AND the agent returned one (likely created it)
                             if (!existingThreadId && agentReturnedThreadId && body.projectId) {
-                              console.log(`Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
+                              console.log(`[${new Date().toISOString()}] [RRO Thread Save] Agent returned new thread ID: ${agentReturnedThreadId}. Saving to DB for project ${body.projectId}...`);
                               try {
                                 const { error: upsertError } = await supabaseClient!
                                   .from('project_threads')
@@ -575,36 +603,38 @@ serve(async (req: Request): Promise<Response> => {
                                 if (upsertError) {
                                   throw upsertError;
                                 }
-                                console.log(`Successfully saved new thread ID mapping for project ${body.projectId}.`);
+                                console.log(`[${new Date().toISOString()}] [RRO Thread Save] Successfully saved new thread ID mapping for project ${body.projectId}.`);
                               } catch (dbError) {
-                                console.error(`Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
+                                console.error(`[${new Date().toISOString()}] [RRO Thread Save Error] Failed to save new thread ID mapping for project ${body.projectId}:`, dbError);
                               }
                             } else if (existingThreadId && agentReturnedThreadId && existingThreadId !== agentReturnedThreadId) {
-                                console.warn(`Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
+                                console.warn(`[${new Date().toISOString()}] [RRO Thread Save Warn] Agent returned thread ID ${agentReturnedThreadId} which differs from the initially fetched ${existingThreadId} for project ${body.projectId}. Check agent logic.`);
+                            } else {
+                                console.log(`[${new Date().toISOString()}] [RRO Thread Save] No thread ID update needed.`);
                             }
                           }
                         } else if (invokeData.status === 'error') {
                           determinedAction = `Error reported by ${agentName} for ${toolName}.`;
                           const agentError = invokeData.error;
                           mcpCallError = typeof agentError === 'string' ? agentError : (agentError?.message || JSON.stringify(agentError) || 'Unknown error structure from agent.');
-                          console.error(`${agentName} returned error:`, mcpCallError);
+                          console.error(`[${new Date().toISOString()}] [RRO Error] ${agentName} returned error:`, mcpCallError);
                         } else {
                            determinedAction = `Unexpected status value from ${agentName}: ${invokeData.status}`;
                            mcpCallError = `Unexpected status: ${JSON.stringify(invokeData)}`;
-                           console.error(mcpCallError);
+                           console.error(`[${new Date().toISOString()}] [RRO Error]`, mcpCallError);
                         }
                     } else {
                        determinedAction = `Unexpected response structure from ${agentName}. Expected { status: '...', ... }`;
                        mcpCallError = `Unexpected response format: ${JSON.stringify(invokeData)}`;
-                       console.error(mcpCallError);
+                       console.error(`[${new Date().toISOString()}] [RRO Error]`, mcpCallError);
                     }
                   } else {
-                    console.error(`Invocation of ${agentName} did not return data or specific error.`);
+                    console.error(`[${new Date().toISOString()}] [RRO Error] Invocation of ${agentName} did not return data or specific error.`);
                     determinedAction = `Invocation issue with ${agentName}: No data returned.`;
                     mcpCallError = 'Invocation completed without returning data or a specific error.';
                   }
               } catch (e: unknown) {
-                  console.error(`Unexpected error during ${agentName} invocation:`, e);
+                  console.error(`[${new Date().toISOString()}] [RRO Error] Unexpected error during ${agentName} invocation:`, e);
                   determinedAction = `Unexpected error during ${agentName} invocation.`;
                   mcpCallError = e instanceof Error ? e.message : String(e);
               }
@@ -613,6 +643,7 @@ serve(async (req: Request): Promise<Response> => {
         }
         case 'generate_image': { // Use block scope
           const assigned_agent = 'ImageGenerationWorker';
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Creating task for ${assigned_agent}...`);
           const input_payload = {
             taskType: 'generate_image',
             prompt: body.parameters?.prompt, // Assuming prompt is in parameters
@@ -630,7 +661,7 @@ serve(async (req: Request): Promise<Response> => {
             scene_id: body.sceneId,
             status: 'pending',
           };
-          console.log(`Creating task for ${assigned_agent}:`, task);
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Task payload:`, JSON.stringify(task));
           try {
             const { data: newTask, error } = await supabaseClient!
               .from('tasks')
@@ -642,8 +673,9 @@ serve(async (req: Request): Promise<Response> => {
             taskId = newTask.id; // Store the created task ID
             determinedAction = `Task created for ${assigned_agent} with ID: ${taskId}`;
             mcpCallOutcome = { taskId: taskId }; // Return task ID as outcome
+            console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Task created successfully. ID: ${taskId}`);
           } catch (error) {
-            console.error(`Error creating task for ${assigned_agent}:`, error);
+            console.error(`[${new Date().toISOString()}] [RRO Error] Error creating task for ${assigned_agent}:`, error);
             taskCreationError = error instanceof Error ? error.message : 'Unknown error creating task.';
             determinedAction = `Error creating task for ${assigned_agent}.`;
           }
@@ -651,6 +683,7 @@ serve(async (req: Request): Promise<Response> => {
         }
         case 'update_scene': { // Use block scope
           const assigned_agent = 'SceneUpdateWorker'; // Or a direct function call if synchronous
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Creating task for ${assigned_agent}...`);
           const input_payload = {
             taskType: 'update_scene',
             sceneId: body.sceneId || body.parameters?.sceneId, // Get sceneId from standard location or parameters
@@ -659,11 +692,14 @@ serve(async (req: Request): Promise<Response> => {
             // Note: threadId is not typically needed for async scene updates
           };
           // Basic validation
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Validating parameters...`);
           if (!input_payload.sceneId || !input_payload.updates || typeof input_payload.updates !== 'object' || Object.keys(input_payload.updates).length === 0) {
+              console.error(`[${new Date().toISOString()}] [RRO Error] Invalid parameters for ${body.intent}. SceneId: ${input_payload.sceneId}, Updates: ${JSON.stringify(input_payload.updates)}`);
               mcpCallError = 'Missing sceneId or updates for update_scene intent.';
               determinedAction = `Error: Invalid parameters for ${body.intent}.`;
               break; // Exit case
           }
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Parameters validated.`);
 
           const task: AgentTaskInput = {
             assigned_agent,
@@ -672,7 +708,7 @@ serve(async (req: Request): Promise<Response> => {
             scene_id: input_payload.sceneId,
             status: 'pending',
           };
-          console.log(`Creating task for ${assigned_agent}:`, task);
+          console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Task payload:`, JSON.stringify(task));
           try {
             const { data: newTask, error } = await supabaseClient!
               .from('tasks')
@@ -684,31 +720,32 @@ serve(async (req: Request): Promise<Response> => {
             taskId = newTask.id; // Store the created task ID
             determinedAction = `Task created for ${assigned_agent} with ID: ${taskId}`;
             mcpCallOutcome = { taskId: taskId }; // Return task ID as outcome
+            console.log(`[${new Date().toISOString()}] [RRO Intent: ${body.intent}] Task created successfully. ID: ${taskId}`);
           } catch (error) {
-            console.error(`Error creating task for ${assigned_agent}:`, error);
+            console.error(`[${new Date().toISOString()}] [RRO Error] Error creating task for ${assigned_agent}:`, error);
             taskCreationError = error instanceof Error ? error.message : 'Unknown error creating task.';
             determinedAction = `Error creating task for ${assigned_agent}.`;
           }
           break; // Added break statement
         }
         default:
-          console.log(`Unknown intent: ${body.intent}`);
+          console.log(`[${new Date().toISOString()}] [RRO Warn] Unknown intent: ${body.intent}`);
           determinedAction = `Unknown intent received: ${body.intent}`;
           mcpCallError = `The requested intent '${body.intent}' is not recognized.`;
-          // Set status to indicate a client error (bad request)
-          // finalStatus = 400; // This will be handled in response generation
+          // Status will be set to 400 later
       }
       // --- End Intent-Based Routing ---
 
     } else {
       // Handle cases where the request body doesn't match known structures
-      console.error('Invalid request body structure:', body);
+      console.error(`[${new Date().toISOString()}] [RRO Error] Invalid request body structure:`, body);
       determinedAction = 'Invalid request body structure.';
       mcpCallError = 'The request body did not match expected formats (ApproveScript or IntentRequest).';
-      // finalStatus = 400; // This will be handled in response generation
+      // Status will be set to 400 later
     }
 
     // --- Response Generation ---
+    console.log(`[${new Date().toISOString()}] [RRO Response Gen] Generating final response...`);
     // Determine final status based on errors or outcomes
     let finalStatus = 200;
     let responseBody: Record<string, any> = { // Explicit type
@@ -718,41 +755,49 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     if (taskCreationError) {
+      console.log(`[${new Date().toISOString()}] [RRO Response Gen] Task creation error detected.`);
       finalStatus = 500; // Internal Server Error for task creation failure
       responseBody.error = `Failed to create task: ${taskCreationError}`;
       delete responseBody.outcome; // Don't include outcome if there was an error
     } else if (mcpCallError) {
+      console.log(`[${new Date().toISOString()}] [RRO Response Gen] MCP call error detected.`);
       // If an MCP-style call resulted in an error
-      finalStatus = determinedAction.startsWith('Unknown intent') || determinedAction.startsWith('Error: Invalid parameters') || determinedAction.startsWith('Invalid request body') ? 400 : 500; // Use 400 for client errors, 500 otherwise
-      responseBody.error = `MCP call failed: ${mcpCallError}`;
+      finalStatus = determinedAction.startsWith('Unknown intent') || determinedAction.startsWith('Error: Invalid parameters') || determinedAction.startsWith('Invalid request body') || determinedAction.startsWith('Error: Tool not found') ? 400 : 500; // Use 400 for client errors, 500 otherwise
+      responseBody.error = `Request processing failed: ${mcpCallError}`; // More generic error message
       delete responseBody.outcome; // Don't include outcome if there was an error
     } else if (taskId) {
+      console.log(`[${new Date().toISOString()}] [RRO Response Gen] Task ID detected.`);
       // If a task was created successfully, ensure outcome reflects this if not already set
-      if (responseBody.outcome === null) {
+      if (responseBody.outcome === null || typeof responseBody.outcome !== 'object' || !responseBody.outcome.taskId) {
          responseBody.outcome = { taskId: taskId };
       }
       // Status remains 200 (or maybe 202 Accepted if preferred for async tasks)
     } else if (mcpCallOutcome !== null) { // Check if outcome has been set from a direct call
+      console.log(`[${new Date().toISOString()}] [RRO Response Gen] MCP call outcome detected.`);
       // Outcome is already set in responseBody initialization
       // Status remains 200
     } else {
        // If no specific outcome, error, or task ID, it might indicate an unexpected path
+       console.log(`[${new Date().toISOString()}] [RRO Response Gen] No specific outcome, error, or task ID detected.`);
        // Check if determinedAction indicates success or a handled state
-       if (!determinedAction.toLowerCase().includes('success') && !determinedAction.toLowerCase().includes('task created')) {
+       if (!determinedAction.toLowerCase().includes('success') && !determinedAction.toLowerCase().includes('task created') && !determinedAction.toLowerCase().includes('processed \'approve script\'')) {
           // If no positive action was determined and no error was explicitly set,
           // it might be an unhandled case or a logic path that didn't set an outcome.
-          console.warn(`Request completed without explicit success outcome or error. Action: ${determinedAction}`);
+          console.warn(`[${new Date().toISOString()}] [RRO Response Gen Warn] Request completed without explicit success outcome or error. Action: ${determinedAction}`);
           // Optionally set a default error or adjust status if this state is unexpected.
           // For now, let it return 200 with the determinedAction and null outcome.
           if (responseBody.outcome === null) {
              // Set outcome to null explicitly if it wasn't set
              responseBody.outcome = null;
           }
+       } else {
+           console.log(`[${new Date().toISOString()}] [RRO Response Gen] Action determined seems successful or handled, proceeding with 200.`);
        }
     }
 
 
-    console.log(`RRO Final Response (Status ${finalStatus}):`, responseBody);
+    const duration = Date.now() - requestStartTime;
+    console.log(`[${new Date().toISOString()}] [RRO Request End] Sending Response (Status ${finalStatus}, Duration: ${duration}ms):`, JSON.stringify(responseBody));
     return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: finalStatus,
@@ -760,8 +805,13 @@ serve(async (req: Request): Promise<Response> => {
 
   } catch (error) {
     // Catch any unexpected errors during request processing
+    const duration = Date.now() - requestStartTime;
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    console.error('Unexpected error in RRO serve function:', error);
+    console.error(`[${new Date().toISOString()}] [RRO FATAL Error] Unexpected error in RRO serve function (Duration: ${duration}ms):`, error);
+    // Log stack trace if available
+    if (error instanceof Error && error.stack) {
+        console.error(`[${new Date().toISOString()}] [RRO FATAL Stack Trace]:`, error.stack);
+    }
     return new Response(JSON.stringify({ error: 'Internal Server Error', detail: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

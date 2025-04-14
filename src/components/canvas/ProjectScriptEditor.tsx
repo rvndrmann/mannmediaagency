@@ -1,12 +1,12 @@
-
 import { useState, useEffect, useRef } from "react"; // Import useRef
-import { CanvasProject } from "@/types/canvas";
-import { Textarea } from "@/components/ui/textarea";
+import { CanvasProject, CanvasScene, ProjectAsset } from "@/types/canvas"; // Import ProjectAsset
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
+import { Textarea } from "@/components/ui/textarea"; // Keep Textarea import
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Import CardHeader, CardTitle, CardDescription
-import { Save, Sparkles, Edit, Check, X, Upload, Trash2 } from "lucide-react"; // Import Upload, Trash2
+import { Save, Sparkles, Edit, Check, X, Upload, Trash2, Maximize2 } from "lucide-react"; // Import Upload, Trash2, Maximize2
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth"; // Import useAuth
@@ -14,32 +14,40 @@ import { useAuth } from "@/hooks/use-auth"; // Import useAuth
 interface ProjectScriptEditorProps {
   project: CanvasProject;
   saveFullScript: (script: string) => Promise<void>;
+  scenes: CanvasScene[]; // Add scenes prop
   divideScriptToScenes: (script: string) => Promise<void>; // Expect string input
   updateProjectTitle: (title: string) => Promise<void>;
-  updateProject: (projectId: string, data: Partial<CanvasProject>) => Promise<void>;
-  mainImageUrl?: string | null; // Add mainImageUrl prop
+  updateProject: (projectId: string, data: Partial<CanvasProject>) => Promise<void>; // Keep if needed for other updates, or remove if only title/image handled separately
+  mainImageUrl?: string | null;
+  updateMainImageUrl: (imageUrl: string) => Promise<void>; // Add this prop
+  updateProjectAssets: (assets: ProjectAsset[]) => Promise<void>; // Add prop for updating assets
 }
 
 export function ProjectScriptEditor({
   project,
   saveFullScript,
+  scenes, // Destructure scenes prop
   divideScriptToScenes,
   updateProjectTitle,
   updateProject,
-  mainImageUrl // Destructure prop
+  mainImageUrl, // Destructure prop
+  updateMainImageUrl, // Destructure new prop
+  updateProjectAssets, // Destructure new prop
 }: ProjectScriptEditorProps) {
-  const [script, setScript] = useState(project.fullScript || "");
+  const [script, setScript] = useState(project.full_script || ""); // Use full_script
   const [title, setTitle] = useState(project.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUploading, setIsUploading] = useState(false); // Add state for main image upload
+  const [isUploadingAssets, setIsUploadingAssets] = useState(false); // State for project assets upload
   const mainProjectImageInputRef = useRef<HTMLInputElement>(null); // Add ref for main image input
+  const projectAssetsInputRef = useRef<HTMLInputElement>(null); // Ref for project assets input
   const { isAdmin } = useAuth();
   
   // Update local state when project changes
   useEffect(() => {
-    setScript(project.fullScript || "");
+    setScript(project.full_script || ""); // Use full_script
     setTitle(project.title);
   }, [project]); // Revert dependency change
   
@@ -64,7 +72,7 @@ export function ProjectScriptEditor({
     setIsProcessing(true);
     try {
       // Get the scene IDs
-      const sceneIds = project.scenes.map(scene => scene.id);
+      const sceneIds = scenes.map(scene => scene.id); // Use scenes prop
       
       // Call the process-script function
       const toastId = toast.loading("Processing script...");
@@ -173,7 +181,7 @@ export function ProjectScriptEditor({
 
       if (publicUrl) {
         console.log(`[ProjectScriptEditor] Calling updateProject for project ${project.id} with URL: ${publicUrl}`);
-        await updateProject(project.id, { main_product_image_url: publicUrl }); // Use the prop
+        await updateMainImageUrl(publicUrl); // Call the new prop function
         console.log('[ProjectScriptEditor] updateProject call successful.');
         toast.success("Main project image updated successfully");
       } else {
@@ -193,7 +201,7 @@ export function ProjectScriptEditor({
     if (!project) return;
     // Optional: Add logic here to delete the image from Supabase storage if needed
     try {
-      await updateProject(project.id, { main_product_image_url: '' }); // Use the prop
+      await updateMainImageUrl(''); // Call the new prop function to clear the URL
       toast.success("Main project image removed");
     } catch (error) {
       console.error("Error removing main project image:", error);
@@ -201,9 +209,119 @@ export function ProjectScriptEditor({
     }
   };
   // --- End Handlers for Main Project Image ---
+
+  // --- Handlers for Project Assets ---
+  const handleProjectAssetsUploadTrigger = () => {
+    projectAssetsInputRef.current?.click();
+  };
+
+  const handleProjectAssetsSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !project) {
+      console.log('[ProjectScriptEditor] No files selected or no project.');
+      return;
+    }
+
+    setIsUploadingAssets(true);
+    console.log(`[ProjectScriptEditor] Uploading ${files.length} project assets...`);
+    const uploadedAssets: ProjectAsset[] = [];
+    const uploadPromises = [];
+
+    for (const file of Array.from(files)) {
+      uploadPromises.push(
+        (async () => {
+          try {
+            const fileExt = file.name.split('.').pop();
+            const uniqueFileName = `${uuidv4()}.${fileExt}`;
+            const filePath = `public/project-assets/${project.id}/${uniqueFileName}`;
+            console.log(`[ProjectScriptEditor] Uploading asset ${file.name} to ${filePath}`);
+
+            const { error: uploadError } = await supabase.storage
+              .from('lovable-uploads') // Use your actual bucket name
+              .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrlData } = supabase.storage
+              .from('lovable-uploads')
+              .getPublicUrl(filePath);
+
+            if (!publicUrlData?.publicUrl) throw new Error("Failed to get public URL");
+
+            const assetType = file.type.startsWith('image/') ? 'image' :
+                              file.type.startsWith('video/') ? 'video' :
+                              file.type.startsWith('audio/') ? 'audio' : 'image'; // Default to image if type unknown
+
+            uploadedAssets.push({
+              url: publicUrlData.publicUrl,
+              type: assetType,
+              name: file.name,
+            });
+            console.log(`[ProjectScriptEditor] Asset ${file.name} uploaded successfully.`);
+          } catch (error) {
+            console.error(`[ProjectScriptEditor] Failed to upload asset ${file.name}:`, error);
+            toast.error(`Failed to upload ${file.name}: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        })()
+      );
+    }
+
+    await Promise.all(uploadPromises);
+
+    if (uploadedAssets.length > 0) {
+      const currentAssets = project.project_assets || [];
+      const mergedAssets = [...currentAssets, ...uploadedAssets];
+      await updateProjectAssets(mergedAssets); // Call the prop to update state/DB
+      toast.success(`${uploadedAssets.length} asset(s) uploaded successfully.`);
+    }
+
+    setIsUploadingAssets(false);
+    console.log('[ProjectScriptEditor] Asset upload process finished.');
+    if (e.target) e.target.value = ''; // Clear file input
+  };
+
+  const handleRemoveProjectAsset = async (assetToRemove: ProjectAsset) => {
+    if (!project) return;
+    console.log(`[ProjectScriptEditor] Removing asset: ${assetToRemove.name}`);
+    try {
+      const currentAssets = project.project_assets || [];
+      const filteredAssets = currentAssets.filter(asset => asset.url !== assetToRemove.url); // Filter by URL
+
+      await updateProjectAssets(filteredAssets); // Update the project state/DB
+
+      // Optional: Delete from storage
+      try {
+         // Extract path from URL - this is fragile and depends on your URL structure
+         const urlParts = assetToRemove.url.split('/lovable-uploads/');
+         if (urlParts.length > 1) {
+            const storagePath = urlParts[1];
+            console.log(`[ProjectScriptEditor] Attempting to delete asset from storage: ${storagePath}`);
+            const { error: deleteError } = await supabase.storage
+              .from('lovable-uploads')
+              .remove([storagePath]);
+            if (deleteError) {
+               console.warn(`[ProjectScriptEditor] Failed to delete asset from storage (might be okay if permissions differ):`, deleteError);
+               // Don't necessarily show error to user unless deletion is critical
+            } else {
+               console.log(`[ProjectScriptEditor] Asset deleted from storage successfully.`);
+            }
+         } else {
+            console.warn(`[ProjectScriptEditor] Could not extract storage path from URL: ${assetToRemove.url}`);
+         }
+      } catch (storageError) {
+         console.warn(`[ProjectScriptEditor] Error during storage deletion:`, storageError);
+      }
+
+      toast.success(`Asset "${assetToRemove.name}" removed.`);
+    } catch (error) {
+       console.error(`[ProjectScriptEditor] Failed to remove asset ${assetToRemove.name}:`, error);
+       toast.error(`Failed to remove asset: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  // --- End Handlers for Project Assets ---
   
   // Safely access scenes length with proper null checking
-  const scenesCount = project?.scenes?.length || 0;
+  const scenesCount = scenes?.length || 0; // Use scenes prop
   
   return (
     <div className="max-w-4xl mx-auto w-full">
@@ -295,6 +413,104 @@ export function ProjectScriptEditor({
         </CardContent>
       </Card>
       {/* --- End Main Project Image Section --- */}
+
+      {/* --- Project Assets Section --- */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Project Assets</CardTitle>
+          <CardDescription>Upload additional images, videos, or audio files for the project.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <input
+            type="file"
+            ref={projectAssetsInputRef}
+            accept="image/*,video/*,audio/*"
+            multiple // Allow multiple files
+            className="hidden"
+            onChange={handleProjectAssetsSelected}
+            disabled={isUploadingAssets}
+          />
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              onClick={handleProjectAssetsUploadTrigger}
+              disabled={isUploadingAssets}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {isUploadingAssets ? 'Uploading Assets...' : 'Upload Project Assets'}
+            </Button>
+          </div>
+
+          {/* Display Uploaded Assets */}
+          <div className="space-y-2">
+            {(project.project_assets && project.project_assets.length > 0) ? (
+              project.project_assets.map((asset, index) => {
+                console.log("Asset URL:", asset.url, "Asset Type:", asset.type); // Keep logging
+                let assetDisplay;
+                if (asset.type === 'image') {
+                  assetDisplay = <img key={asset.url} src={asset.url} alt={asset.name} className="w-32 h-32 object-contain border rounded" style={{ display: 'block' }} />;
+                } else if (asset.type === 'video') {
+                  assetDisplay = (
+                    <video controls className="w-64 h-36 border rounded">
+                      <source src={asset.url} type="video/mp4" /> {/* Adjust type as needed */}
+                      Your browser does not support the video tag.
+                    </video>
+                  );
+                } else if (asset.type === 'audio') {
+                  assetDisplay = (
+                    <audio controls className="w-64 border rounded">
+                      <source src={asset.url} type="audio/mpeg" /> {/* Adjust type as needed */}
+                      Your browser does not support the audio tag.
+                    </audio>
+                  );
+                } else {
+                  assetDisplay = <span>Unsupported asset type: {asset.type}</span>;
+                }
+                return (
+                  // Wrap the display and the info/button in a flex container
+                  <div key={index} className="flex items-start space-x-4 p-2 border rounded">
+                    {/* Asset Preview */}
+                    <div className="flex-shrink-0">
+                      {assetDisplay}
+                    </div>
+                    {/* Asset Info and Action Buttons */}
+                    <div className="flex-grow flex flex-col justify-between text-sm">
+                      <span className="truncate mb-2" title={asset.name}>{asset.name} ({asset.type})</span>
+                      <div className="flex space-x-2">
+                        {/* Enlarge Button (only for images) */}
+                        {asset.type === 'image' && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            title="Enlarge Image"
+                            onClick={() => window.open(asset.url, '_blank')} // Open in new tab
+                          >
+                            <Maximize2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {/* Delete Button */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground"
+                          title="Delete Asset"
+                          onClick={() => handleRemoveProjectAsset(asset)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground">No project assets uploaded yet.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      {/* --- End Project Assets Section --- */}
 
       </div>
       

@@ -10,7 +10,7 @@ export interface MCPContext {
   isConnecting: boolean;
   hasConnectionError: boolean;
   lastError: Error | null;
-  
+
   // Tools and servers
   mcpTools: any[];
   mcpServers: MCPServer[];
@@ -18,18 +18,18 @@ export interface MCPContext {
   // Configuration
   useMcp: boolean;
   setUseMcp: (useMcp: boolean) => void;
-  
+
   // Connection management
   reconnectToMcp: () => Promise<boolean>;
-  
+
   // Tool management
   registerTool: (tool: any) => void;
   unregisterTool: (toolId: string) => void;
-  
+
   // Statistics and metrics
   connectionStats: MCPConnectionStats;
   connectionMetrics: MCPConnectionMetrics;
-  
+
   // Additional methods for components
   callTool?: (toolName: string, parameters: any) => Promise<any>;
   listAvailableTools?: () => Promise<MCPTool[]>;
@@ -240,10 +240,10 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
 
   const reconnectToMcp = async (): Promise<boolean> => {
     if (isConnecting) return false;
-    
+
     // First reset the status
     setStatus('disconnected');
-    
+
     // Then attempt connection
     return attemptConnection();
   };
@@ -262,33 +262,48 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
   const unregisterTool = (toolId: string) => {
     setMcpTools(prev => prev.filter(tool => tool.id !== toolId && tool.name !== toolId));
   };
-  
-  // Simulate tool calling
+
+  // Call tool via backend proxy
   const callTool = async (toolName: string, parameters: any) => {
     try {
-      console.log(`Calling MCP tool: ${toolName}`, parameters);
+      console.log(`Calling MCP tool via backend proxy: ${toolName}`, parameters);
 
-      const response = await fetch('http://localhost:8931/tool', {
+      // Target the backend proxy endpoint
+      const response = await fetch('/api/mcp/call', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        // Send toolName and arguments in the expected format for the proxy
         body: JSON.stringify({
           toolName: toolName,
-          ...parameters,
+          arguments: parameters,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Attempt to read error message from backend response
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // Ignore if response is not JSON
+        }
+        const errorMessage = errorData?.detail || `HTTP error! status: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      console.log('Tool response:', data);
+      console.log('Tool response from proxy:', data);
+      // Assuming the backend proxy returns the direct result from the MCP server
+      // which might be nested, e.g. { success: true, data: { ... } }
+      // Or it might return the raw MCP response structure { content: [...] }
+      // Let's assume for now it returns the structure expected by use-canvas-agent-mcp
+      // If the backend proxy returns the raw MCP { content: [...] }, we might need to parse data.content[0].text here
       return data;
     } catch (error) {
-      console.error(`Error calling MCP tool ${toolName}:`, error);
-      let errorMessage = 'Unknown error calling MCP tool';
+      console.error(`Error calling MCP tool ${toolName} via proxy:`, error);
+      let errorMessage = 'Unknown error calling MCP tool via proxy';
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
@@ -297,9 +312,13 @@ export function MCPProvider({ children, projectId }: MCPProviderProps) {
       throw new Error(errorMessage);
     }
   };
-  
+
   // List available tools
   const listAvailableTools = async (): Promise<MCPTool[]> => {
+    // This might need to fetch from a backend endpoint in the future
+    // if we want to dynamically list tools from globally configured servers.
+    // For now, it returns the internally registered tools (which might be empty/unused).
+    console.warn("listAvailableTools currently returns internally registered tools, not from backend proxy.");
     return mcpTools;
   };
 

@@ -65,9 +65,9 @@ export interface CanvasScene {
   duration?: number;
   order?: number; // Alias for sceneOrder/scene_order
   sceneImageV1Url?: string; // Add V1
-  scene_image_v1_url?: string; // Add V1 snake_case
+  // scene_image_v1_url?: string; // Removed snake_case alias
   sceneImageV2Url?: string; // Add V2
-  scene_image_v2_url?: string; // Add V2 snake_case
+  // scene_image_v2_url?: string; // Removed snake_case alias
 }
 
 export interface SceneUpdateParams {

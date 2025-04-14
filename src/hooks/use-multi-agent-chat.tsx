@@ -557,9 +557,9 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       }));
 
       // 3. Call the orchestrator function
-      console.log(`[Roo Debug] Calling request-router-orchestrator with intent: ${intent}`);
+      console.log(`[Roo Debug] Preparing to call request-router-orchestrator. Intent: ${intent}, ProjectId: ${options.projectId}, SceneId: ${options.sceneId}`);
       // console.log('[Roo Debug] currentThreadId (from state):', currentThreadId); // REMOVED: No longer managed here
-
+      console.log(`[${new Date().toISOString()}] [handleSendMessage] INVOKING supabase function: request-router-orchestrator`); // <-- ADD THIS LOG
       const { data: orchestratorResponse, error: orchestratorError } = await supabase.functions.invoke(
         'request-router-orchestrator',
         {

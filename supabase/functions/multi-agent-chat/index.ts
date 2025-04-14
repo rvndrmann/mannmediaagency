@@ -11,35 +11,42 @@ import { runOrchestrator } from "./runner.ts"; // Use .ts extension for Deno imp
 console.log("Multi-agent chat function booting up...");
 
 serve(async (req: Request) => {
+  console.log(`[${new Date().toISOString()}] [Request Start] Handling incoming request... Method: ${req.method}`);
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log(`[${new Date().toISOString()}] [CORS Preflight] Responding OK.`);
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    console.log(`[${new Date().toISOString()}] [Check Method] Validating request method.`);
     // Ensure it's a POST request
     if (req.method !== "POST") {
+      console.error(`[${new Date().toISOString()}] [Error] Method Not Allowed: ${req.method}`);
       return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
         status: 405,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    console.log(`[${new Date().toISOString()}] [Check Method] Method is POST.`);
 
     // Parse the request body
-    let userInput: string;
-    let projectId: string | undefined; // Variable to hold projectId
-    let authHeader: string | null = null; // Declare authHeader here
+    let userInput: string = ""; // Initialize
+    let projectId: string | undefined;
+    let authHeader: string | null = null;
+    console.log(`[${new Date().toISOString()}] [Parse Body] Attempting to parse request body...`);
     try {
       const body = await req.json();
-      if (!body.input || typeof body.input !== 'string') {
+      console.log(`[${new Date().toISOString()}] [Parse Body] Raw body parsed:`, body); // Log raw body
+      if (!body || typeof body.input !== 'string') { // Check body exists first
         throw new Error("Missing or invalid 'input' in request body");
       }
       userInput = body.input;
-      projectId = body.projectId; // Extract projectId (can be undefined)
-      console.log(`Received user input: "${userInput}", projectId: ${projectId}`);
+      projectId = body.projectId; // Extract projectId (can be undefined or null)
       authHeader = req.headers.get('Authorization'); // Assign value here
+      console.log(`[${new Date().toISOString()}] [Parse Body] Parsed OK. Input: "${userInput}", ProjectId: ${projectId}, Auth Header Present: ${!!authHeader}`);
     } catch (error) {
-      console.error("Error parsing request body:", error);
+      console.error(`[${new Date().toISOString()}] [Error] Error parsing request body:`, error);
       const parseErrorMessage = error instanceof Error ? error.message : "Invalid request body";
       return new Response(JSON.stringify({ error: "Bad Request: " + parseErrorMessage }), {
         status: 400,
@@ -50,9 +57,9 @@ serve(async (req: Request) => {
     // --- Execute the orchestrator ---
     // NOTE: Ensure any required environment variables (like OPENAI_API_KEY)
     // are set in the Supabase function settings.
-    console.log("Running orchestrator...");
+    console.log(`[${new Date().toISOString()}] [Run Orchestrator] Calling runOrchestrator...`);
     const result = await runOrchestrator(userInput, projectId, authHeader); // Pass projectId and authHeader
-    console.log("Orchestrator finished. Result:", result);
+    console.log(`[${new Date().toISOString()}] [Run Orchestrator] Finished. Result:`, JSON.stringify(result)); // Stringify for better logging
 
     // Return the result
     return new Response(JSON.stringify(result), {
@@ -61,12 +68,16 @@ serve(async (req: Request) => {
     });
 
   } catch (error) {
-    console.error("Internal Server Error:", error);
+    console.error(`[${new Date().toISOString()}] [FATAL ERROR] Top-level catch block in index.ts:`, error);
     // Check if error is an instance of Error before accessing message
     const errorMessage = error instanceof Error ? error.message : "An unknown internal error occurred.";
+    // Log stack trace if available
+    if (error instanceof Error && error.stack) {
+        console.error(`[${new Date().toISOString()}] [FATAL ERROR Stack Trace]:`, error.stack);
+    }
     return new Response(JSON.stringify({ error: "Internal Server Error", details: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 500, // Ensure 500 is returned on error
     });
   }
 });

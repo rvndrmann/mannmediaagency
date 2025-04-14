@@ -1,5 +1,5 @@
 
-import { CanvasProject, CanvasScene } from "@/types/canvas";
+import { CanvasProject, CanvasScene, ProjectAsset } from "@/types/canvas"; // Import ProjectAsset
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,6 +13,7 @@ import { SceneDetailPanel } from "./SceneDetailPanel";
 interface CanvasWorkspaceProps {
   project: CanvasProject | null;
   selectedScene: CanvasScene | null;
+  scenes: CanvasScene[]; // Add scenes prop
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string | null) => void;
   mainImageUrl?: string | null; // Add mainImageUrl prop
@@ -24,14 +25,16 @@ interface CanvasWorkspaceProps {
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;
   updateProject: (projectId: string, data: Partial<CanvasProject>) => Promise<void>;
-  updateMainImageUrl: (imageUrl: string) => Promise<boolean>; // Add updateMainImageUrl prop
+  updateMainImageUrl: (imageUrl: string) => Promise<void>; // Changed return type based on useCanvas hook
   agent?: any;
+  updateProjectAssets: (assets: ProjectAsset[]) => Promise<void>; // Add prop requirement
 }
 
 export function CanvasWorkspace({
   project,
   selectedScene,
   selectedSceneId,
+  scenes, // Destructure scenes prop
   setSelectedSceneId,
   mainImageUrl, // Destructure prop
   addScene,
@@ -43,7 +46,8 @@ export function CanvasWorkspace({
   updateProjectTitle,
   updateProject,
   updateMainImageUrl,
-  agent
+  agent,
+  updateProjectAssets, // Destructure new prop
 }: CanvasWorkspaceProps) {
   const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("script");
@@ -110,13 +114,15 @@ export function CanvasWorkspace({
           <ProjectScriptEditor 
             project={project}
             // Use mainImageUrl prop in the key
+            scenes={scenes} // Pass scenes prop down
             key={project.id + (mainImageUrl || '')}
             mainImageUrl={mainImageUrl}
             saveFullScript={saveFullScript}
             divideScriptToScenes={divideScriptToScenes}
             updateProjectTitle={updateProjectTitle}
-            updateProject={updateProject}
-            // updateMainImageUrl is handled by updateProject, no need to pass separately here
+            updateProject={updateProject} // Keep this if needed elsewhere, or remove if only title is updated via updateProjectTitle
+            updateMainImageUrl={updateMainImageUrl} // Pass the correct prop down
+            updateProjectAssets={updateProjectAssets} // Pass the new prop down
           />
         </TabsContent>
         
@@ -136,7 +142,7 @@ export function CanvasWorkspace({
             
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-2">
-                {project.scenes && project.scenes.map((scene, index) => ( // Add index here
+                {scenes && scenes.map((scene, index) => ( // Use scenes prop here
                   <div
                     key={scene.id}
                     className={`p-3 border rounded-md cursor-pointer transition-colors ${
@@ -154,7 +160,7 @@ export function CanvasWorkspace({
                         : 'No content'}
                     </div>
                     <div className="flex justify-between items-center mt-2 text-xs">
-                      <span>{scene.imagePrompt ? '✓ Image prompt' : '✗ No image prompt'}</span>
+                      <span>{scene.image_prompt ? '✓ Image prompt' : '✗ No image prompt'}</span> {/* Use snake_case */}
                       <Button
                         variant="ghost"
                         size="icon"

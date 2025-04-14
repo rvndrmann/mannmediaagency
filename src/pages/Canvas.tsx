@@ -48,7 +48,8 @@ export default function Canvas() {
     divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,
-    updateMainImageUrl
+    updateMainImageUrl,
+    updateProjectAssets // Get the new function from the hook
   } = useCanvas(routeProjectId);
 
   const loading = authLoading || projectsLoading || canvasLoading;
@@ -238,6 +239,7 @@ export default function Canvas() {
              <div className="flex-1 overflow-y-auto"> {/* Scrollable container */}
                {/* CanvasWorkspaceAdapter is assumed to render the scene list and handle selection */}
                <CanvasWorkspaceAdapter
+                 scenes={scenes} // Pass scenes state down
                  project={project}
                  // scenes={scenes} // Removed: Adapter likely gets scenes from project prop or context
                  selectedScene={selectedScene} // Pass selected scene for highlighting
@@ -256,6 +258,7 @@ export default function Canvas() {
                  updateProjectTitle={async (title: string) => { await updateProjectTitle(title); }}
                  updateMainImageUrl={updateMainImageUrl}
                  updateProject={updateProjectAction} // Pass the project update action
+                 updateProjectAssets={updateProjectAssets} // Pass the new function down
                />
              </div>
           </div>

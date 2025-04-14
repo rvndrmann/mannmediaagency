@@ -1,65 +1,71 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from '@/types/canvas';
+import { CanvasProject, CanvasScene, SceneData, SceneUpdateType, ProjectAsset } from '@/types/canvas'; // Import ProjectAsset
 import { toast } from 'sonner';
 import { CanvasService } from '@/services/canvas/CanvasService';
 import { normalizeProject, normalizeScene } from '@/utils/canvas-data-utils';
-// OpenAI import and client initialization removed
 
 export const useCanvas = (projectId?: string) => {
   const [project, setProject] = useState<CanvasProject | null>(null);
+  const [scenes, setScenes] = useState<CanvasScene[]>([]); // State for scenes
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-// Derive scenes from project state
-const scenes = project?.scenes || [];
 
-// Initialize canvas service
-const canvasService = CanvasService.getInstance();
-  // Removed duplicate canvasService declaration
+  // Initialize canvas service
+  const canvasService = CanvasService.getInstance();
 
   // Fetch project and scenes
   const fetchProject = useCallback(async () => {
     if (!projectId) {
       setLoading(false);
+      setProject(null);
+      setScenes([]);
+      setSelectedSceneId(null);
+      setError(null);
       return;
     }
 
     try {
       setLoading(true);
-      
+      setError(null);
+
       // Get project data
       const projectData = await canvasService.fetchProject(projectId);
-      
       if (!projectData) {
         setError("Project not found");
+        setProject(null);
+        setScenes([]);
+        setSelectedSceneId(null);
         return;
       }
-      
-      setProject(projectData);
-      
-      // REMOVED logic that automatically selected the first scene
-      
+      setProject(projectData); // Set project state
+
+      // Fetch scenes separately
+      const scenesData = await canvasService.getScenes(projectId); // Use getScenes
+      setScenes(scenesData || []); // Set scenes state
+
     } catch (err) {
       console.error("Error fetching project:", err);
       setError("Failed to load project data");
       toast.error("Failed to load project data");
+      setProject(null);
+      setScenes([]);
     } finally {
       setLoading(false);
     }
-  }, [projectId, canvasService]); // REMOVED selectedSceneId dependency
+  }, [projectId, canvasService]);
 
   // Update selected scene when scenes or selectedSceneId changes
   useEffect(() => {
     if (selectedSceneId) {
-      const scene = project?.scenes?.find(s => s.id === selectedSceneId) || null; // Find in project.scenes
+      const scene = scenes.find(s => s.id === selectedSceneId) || null; // Find in scenes state
       setSelectedScene(scene);
     } else {
       setSelectedScene(null);
     }
-  }, [project, selectedSceneId]); // Depend on the whole project object and selectedSceneId
+  }, [scenes, selectedSceneId]); // Depend on scenes state and selectedSceneId
 
   // Fetch project and scenes when projectId changes
   useEffect(() => {
@@ -69,16 +75,14 @@ const canvasService = CanvasService.getInstance();
   // Create a new project
   const createProject = useCallback(async (title: string, description?: string): Promise<string> => {
     try {
-      // Use canvasService to create a project in the database
       const newProject = await canvasService.createProject(title, description || "");
-      
       if (newProject) {
-        // Update local state with the project from the database
         setProject(newProject);
+        setScenes([]); // Reset scenes for new project
+        setSelectedSceneId(null);
         toast.success("Project created successfully");
         return newProject.id;
       }
-      
       return "";
     } catch (err) {
       console.error("Error creating project:", err);
@@ -90,27 +94,17 @@ const canvasService = CanvasService.getInstance();
   // Add a new scene
   const addScene = useCallback(async (sceneData: Partial<SceneData> = {}): Promise<CanvasScene | null> => {
     if (!project) {
+      toast.error("No project selected to add a scene.");
       return null;
     }
     try {
-      // Use canvasService to create a scene in the database
       const newScene = await canvasService.createScene(project.id, sceneData);
-      
       if (newScene) {
-        // Update local state with the scene from the database
-        // REMOVED incorrect setScenes call
+        setScenes(prevScenes => [...prevScenes, newScene].sort((a, b) => (a.scene_order || 0) - (b.scene_order || 0))); // Update scenes state and sort
         toast.success("Scene added successfully");
-        // Update the project state to include the new scene
-        setProject(prevProject => {
-          if (!prevProject) return null;
-          const updatedProject = {
-            ...prevProject,
-            scenes: [...(prevProject.scenes || []), newScene] // Add new scene here
-          };
-          return updatedProject;
-        });
-        return newScene; // Return the new scene AFTER updating state
+        return newScene;
       }
+      return null;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       toast.error(`Failed to add scene: ${error.message}`);
@@ -120,43 +114,29 @@ const canvasService = CanvasService.getInstance();
 
   // Delete a scene
   const deleteScene = useCallback(async (sceneId: string): Promise<boolean> => {
+    const currentScenes = scenes; // Capture current scenes before potential state update
     try {
-      // Delete the scene from the database
-      const { error } = await supabase
-        .from('canvas_scenes')
-        .delete()
-        .eq('id', sceneId);
-        
-      if (error) throw error;
-      
-      // Update local state
-      // Update project state to remove the scene
-      setProject(prevProject => {
-        if (!prevProject) return null;
-        return {
-          ...prevProject,
-          scenes: (prevProject.scenes || []).filter(s => s.id !== sceneId)
-        };
-      });
-      
-      // If the deleted scene was selected, select another one
-      // If the deleted scene was selected, select another one based on the updated project state
+      // Optimistically update UI
+      setScenes(prevScenes => prevScenes.filter(s => s.id !== sceneId));
       if (selectedSceneId === sceneId) {
-        const remainingScenes = (project?.scenes || []).filter(s => s.id !== sceneId);
-        if (remainingScenes.length > 0) {
-          setSelectedSceneId(remainingScenes[0].id);
-        } else {
-          setSelectedSceneId(null);
-        }
+         const remainingScenes = currentScenes.filter(s => s.id !== sceneId);
+         setSelectedSceneId(remainingScenes.length > 0 ? remainingScenes[0].id : null);
       }
-      
-      // Show success notification
+
+      // Delete from DB
+      const { error } = await supabase.from('canvas_scenes').delete().eq('id', sceneId);
+      if (error) throw error;
+
       toast.success("Scene deleted successfully");
-      
       return true;
     } catch (err) {
+      // Revert UI on error
+      setScenes(currentScenes);
+      if (selectedSceneId === sceneId) { // Re-select if it was deselected optimistically
+          setSelectedSceneId(sceneId);
+      }
+
       const error = err instanceof Error ? err : new Error(String(err));
-      // Log the specific Supabase error if available
       if (error.message.includes('constraint')) {
            console.error("Error deleting scene (potential constraint violation):", error);
            toast.error("Failed to delete scene: It might be referenced elsewhere.");
@@ -169,148 +149,107 @@ const canvasService = CanvasService.getInstance();
       }
       return false;
     }
-  }, [project, selectedSceneId]); // Depend on project state
+  }, [scenes, selectedSceneId, setSelectedSceneId]); // Depend on scenes state
 
   // Update a scene
   const updateScene = useCallback(async (
     sceneId: string,
     type: SceneUpdateType,
-    value: string
+    value: string | null // Allow null for clearing fields potentially
   ): Promise<void> => {
+    const originalScenes = scenes; // Store original state for potential revert
+    let newlyUpdatedScene: CanvasScene | null = null;
+
     try {
-      // Find the scene in local state
-      const scene = project?.scenes?.find(s => s.id === sceneId); // Find in project.scenes
-      if (!scene) {
-        toast.error("Scene not found");
-        return;
-      }
-      
-      // Create updates object
-      const updates: Partial<CanvasScene> = {};
-      
-      // Handle different update types
-      switch (type) {
-        case 'script':
-          updates.script = value;
-          break;
-        case 'imagePrompt':
-          updates.imagePrompt = value;
-          updates.image_prompt = value; // Update both properties for consistency
-          break;
-        case 'description':
-          updates.description = value;
-          break;
-        case 'image':
-          updates.imageUrl = value;
-          updates.image_url = value;
-          break;
-        case 'productImage':
-          updates.productImageUrl = value;
-          updates.product_image_url = value;
-          break;
-        case 'video':
-          updates.videoUrl = value;
-          updates.video_url = value;
-          break;
-        case 'voiceOver':
-          updates.voiceOverUrl = value;
-          updates.voice_over_url = value;
-          break;
-        case 'voiceOverText':
-          updates.voiceOverText = value;
-          updates.voice_over_text = value;
-          break;
-        case 'backgroundMusic':
-          updates.backgroundMusicUrl = value;
-          updates.backgroundMusicUrl = value;
-          updates.background_music_url = value;
-          break;
-        case 'sceneImageV1':
-          updates.sceneImageV1Url = value;
-          updates.scene_image_v1_url = value;
-          break;
-        case 'sceneImageV2':
-          updates.sceneImageV2Url = value;
-          updates.scene_image_v2_url = value;
-          break;
-      }
-      
-      // Update the timestamp
-      updates.updatedAt = new Date().toISOString();
-      updates.updated_at = new Date().toISOString();
-      
-      // Update the scene in the database
-      const success = await canvasService.updateScene(sceneId, updates, type, value); // Pass type and value
-      
-      if (!success) {
-        throw new Error("Failed to update scene in database");
-      }
-      
-      // Update project state and capture the newly updated scene object
-      let newlyUpdatedScene: CanvasScene | null = null;
-      setProject(prevProject => {
-        if (!prevProject) return null;
-        const newScenes = (prevProject.scenes || []).map(s => {
+      // Optimistic UI Update
+      setScenes(prevScenes => {
+        return prevScenes.map(s => {
           if (s.id === sceneId) {
-            // Create the fully updated scene object here
+            const updates: Partial<CanvasScene> = {};
+            // Map type to the correct snake_case property
+            switch (type) {
+              case 'script': updates.script = value; break;
+              case 'imagePrompt': updates.image_prompt = value; break;
+              case 'description': updates.description = value; break;
+              case 'image': updates.image_url = value; break; // Assuming 'image' updates image_url
+              case 'productImage': updates.product_image_url = value; break;
+              case 'video': updates.video_url = value; break; // Assuming 'video' updates video_url
+              case 'voiceOver': updates.voice_over_url = value; break; // Assuming 'voiceOver' updates voice_over_url
+              case 'voiceOverText': updates.voice_over_text = value; break;
+              case 'backgroundMusic': updates.background_music_url = value; break;
+              case 'sceneImageV1': updates.scene_image_v1_url = value; break;
+              case 'sceneImageV2': updates.scene_image_v2_url = value; break;
+            }
+            updates.updated_at = new Date().toISOString(); // Update timestamp locally too
             newlyUpdatedScene = { ...s, ...updates };
             return newlyUpdatedScene;
           }
           return s;
         });
-        return {
-          ...prevProject,
-          scenes: newScenes
-        };
       });
 
-      // Explicitly update selectedScene state if the updated scene is the selected one
+      // Update selected scene state if it was the one modified
       if (newlyUpdatedScene && selectedSceneId === sceneId) {
         setSelectedScene(newlyUpdatedScene);
-         console.log("Explicitly updated selectedScene state for ID:", sceneId);
       }
 
-      // Display success message
+      // Prepare DB update object (only snake_case)
+      const dbUpdates: { [key: string]: any } = {};
+       switch (type) {
+         case 'script': dbUpdates.script = value; break;
+         case 'imagePrompt': dbUpdates.image_prompt = value; break;
+         case 'description': dbUpdates.description = value; break;
+         case 'image': dbUpdates.image_url = value; break;
+         case 'productImage': dbUpdates.product_image_url = value; break;
+         case 'video': dbUpdates.video_url = value; break;
+         case 'voiceOver': dbUpdates.voice_over_url = value; break;
+         case 'voiceOverText': dbUpdates.voice_over_text = value; break;
+         case 'backgroundMusic': dbUpdates.background_music_url = value; break;
+         case 'sceneImageV1': dbUpdates.scene_image_v1_url = value; break;
+         case 'sceneImageV2': dbUpdates.scene_image_v2_url = value; break;
+       }
+       dbUpdates.updated_at = new Date().toISOString();
+
+
+      // Update DB
+      const success = await canvasService.updateScene(sceneId, dbUpdates, type, value); // Pass dbUpdates
+      if (!success) {
+        throw new Error("Failed to update scene in database");
+      }
+
       toast.success(`Scene ${type} updated successfully`);
     } catch (err) {
+      // Revert UI on error
+      setScenes(originalScenes);
+      if (selectedSceneId === sceneId) { // Revert selected scene if needed
+         setSelectedScene(originalScenes.find(s => s.id === sceneId) || null);
+      }
       console.error(`Error updating scene ${type}:`, err);
       toast.error(`Failed to update scene ${type}`);
     }
-  }, [project, canvasService]); // Depend on project state
+  }, [scenes, canvasService, selectedSceneId]); // Depend on scenes state
 
   // Save full script without dividing
   const saveFullScript = useCallback(async (script: string): Promise<boolean> => {
     if (!project) return false;
+    const originalProject = project; // Store original for revert
 
     try {
-      // Update the project in the database
+      // Optimistic UI update
+      setProject(prev => prev ? { ...prev, full_script: script, updated_at: new Date().toISOString() } : null);
+
+      // Update DB
       const { error } = await supabase
         .from('canvas_projects')
-        .update({
-          full_script: script,
-          updated_at: new Date().toISOString()
-        })
+        .update({ full_script: script, updated_at: new Date().toISOString() })
         .eq('id', project.id);
-
       if (error) throw error;
 
-      // Update local state
-      setProject(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          fullScript: script,
-          full_script: script,
-          updatedAt: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-      });
-
-      // Show success notification
       toast.success("Script saved successfully");
-
       return true;
     } catch (err) {
+      // Revert UI
+      setProject(originalProject);
       console.error("Error saving full script:", err);
       toast.error("Failed to save full script");
       return false;
@@ -323,179 +262,81 @@ const canvasService = CanvasService.getInstance();
       toast.error("No project selected.");
       return false;
     }
-    // No OpenAI client check needed here
 
-    setLoading(true); // Indicate processing start
-    toast.info("AI is dividing the script into scenes via Edge Function...");
+    setLoading(true);
+    toast.info("AI is dividing the script into scenes...");
+    const originalScenes = scenes; // Store for potential revert
 
     try {
-      // 1. Save the full script first (optional, but good practice)
-      await saveFullScript(script);
+      await saveFullScript(script); // Save script first
 
-      // 2. Call the Supabase Edge Function
       const { data: functionResponse, error: functionError } = await supabase.functions.invoke(
-        'divide-script', // Name of the Edge Function
-        {
-          body: { script }, // Pass the script in the body
-        }
+        'divide-script', { body: { script } }
       );
 
-      if (functionError) {
-        console.error("Edge function 'divide-script' invocation error:", functionError);
-        // Attempt to parse Supabase function error details if available
-        let detailMessage = functionError.message;
-        try {
-            const context = JSON.parse(functionError.context || '{}');
-            if (context.error) detailMessage = context.error;
-        } catch(e) { /* Ignore parsing error */ }
-        throw new Error(`Failed to call AI service: ${detailMessage}`);
-      }
+      if (functionError) throw new Error(`Edge function error: ${functionError.message}`);
 
-      // The Edge Function returns the parsed JSON directly
-      const aiScenes = functionResponse?.scenes; // Access the 'scenes' array
-
-      // Validate the structure received from the Edge Function
-      if (!aiScenes || !Array.isArray(aiScenes)) {
-         console.error("Invalid response structure from 'divide-script' Edge function:", functionResponse);
-         throw new Error("Invalid response format received from AI service.");
-      }
-      // Ensure expected fields exist (runtime check)
+      const aiScenes = functionResponse?.scenes;
+      if (!aiScenes || !Array.isArray(aiScenes)) throw new Error("Invalid response format from AI service.");
       if (aiScenes.length > 0 && (typeof aiScenes[0].scene_script === 'undefined' || typeof aiScenes[0].image_prompt === 'undefined')) {
-          console.error("Missing expected fields in scene data from Edge function:", aiScenes[0]);
           throw new Error("AI service response missing required scene data fields.");
       }
 
-
-      // 3. Get existing scenes from the database (Keep this part)
+      // --- Database Sync Logic ---
       const { data: existingDbScenesData, error: scenesError } = await supabase
         .from('canvas_scenes')
-        .select('*')
+        .select('id, scene_order') // Select only needed fields
         .eq('project_id', project.id)
         .order('scene_order', { ascending: true });
 
       if (scenesError) throw scenesError;
-      const existingDbScenes = (existingDbScenesData || []).map(normalizeScene);
+      const existingDbScenes = existingDbScenesData || [];
 
-      // 6. Create/Update/Delete scenes in the database
-
-      // Define a type for the data needed to create a new scene
-      type NewSceneData = {
-        projectId: string;
-        title: string;
-        script: string;
-        voiceOverText: string;
-        imagePrompt: string;
-        description: string;
-        sceneOrder: number;
-        createdAt: string;
-        // Add other non-DB generated fields required by CanvasScene, initialized
-        imageUrl?: string;
-        videoUrl?: string;
-        productImageUrl?: string;
-        voiceOverUrl?: string;
-        backgroundMusicUrl?: string;
-        duration?: number;
-        userId?: string; // Assuming userId comes from project
-      };
-
-      const scenesToCreate: NewSceneData[] = []; // Use the simpler type
+      const scenesToCreate: any[] = [];
       const scenesToUpdate: { id: string; updates: Partial<CanvasScene> }[] = [];
-      const sceneIdsToDelete: string[] = existingDbScenes.map(s => s.id); // Assume all existing are deleted initially
+      const sceneIdsToDelete: string[] = existingDbScenes.map(s => s.id);
 
       for (let i = 0; i < aiScenes.length; i++) {
         const aiSceneData = aiScenes[i];
         const sceneOrder = i + 1;
-        const sceneTitle = `Scene ${sceneOrder}`; // Simple title based on order
-
-        const existingScene = existingDbScenes[i];
-
-        // Use snake_case for DB interaction, camelCase for local state/types if needed later
+        const sceneTitle = `Scene ${sceneOrder}`;
         const sceneDbPayload = {
           project_id: project.id,
           title: sceneTitle,
           script: aiSceneData.scene_script,
-          voice_over_text: aiSceneData.scene_script, // Use script as voice-over for now
+          voice_over_text: aiSceneData.scene_script,
           image_prompt: aiSceneData.image_prompt,
-          description: aiSceneData.scene_script.substring(0, 100) + (aiSceneData.scene_script.length > 100 ? "..." : ""), // Basic description
+          description: aiSceneData.scene_script.substring(0, 100) + (aiSceneData.scene_script.length > 100 ? "..." : ""),
           scene_order: sceneOrder,
           updated_at: new Date().toISOString(),
         };
 
+        const existingScene = existingDbScenes[i];
         if (existingScene) {
-          // Prepare update
-          scenesToUpdate.push({
-            id: existingScene.id,
-            updates: sceneDbPayload, // Use DB payload for update
-          });
-          // Mark this ID as not to be deleted
+          scenesToUpdate.push({ id: existingScene.id, updates: sceneDbPayload });
           const indexToDelete = sceneIdsToDelete.indexOf(existingScene.id);
-          if (indexToDelete > -1) {
-            sceneIdsToDelete.splice(indexToDelete, 1);
-          }
+          if (indexToDelete > -1) sceneIdsToDelete.splice(indexToDelete, 1);
         } else {
-          // Prepare create using the NewSceneData type
-          scenesToCreate.push({
-            projectId: project.id,
-            title: sceneTitle,
-            script: aiSceneData.scene_script,
-            voiceOverText: aiSceneData.scene_script, // Defaulting voiceOverText to script
-            imagePrompt: aiSceneData.image_prompt,
-            description: sceneDbPayload.description, // Use already calculated description
-            sceneOrder: sceneOrder,
-            createdAt: new Date().toISOString(),
-            userId: project.userId, // Get userId from project
-            // Initialize other optional fields as needed
-            imageUrl: '',
-            videoUrl: '',
-            productImageUrl: '',
-            voiceOverUrl: '',
-            backgroundMusicUrl: '',
-            duration: 0,
-          });
+          scenesToCreate.push({ ...sceneDbPayload, created_at: new Date().toISOString() });
         }
       }
 
-      // Perform database operations
+      // Perform DB operations
       const updatePromises = scenesToUpdate.map(item =>
         supabase.from('canvas_scenes').update(item.updates).eq('id', item.id).select().single()
       );
-
-      // Prepare data for insertion using snake_case matching DB columns
-      const scenesToInsertDb = scenesToCreate.map(sceneData => ({
-          project_id: sceneData.projectId,
-          title: sceneData.title,
-          script: sceneData.script,
-          voice_over_text: sceneData.voiceOverText,
-          image_prompt: sceneData.imagePrompt,
-          description: sceneData.description,
-          scene_order: sceneData.sceneOrder,
-          created_at: sceneData.createdAt,
-          updated_at: sceneData.createdAt, // Set updated_at same as created_at for new records
-          // Map other fields from NewSceneData to snake_case if they exist in the DB table
-          image_url: sceneData.imageUrl || null,
-          video_url: sceneData.videoUrl || null,
-          product_image_url: sceneData.productImageUrl || null,
-          voice_over_url: sceneData.voiceOverUrl || null,
-          background_music_url: sceneData.backgroundMusicUrl || null,
-          duration: sceneData.duration || 0,
-          // user_id: sceneData.userId // Map userId if your DB table has it
-      }));
-
-      const createPromise = scenesToInsertDb.length > 0
-        ? supabase.from('canvas_scenes').insert(scenesToInsertDb).select()
+      const createPromise = scenesToCreate.length > 0
+        ? supabase.from('canvas_scenes').insert(scenesToCreate).select()
         : Promise.resolve({ data: [], error: null });
-
       const deletePromise = sceneIdsToDelete.length > 0
         ? supabase.from('canvas_scenes').delete().in('id', sceneIdsToDelete)
         : Promise.resolve({ error: null });
 
       const [updateResults, createResult, deleteResult] = await Promise.all([
-        Promise.all(updatePromises),
-        createPromise,
-        deletePromise,
+        Promise.all(updatePromises), createPromise, deletePromise
       ]);
 
-      // Check for errors in DB operations
+      // Check for errors
       const updateErrors = updateResults.map(r => r.error).filter(Boolean);
       if (updateErrors.length > 0 || createResult.error || deleteResult.error) {
         console.error("DB Errors:", { updateErrors, createError: createResult.error, deleteError: deleteResult.error });
@@ -504,150 +345,118 @@ const canvasService = CanvasService.getInstance();
 
       // Combine results for local state update
       const finalScenes = [
-        ...updateResults.map(r => normalizeScene(r.data)), // Normalize updated scenes
-        ...(createResult.data || []).map(normalizeScene) // Normalize newly created scenes
+        ...updateResults.map(r => normalizeScene(r.data)),
+        ...(createResult.data || []).map(normalizeScene)
       ].sort((a, b) => (a.scene_order || 0) - (b.scene_order || 0));
 
+      // Update local state
+      setScenes(finalScenes); // Update scenes state directly
 
-      // 7. Update local state
-      setProject(prev => prev ? { ...prev, scenes: finalScenes } : null);
-
-      // 8. Select first scene if available
-      if (finalScenes.length > 0) {
-        setSelectedSceneId(finalScenes[0].id);
-      } else {
-        setSelectedSceneId(null);
-      }
+      // Select first scene if available
+      setSelectedSceneId(finalScenes.length > 0 ? finalScenes[0].id : null);
 
       toast.success(`AI successfully divided script into ${finalScenes.length} scenes.`);
       return true;
 
     } catch (err) {
-      console.error("Error dividing script with AI:", err);
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-      toast.error(`Failed to divide script: ${errorMessage}`);
+      // Revert scenes state on error
+      setScenes(originalScenes);
+      console.error("Error dividing script:", err);
+      toast.error(`Failed to divide script: ${err instanceof Error ? err.message : String(err)}`);
       return false;
     } finally {
-      setLoading(false); // Indicate processing end
+      setLoading(false);
     }
-  }, [project, saveFullScript]); // Remove openaiClient dependency
+  }, [project, scenes, saveFullScript]); // Depend on scenes state
 
   // Update project title
   const updateProjectTitle = useCallback(async (title: string): Promise<boolean> => {
+     if (!project) return false;
+     const originalProject = project;
+     try {
+       setProject(prev => prev ? { ...prev, title, updated_at: new Date().toISOString() } : null);
+       const { error } = await supabase
+         .from('canvas_projects')
+         .update({ title, updated_at: new Date().toISOString() })
+         .eq('id', project.id);
+       if (error) throw error;
+       toast.success("Project title updated");
+       return true;
+     } catch (err) {
+       setProject(originalProject);
+       console.error("Error updating project title:", err);
+       toast.error("Failed to update project title");
+       return false;
+     }
+   }, [project]);
+
+  // Update main project image URL
+  const updateMainImageUrl = useCallback(async (imageUrl: string): Promise<boolean> => {
     if (!project) return false;
-    
+    const originalProject = project;
     try {
-      // Update the project title in the database
+      setProject(prev => prev ? { ...prev, main_product_image_url: imageUrl, updated_at: new Date().toISOString() } : null);
       const { error } = await supabase
         .from('canvas_projects')
-        .update({
-          title: title,
-          updated_at: new Date().toISOString()
-        })
+        .update({ main_product_image_url: imageUrl, updated_at: new Date().toISOString() })
         .eq('id', project.id);
-      
       if (error) throw error;
-      
-      // Update local state
-      setProject(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          title,
-          updatedAt: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-      });
-      
-      // Show success notification
-      toast.success("Project title updated successfully");
-      
+      toast.success("Main project image updated successfully");
       return true;
     } catch (err) {
-      console.error("Error updating project title:", err);
-      toast.error("Failed to update project title");
+      setProject(originalProject);
+      console.error("Error updating main project image:", err);
+      toast.error("Failed to update main project image");
       return false;
     }
   }, [project]);
 
-  // Function to update main project image URL and scenes, plus local state
-  const updateMainImageUrl = useCallback(async (imageUrl: string): Promise<boolean> => {
-    if (!project?.id) {
-      toast.error("Project not found");
-      return false;
+  // Update project assets
+  const updateProjectAssets = useCallback(async (assets: ProjectAsset[]): Promise<void> => {
+    if (!project) {
+      toast.error("No project selected.");
+      return;
     }
-    const projectId = project.id;
-    console.log(`[useCanvas] Updating main image for project ${projectId} to ${imageUrl}`);
+    const originalProject = project; // Store for revert
 
     try {
-      // 1. Update canvas_projects table
-      const { error: projectUpdateError } = await supabase
+      // Optimistic UI update
+      setProject(prev => prev ? { ...prev, project_assets: assets, updated_at: new Date().toISOString() } : null);
+
+      // Update DB
+      const { error } = await supabase
         .from('canvas_projects')
-        .update({ main_product_image_url: imageUrl })
-        .eq('id', projectId);
+        .update({ project_assets: assets, updated_at: new Date().toISOString() })
+        .eq('id', project.id);
+      if (error) throw error;
 
-      if (projectUpdateError) {
-        console.error(`[useCanvas] Error updating project main image:`, projectUpdateError);
-        throw projectUpdateError;
-      }
-      console.log(`[useCanvas] Successfully updated project main image in DB.`);
-
-      // 2. Update canvas_scenes table
-      const { data: sceneUpdateData, error: sceneUpdateError } = await supabase
-        .from('canvas_scenes')
-        .update({ product_image_url: imageUrl }) // Update scene product image URL
-        .eq('project_id', projectId)
-        .select('id'); // Select IDs to see how many rows were affected
-
-      if (sceneUpdateError) {
-        console.error(`[useCanvas] Error auto-populating scene images:`, sceneUpdateError);
-        // Don't throw, but maybe show a warning toast
-        toast.warning("Main image updated, but failed to update scene images.");
-      } else {
-        console.log(`[useCanvas] Successfully updated product_image_url for ${sceneUpdateData?.length || 0} scenes.`);
-      }
-
-      // 3. Update local state directly for immediate UI feedback
-      setProject(prevProject => {
-        if (!prevProject) return null;
-        // Update scenes locally as well
-        const updatedScenes = (prevProject.scenes || []).map(scene => ({
-          ...scene,
-          productImageUrl: imageUrl, // Update camelCase version for UI
-          product_image_url: imageUrl // Update snake_case version for consistency
-        }));
-        return {
-          ...prevProject,
-          main_product_image_url: imageUrl,
-          scenes: updatedScenes
-        };
-      });
-      console.log(`[useCanvas] Local project state updated with new main image URL.`);
-      return true;
-
-    } catch (error) {
-      console.error(`[useCanvas] Failed to update main image URL:`, error);
-      toast.error(`Failed to update main image: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+      toast.success("Project assets updated successfully");
+    } catch (err) {
+      // Revert UI
+      setProject(originalProject);
+      console.error("Error updating project assets:", err);
+      console.error("Error updating project assets (detailed):", err);
+      toast.error("Failed to update project assets");
     }
-  }, [project?.id]); // Depend only on project.id
+  }, [project]);
+
 
   return {
     project,
-    scenes: project?.scenes || [], // Return derived scenes
+    scenes, // Return scenes state
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,
     loading,
     error,
-    createProject,
+    fetchProject, // Expose fetchProject if needed externally
     addScene,
-    deleteScene,
     updateScene,
+    deleteScene,
     divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,
-    fetchProject,
-    updateMainImageUrl // Ensure this is exported
+    updateProjectAssets, // Return the new function
+    updateMainImageUrl
   };
 };

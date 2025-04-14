@@ -1,8 +1,8 @@
 
 import { 
-  CanvasProject, 
-  CanvasScene, 
-  SceneUpdateType 
+  CanvasProject,
+  CanvasScene, ProjectAsset, // Import ProjectAsset
+  SceneUpdateType
 } from '@/types/canvas';
 import { CanvasHeader } from '../CanvasHeader';
 import { CanvasSidebar } from '../CanvasSidebar';
@@ -32,6 +32,7 @@ interface CanvasHeaderAdapterProps {
 // Adapter type for CanvasSidebar
 interface CanvasSidebarAdapterProps {
   project: CanvasProject | null;
+  scenes: CanvasScene[]; // Add scenes prop
   selectedSceneId: string | null;
   setSelectedSceneId: (sceneId: string | null) => void;
   createScene: (data: any) => Promise<any>;
@@ -43,6 +44,7 @@ interface CanvasSidebarAdapterProps {
 // Adapter type for CanvasWorkspace
 interface CanvasWorkspaceAdapterProps {
   project: CanvasProject | null;
+  scenes: CanvasScene[]; // Add scenes prop requirement
   selectedScene: CanvasScene | null;
   selectedSceneId: string | null;
   setSelectedSceneId: (sceneId: string | null) => void;
@@ -55,7 +57,8 @@ interface CanvasWorkspaceAdapterProps {
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;
   updateProject: (projectId: string, data: Partial<CanvasProject>) => Promise<void>; // Add updateProject prop
-  updateMainImageUrl: (imageUrl: string) => Promise<boolean>; // Add prop
+  updateMainImageUrl: (imageUrl: string) => Promise<void>; // Match CanvasWorkspace prop type
+  updateProjectAssets: (assets: ProjectAsset[]) => Promise<void>; // Add prop requirement
   agent?: any;
 }
 
@@ -128,6 +131,7 @@ export function CanvasHeaderAdapter({
 
 export function CanvasSidebarAdapter({
   project,
+  scenes, // Destructure scenes prop
   selectedSceneId,
   setSelectedSceneId,
   createScene,
@@ -141,7 +145,7 @@ export function CanvasSidebarAdapter({
         projectId: project.id,
         project_id: project.id,
         title: 'New Scene',
-        scene_order: (project.scenes?.length || 0) + 1
+        scene_order: (scenes?.length || 0) + 1 // Use scenes prop
       });
       return newScene?.id;
     }
@@ -164,6 +168,7 @@ export function CanvasSidebarAdapter({
 
 export function CanvasWorkspaceAdapter({
   project,
+  scenes, // Destructure scenes prop
   selectedScene,
   selectedSceneId,
   setSelectedSceneId,
@@ -177,11 +182,13 @@ export function CanvasWorkspaceAdapter({
   updateProjectTitle,
   updateProject,
   updateMainImageUrl, // Destructure prop
+  updateProjectAssets, // Destructure new prop
   agent
 }: CanvasWorkspaceAdapterProps) {
   return (
     <CanvasWorkspace
       project={project}
+      scenes={scenes} // Pass scenes prop down
       selectedScene={selectedScene}
       selectedSceneId={selectedSceneId}
       mainImageUrl={mainImageUrl} // Pass prop down
@@ -195,6 +202,7 @@ export function CanvasWorkspaceAdapter({
       updateProjectTitle={updateProjectTitle}
       updateProject={updateProject}
       updateMainImageUrl={updateMainImageUrl} // Pass prop down
+      updateProjectAssets={updateProjectAssets} // Pass the new prop down
       agent={agent}
     />
   );

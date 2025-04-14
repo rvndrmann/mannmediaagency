@@ -16,6 +16,7 @@ import {
   Upload,
   Sparkles // Added Sparkles icon
 } from 'lucide-react';
+import clsx from 'clsx';
 
 interface SceneDetailPanelProps {
   scene: CanvasScene | null;
@@ -42,7 +43,7 @@ export function SceneDetailPanel({
 
   useEffect(() => {
     if (scene) {
-      setImagePrompt(scene.imagePrompt || '');
+      setImagePrompt(scene.image_prompt || '');
       setSceneDescription(scene.voiceOverText || scene.script || '');
     } else {
       setImagePrompt('');
@@ -120,11 +121,11 @@ export function SceneDetailPanel({
 
       switch (uploadType) {
         case 'image': currentUrl = scene.imageUrl; bucket = 'canvas_assets'; updateField = 'image'; break;
-        case 'productImage': currentUrl = scene.productImageUrl; bucket = 'canvas_assets'; updateField = 'productImage'; break;
+        case 'productImage': currentUrl = scene.product_image_url; bucket = 'canvas_assets'; updateField = 'productImage'; break;
         case 'video': currentUrl = scene.videoUrl; bucket = 'scene-videos'; updateField = 'video'; break;
         case 'voiceOver': currentUrl = scene.voiceOverUrl; bucket = 'voice-over'; updateField = 'voiceOver'; break;
-        case 'generatedVoiceOver': currentUrl = scene.voiceoverAudioUrl || scene.voiceover_audio_url || ''; bucket = 'voice-over'; updateField = 'voiceoverAudioUrl'; break;
-        case 'backgroundMusic': currentUrl = scene.backgroundMusicUrl; bucket = 'background-music'; updateField = 'backgroundMusic'; break;
+        case 'generatedVoiceOver': currentUrl = scene.voiceOverUrl || ''; bucket = 'voice-over'; updateField = 'voiceOver'; break; // Use voiceOverUrl and updateField 'voiceOver'
+        case 'backgroundMusic': currentUrl = scene.background_music_url; bucket = 'background-music'; updateField = 'backgroundMusic'; break;
         case 'sceneImageV1': currentUrl = scene.sceneImageV1Url || ''; bucket = 'canvas_assets'; updateField = 'sceneImageV1'; break;
         case 'sceneImageV2': currentUrl = scene.sceneImageV2Url || ''; bucket = 'canvas_assets'; updateField = 'sceneImageV2'; break;
       }
@@ -193,8 +194,8 @@ export function SceneDetailPanel({
       {currentUrl ? (
         <div className="mb-2">
           {uploadType === 'image' || uploadType === 'productImage' || uploadType === 'sceneImageV1' || uploadType === 'sceneImageV2' ? (
-            <div className="aspect-video rounded-md overflow-hidden bg-muted">
-              <img src={currentUrl} alt={title} className="w-full h-full object-cover" />
+            <div className={clsx('rounded-md bg-muted', { 'aspect-[9/16] overflow-hidden': ['productImage', 'sceneImageV1', 'sceneImageV2'].includes(uploadType), 'w-full': !['productImage', 'sceneImageV1', 'sceneImageV2'].includes(uploadType) })}>
+              <img src={currentUrl} alt={title} className={clsx({ 'w-full h-full object-contain': ['productImage', 'sceneImageV1', 'sceneImageV2'].includes(uploadType), 'block max-w-full h-auto': !['productImage', 'sceneImageV1', 'sceneImageV2'].includes(uploadType) })} />
             </div>
           ) : uploadType === 'video' ? (
             <div className="aspect-video rounded-md overflow-hidden bg-muted">
@@ -227,7 +228,7 @@ export function SceneDetailPanel({
     </div>
   );
 
-  const generatedAudioUrl = scene?.voiceoverAudioUrl || scene?.voiceover_audio_url;
+  const generatedAudioUrl = scene?.voiceOverUrl; // Use voiceOverUrl for generated audio as well for now
   const manualAudioUrl = scene?.voiceOverUrl;
 
   // Removed the outer div with conditional width and the header with the collapse button.
@@ -292,7 +293,7 @@ export function SceneDetailPanel({
         <FileUploadItem
           title="Product Image" icon={ImageIcon} fileType="product image" uploadType="productImage"
           isUploading={isUploadingProductImage} setUploading={setIsUploadingProductImage}
-          currentUrl={scene.productImageUrl} acceptedTypes="image/*"
+          currentUrl={scene.product_image_url} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Scene Image V1" icon={ImageIcon} fileType="scene image v1" uploadType="sceneImageV1"
@@ -358,7 +359,7 @@ export function SceneDetailPanel({
         <FileUploadItem
           title="Background Music" icon={Music} fileType="music" uploadType="backgroundMusic"
           isUploading={isUploadingMusic} setUploading={setIsUploadingMusic}
-          currentUrl={scene.backgroundMusicUrl} acceptedTypes="audio/*"
+          currentUrl={scene.background_music_url} acceptedTypes="audio/*"
         />
       </div>
     </div>

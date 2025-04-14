@@ -19,11 +19,9 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL");
 // @ts-ignore Deno specific global
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
-if (!apiKey || !supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing required environment variables: OPENAI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY");
-  // In a real scenario, you might throw an error or handle this differently
-}
-const openai = new OpenAI({ apiKey });
+// Note: The check for keys is moved inside runOrchestrator for early return
+
+const openai = new OpenAI({ apiKey }); // Initialize OpenAI client (apiKey might be null initially, checked later)
 // Initialize Supabase client (use service_role key if needing to bypass RLS for internal functions)
 // Global Supabase client initialization is removed/commented out.
 
@@ -227,12 +225,11 @@ let orchestratorAssistantId: string | null = null; // Cache in memory for the fu
 async function getOrCreateOrchestratorAssistant(): Promise<string> {
   // Check cache first
   if (orchestratorAssistantId) {
-    console.log(`[Trace] Using cached Assistant ID: ${orchestratorAssistantId}`);
-    // If cached, it must be a string from a previous successful run within this invocation.
+    console.log(`[${new Date().toISOString()}] [Get Assistant] Using cached Assistant ID: ${orchestratorAssistantId}`);
     return orchestratorAssistantId;
   }
 
-  console.log(`[Trace] Searching for Assistant named "${ORCHESTRATOR_ASSISTANT_NAME}"...`);
+  console.log(`[${new Date().toISOString()}] [Get Assistant] Searching for Assistant named "${ORCHESTRATOR_ASSISTANT_NAME}"...`);
   try {
     const assistantsList = await openai.beta.assistants.list({ limit: 100 });
     const existingAssistant = assistantsList.data.find(
@@ -259,7 +256,7 @@ async function getOrCreateOrchestratorAssistant(): Promise<string> {
     };
 
     if (existingAssistant) {
-      console.log(`[Trace] Found existing Assistant ID: ${existingAssistant.id}`);
+      console.log(`[${new Date().toISOString()}] [Get Assistant] Found existing Assistant ID: ${existingAssistant.id}`);
       // Check if update is needed (simple check based on instructions and tool count for this example)
       // A more robust check might involve deep comparison of tools array.
       if (
@@ -274,18 +271,18 @@ async function getOrCreateOrchestratorAssistant(): Promise<string> {
             (tool as any).function?.name === (desiredAssistantConfig.tools[index] as any).function?.name
         )
       ) {
-        console.log(`[Trace] Assistant configuration differs. Updating Assistant ID: ${existingAssistant.id}...`);
+        console.log(`[${new Date().toISOString()}] [Get Assistant] Assistant configuration differs. Updating Assistant ID: ${existingAssistant.id}...`);
         const updatedAssistant = await openai.beta.assistants.update(existingAssistant.id, desiredAssistantConfig);
-        console.log(`[Trace] Assistant updated successfully.`);
+        console.log(`[${new Date().toISOString()}] [Get Assistant] Assistant updated successfully.`);
         assistantIdToReturn = updatedAssistant.id;
       } else {
-        console.log(`[Trace] Existing Assistant configuration matches. No update needed.`);
+        console.log(`[${new Date().toISOString()}] [Get Assistant] Existing Assistant configuration matches. No update needed.`);
         assistantIdToReturn = existingAssistant.id;
       }
     } else {
-      console.log(`[Trace] Assistant not found. Creating new Assistant: "${ORCHESTRATOR_ASSISTANT_NAME}"...`);
+      console.log(`[${new Date().toISOString()}] [Get Assistant] Assistant not found. Creating new Assistant: "${ORCHESTRATOR_ASSISTANT_NAME}"...`);
       const newAssistant = await openai.beta.assistants.create(desiredAssistantConfig);
-      console.log(`[Trace] Created new Assistant ID: ${newAssistant.id}`);
+      console.log(`[${new Date().toISOString()}] [Get Assistant] Created new Assistant ID: ${newAssistant.id}`);
       assistantIdToReturn = newAssistant.id;
       // Note: For persistence across invocations, store this ID externally.
     }
@@ -295,7 +292,7 @@ async function getOrCreateOrchestratorAssistant(): Promise<string> {
     return assistantIdToReturn; // Return the guaranteed string
 
   } catch (error) {
-    console.error("[Error] Failed to list or create Assistant:", error);
+    console.error(`[${new Date().toISOString()}] [Error] Failed to list or create Assistant:`, error);
     // Ensure the function throws, preventing a null return on error.
     throw new Error(`Failed to get or create orchestrator assistant: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -310,78 +307,85 @@ export async function runOrchestrator(
   // Note: We are passing projectId to the function, but it's primarily used for context fetching now.
   // The tools themselves will receive the projectId via arguments from the Assistant.
 ): Promise<{ response?: string; error?: string; details?: string; threadId?: string }> {
-  console.log(`[Trace] runOrchestrator called with input: "${userInput}", Thread ID: ${threadId}`);
+  let currentThreadId: string | undefined = threadId; // Initialize with optional provided threadId
 
-  if (!apiKey) {
-    console.error("[Error] OpenAI API Key not configured.");
+  console.log(`[${new Date().toISOString()}] [Runner Start] runOrchestrator called. Input: "${userInput}", ProjectId: ${projectId}, Thread ID: ${threadId}, Auth Header Present: ${!!authHeader}`);
+
+  console.log(`[${new Date().toISOString()}] [Runner Env Check] Checking environment variables...`);
+  if (!apiKey || !supabaseUrl || !supabaseAnonKey) { // Check all required keys
+    console.error(`[${new Date().toISOString()}] [Error] Missing required environment variables. OpenAI Key Present: ${!!apiKey}, Supabase URL Present: ${!!supabaseUrl}, Supabase Anon Key Present: ${!!supabaseAnonKey}`);
     return {
-      error: "OpenAI API Key not configured on the server.",
-      details: "The OPENAI_API_KEY environment variable is missing.",
+      error: "Server configuration error.",
+      details: "One or more required environment variables (OPENAI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY) are missing.",
+      threadId: currentThreadId // Return threadId if available
     };
   }
+  console.log(`[${new Date().toISOString()}] [Runner Env Check] Environment variables seem present.`);
 
   try {
+    console.log(`[${new Date().toISOString()}] [Runner Init Supabase] Initializing Supabase client...`);
     // Initialize Supabase client with user's auth context if available
-    const supabaseClient = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, { // Already checked they exist
       global: { headers: { ...(authHeader ? { Authorization: authHeader } : {}) } },
       auth: {
         // Optional: configure autoRefreshToken, persistSession if needed,
         // but for edge functions, passing the header is usually sufficient per request.
       }
     });
-    console.log(`[Trace] Supabase client initialized ${authHeader ? 'with' : 'without'} user auth header.`);
+    console.log(`[${new Date().toISOString()}] [Runner Init Supabase] Supabase client initialized ${authHeader ? 'with' : 'without'} user auth header.`);
 
-    // Removing the duplicate supabaseClient initialization block that was inserted erroneously.
-    console.log("[Trace] Getting or creating Orchestrator Assistant...");
-    const assistantId = await getOrCreateOrchestratorAssistant();
-    console.log(`[Trace] Using Assistant ID: ${assistantId}`);
-
-    let currentThreadId: string;
+    console.log(`[${new Date().toISOString()}] [Runner Get Assistant] Getting or creating Orchestrator Assistant...`);
+    const assistantId = await getOrCreateOrchestratorAssistant(); // This function has its own internal logging
+    console.log(`[${new Date().toISOString()}] [Runner Get Assistant] Using Assistant ID: ${assistantId}`);
 
     // 1. Determine Thread ID (Create or Reuse)
-    if (threadId) {
-      console.log(`[Trace] Using existing Thread ID: ${threadId}`);
+    console.log(`[${new Date().toISOString()}] [Runner Get Thread] Determining Thread ID...`);
+    if (currentThreadId) {
+      console.log(`[${new Date().toISOString()}] [Runner Get Thread] Using existing Thread ID: ${currentThreadId}`);
       // Optional: Validate thread exists? For now, assume it does if provided.
-      currentThreadId = threadId;
     } else {
-      console.log("[Trace] Creating new Thread...");
+      console.log(`[${new Date().toISOString()}] [Runner Get Thread] Creating new Thread...`);
       const thread = await openai.beta.threads.create();
       currentThreadId = thread.id;
-      console.log(`[Trace] Created new Thread ID: ${currentThreadId}`);
+      console.log(`[${new Date().toISOString()}] [Runner Get Thread] Created new Thread ID: ${currentThreadId}`);
     }
 
     // 2. Fetch Project Context (if projectId is provided)
     let projectContextString = "";
+    console.log(`[${new Date().toISOString()}] [Runner Fetch Context] Checking if projectId is provided...`);
     if (projectId) {
-      console.log(`[Trace] Fetching context for projectId: ${projectId}`);
+      console.log(`[${new Date().toISOString()}] [Runner Fetch Context] Fetching context for projectId: ${projectId}`);
       try {
-        // Fetch project data without .single() to handle 0 rows gracefully
-        const { data: projectDataArray, error: projectError } = await supabaseClient
-          .from('canvas_projects') // Correct table name
-          .select('full_script') // Correct column name
+        // Fetch project data using limit(1) - Includes the .single() fix
+        const { data: projectArray, error } = await supabaseClient
+          .from('canvas_projects')
+          .select('full_script') // Only select the script
           .eq('id', projectId)
-          .limit(1); // Limit to 1 row just in case of duplicates, but don't error if 0
+          .limit(1);
 
-        // Check for errors or if no data was returned
-        const projectData = projectDataArray?.[0]; // Get the first element if it exists
-
-        if (projectError) {
-          console.error(`[Error] Failed to fetch project context for ${projectId}:`, projectError);
-          // Decide if this is fatal or just continue without context
-          projectContextString = `Error fetching project context: ${projectError.message}`;
-        } else if (projectData && projectData.full_script) { // Check correct column name
-          console.log(`[Trace] Successfully fetched script context for ${projectId}.`); // Log remains the same
-          projectContextString = `Current Project Script:\n---\n${projectData.full_script}\n---\n`; // Use correct column name
+        if (error) {
+          // Log the error but continue, informing the assistant
+          console.error(`[${new Date().toISOString()}] [Error] Supabase error fetching project context for ${projectId}:`, error);
+          projectContextString = `Error fetching project context: ${error.message}. `; // Add trailing space
         } else {
-          console.warn(`[Warn] Project ${projectId} found, but full_script is empty or missing.`); // Check correct column name
-          projectContextString = "Project context found, but the script appears to be empty.\n";
+          const projectData = projectArray?.[0];
+          if (projectData && projectData.full_script) {
+            console.log(`[${new Date().toISOString()}] [Runner Fetch Context] Successfully fetched script context for ${projectId}. Length: ${projectData.full_script.length}`);
+            projectContextString = `Current Project Script:\n---\n${projectData.full_script}\n---\n`;
+          } else if (projectData) {
+            console.warn(`[${new Date().toISOString()}] [Warn] Project ${projectId} found, but full_script is empty or missing.`);
+            projectContextString = "Project context found, but the script appears to be empty.\n";
+          } else {
+            console.warn(`[${new Date().toISOString()}] [Warn] Project ${projectId} not found or access denied during context fetch.`);
+            projectContextString = `Project context for ${projectId} not found or access denied.\n`;
+          }
         }
       } catch (fetchError) {
-         console.error(`[Error] Exception during project context fetch for ${projectId}:`, fetchError);
+         console.error(`[${new Date().toISOString()}] [Error] Exception during project context fetch for ${projectId}:`, fetchError);
          projectContextString = `Exception fetching project context: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}\n`;
       }
     } else {
-       console.log("[Trace] No projectId provided, proceeding without project context.");
+       console.log(`[${new Date().toISOString()}] [Runner Fetch Context] No projectId provided, proceeding without project context.`);
     }
 
     // 3. Add User Message (with context) to Thread
@@ -389,37 +393,37 @@ export async function runOrchestrator(
       ? `${projectContextString}\nUser Request:\n${userInput}`
       : userInput;
 
-    console.log(`[Trace] Adding message to Thread ID: ${currentThreadId}`);
+    console.log(`[${new Date().toISOString()}] [Runner Add Message] Adding message to Thread ID: ${currentThreadId}. Content length: ${messageContent.length}`);
     await openai.beta.threads.messages.create(currentThreadId, {
       role: "user",
       content: messageContent,
     });
-    console.log("[Trace] Message added.");
+    console.log(`[${new Date().toISOString()}] [Runner Add Message] Message added.`);
 
     // 4. Create a Run
-    console.log(`[Trace] Creating Run for Thread ID: ${currentThreadId} with Assistant ID: ${assistantId}`);
+    console.log(`[${new Date().toISOString()}] [Runner Create Run] Creating Run for Thread ID: ${currentThreadId} with Assistant ID: ${assistantId}`);
     let run = await openai.beta.threads.runs.create(currentThreadId, {
       assistant_id: assistantId,
-      // instructions: ORCHESTRATOR_INSTRUCTIONS, // Instructions are part of the Assistant definition now
-      // tools: [], // Tools are part of the Assistant definition now
     });
-    console.log(`[Trace] Run created with ID: ${run.id}`);
+    console.log(`[${new Date().toISOString()}] [Runner Create Run] Run created with ID: ${run.id}, Status: ${run.status}`);
 
     // 5. Poll for Run Completion (Handles requires_action)
     const terminalStates = ["completed", "failed", "cancelled", "expired"];
     const pollingStartTime = Date.now();
     const MAX_POLLING_DURATION_MS = 5 * 60 * 1000; // 5 minutes timeout for polling
 
+    console.log(`[${new Date().toISOString()}] [Runner Poll Run] Starting polling loop for Run ID: ${run.id}`);
     while (!terminalStates.includes(run.status)) {
       // Check for timeout
       if (Date.now() - pollingStartTime > MAX_POLLING_DURATION_MS) {
-        console.error(`[Error] Polling timed out for Run ID: ${run.id}`);
+        console.error(`[${new Date().toISOString()}] [Error] Polling timed out for Run ID: ${run.id} after ${MAX_POLLING_DURATION_MS}ms.`);
         // Attempt to cancel the run
         try {
+          console.log(`[${new Date().toISOString()}] [Runner Poll Run] Attempting to cancel timed-out Run ID: ${run.id}`);
           await openai.beta.threads.runs.cancel(currentThreadId, run.id);
-          console.log(`[Trace] Attempted to cancel timed-out Run ID: ${run.id}`);
+          console.log(`[${new Date().toISOString()}] [Runner Poll Run] Cancel request sent for timed-out Run ID: ${run.id}`);
         } catch (cancelError) {
-          console.error(`[Error] Failed to cancel timed-out Run ID: ${run.id}`, cancelError);
+          console.error(`[${new Date().toISOString()}] [Error] Failed to cancel timed-out Run ID: ${run.id}`, cancelError);
         }
         return {
           error: "Orchestrator run polling timed out.",
@@ -429,29 +433,34 @@ export async function runOrchestrator(
       }
 
       await delay(1000); // Wait 1 second
-      console.log(`[Trace] Polling Run ID: ${run.id}, Status: ${run.status}`);
+      console.log(`[${new Date().toISOString()}] [Runner Poll Run] Polling Run ID: ${run.id}...`);
       run = await openai.beta.threads.runs.retrieve(currentThreadId, run.id);
+      console.log(`[${new Date().toISOString()}] [Runner Poll Run] Retrieved Run ID: ${run.id}, Status: ${run.status}`);
 
       if (run.status === "requires_action") {
-        console.log(`[Trace] Run ${run.id} requires action (submit_tool_outputs).`);
+        console.log(`[${new Date().toISOString()}] [Runner Tool Call] Run ${run.id} requires action.`);
         if (run.required_action?.type === "submit_tool_outputs") {
+          console.log(`[${new Date().toISOString()}] [Runner Tool Call] Action type is 'submit_tool_outputs'. Processing ${run.required_action.submit_tool_outputs.tool_calls.length} tool call(s).`);
           const toolOutputs = [];
           const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
 
           for (const toolCall of toolCalls) {
             let output = "";
             const functionName = toolCall.function.name;
-            console.log(`[Trace] Processing tool call: ${functionName} (ID: ${toolCall.id})`);
+            console.log(`[${new Date().toISOString()}] [Runner Tool Call] --> Processing tool call: ${functionName} (Call ID: ${toolCall.id})`);
+            console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Arguments: ${toolCall.function.arguments}`); // Log arguments
 
             if (functionName === "getCurrentTime") {
+              console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executing ${functionName}...`);
               try {
                 output = new Date().toISOString();
-                console.log(`[Trace] Executed getCurrentTime. Output: ${output}`);
+                console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executed ${functionName}. Output: ${output}`);
               } catch (toolError) {
-                 console.error(`[Error] Error executing tool ${functionName}:`, toolError);
-                 output = `Error executing tool: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
+                 console.error(`[${new Date().toISOString()}] [Error] Error executing tool ${functionName} (Call ID: ${toolCall.id}):`, toolError);
+                 output = `Error executing tool ${functionName}: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
               }
             } else if (functionName === "generateImage") {
+              console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executing ${functionName}...`);
               try {
                 // Safely parse arguments
                 const args = JSON.parse(toolCall.function.arguments);
@@ -459,52 +468,52 @@ export async function runOrchestrator(
                 if (typeof prompt !== 'string') {
                   throw new Error("Invalid 'prompt' argument: not a string.");
                 }
-                console.log(`[Trace] Handling generateImage call with prompt: "${prompt}"`);
+                console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Handling generateImage call with prompt: "${prompt}"`);
                 // Simulate specialist invocation - replace with actual call later
                 output = `Image generation request received for prompt: '${prompt}'. Placeholder image URL: http://example.com/placeholder.png`;
-                console.log(`[Trace] Simulated generateImage output: ${output}`);
-              } catch (parseError) {
-                 console.error(`[Error] Failed to parse arguments for ${functionName}:`, toolCall.function.arguments, parseError);
-                 output = `Error processing ${functionName}: Invalid arguments provided. ${parseError instanceof Error ? parseError.message : String(parseError)}`;
+                console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Simulated generateImage output: ${output}`);
+              } catch (toolError) { // Changed variable name for consistency
+                 console.error(`[${new Date().toISOString()}] [Error] Error executing tool ${functionName} (Call ID: ${toolCall.id}):`, toolError);
+                 output = `Error executing tool ${functionName}: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
               }
             } else if (functionName === "get_project_details") {
+              console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executing ${functionName}...`);
               try {
-                // No arguments to parse for get_project_details
                 const currentProjectId = projectId; // Use projectId from runOrchestrator scope
                 if (!currentProjectId) {
                   throw new Error("No project context (projectId) available for get_project_details tool.");
                 }
-                console.log(`[Trace] Handling get_project_details call for current projectId: ${currentProjectId}`);
-                // Fetch project and its scenes. RLS should enforce user access.
-                // Ensure the Supabase client is initialized correctly with user's context if RLS depends on it,
-                // or use service_role key if this function is trusted to bypass RLS for internal operations.
-                // For now, assuming anon key + RLS policies are sufficient.
-                // Fetch all project columns and related scenes, ordering scenes inline
-                const { data, error } = await supabaseClient
+                console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Handling get_project_details call for current projectId: ${currentProjectId}`);
+
+                const { data: projectArray, error } = await supabaseClient
                   .from('canvas_projects')
                   .select(
-                    `*, canvas_scenes!left(id, scene_order, script, image_prompt, voice_over_text, created_at, order=scene_order.asc)` // Use LEFT join, scene_order, voice_over_text
+                    `*, canvas_scenes!left(id, scene_order, script, image_prompt, voice_over_text, created_at, order=scene_order.asc)`
                   )
-                  .eq('id', currentProjectId) // Use the projectId from the function scope
-                  .single(); // Use single() here as we expect exactly one project for the ID
+                  .eq('id', currentProjectId)
+                  .limit(1);
 
                 if (error) {
-                  console.error(`[Error] Supabase error fetching project ${currentProjectId}:`, error);
-                  // Provide a more informative error back to the assistant
+                  console.error(`[${new Date().toISOString()}] [Error] Supabase error in ${functionName} for ${currentProjectId}:`, error);
                   throw new Error(`Database error fetching project details: ${error.message}. Check RLS policies if access denied.`);
                 }
+
+                const data = projectArray?.[0];
+
                 if (!data) {
-                   // This case might be handled by RLS or the project simply doesn't exist
-                   throw new Error(`Project with ID ${currentProjectId} not found or access denied.`);
+                   console.warn(`[${new Date().toISOString()}] [Warn] ${functionName}: Project with ID ${currentProjectId} not found or access denied.`);
+                   output = `Project with ID ${currentProjectId} could not be found or accessed. Please ensure the ID is correct and you have permissions.`;
+                } else {
+                  output = JSON.stringify(data);
+                  console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executed ${functionName}. Output length: ${output.length}`);
                 }
-                output = JSON.stringify(data); // Return the fetched data as JSON string
-                console.log(`[Trace] Executed get_project_details. Output length: ${output.length}`);
 
               } catch (toolError) {
-                console.error(`[Error] Error executing tool ${functionName}:`, toolError);
+                console.error(`[${new Date().toISOString()}] [Error] Error executing tool ${functionName} (Call ID: ${toolCall.id}):`, toolError);
                 output = `Error executing tool ${functionName}: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
               }
             } else if (functionName === "update_project_script") {
+              console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executing ${functionName}...`);
               try {
                 const args = JSON.parse(toolCall.function.arguments);
                 const toolProjectId = args.projectId;
@@ -512,169 +521,159 @@ export async function runOrchestrator(
                 if (!toolProjectId || typeof toolProjectId !== 'string') {
                   throw new Error("Missing or invalid 'projectId' argument.");
                 }
-                 if (typeof newScript !== 'string') { // Allow empty script by checking type only
+                 if (typeof newScript !== 'string') {
                   throw new Error("Missing or invalid 'newScript' argument (must be a string).");
                 }
-                console.log(`[Trace] Handling update_project_script call for projectId: ${toolProjectId}`);
+                console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Handling update_project_script call for projectId: ${toolProjectId}`);
 
-                // Update the script. RLS should enforce ownership.
-                // Ensure the Supabase client used here operates under the correct user context for RLS.
                 const { error } = await supabaseClient
                   .from('canvas_projects')
-                  .update({ full_script: newScript, updated_at: new Date().toISOString() }) // Also update timestamp
-                  .eq('id', toolProjectId); // Match the project ID
-                  // RLS policy MUST implicitly handle the user_id check based on the authenticated user
+                  .update({ full_script: newScript, updated_at: new Date().toISOString() })
+                  .eq('id', toolProjectId);
 
                 if (error) {
-                  console.error(`[Error] Supabase error updating script for ${toolProjectId}:`, error);
+                  console.error(`[${new Date().toISOString()}] [Error] Supabase error in ${functionName} for ${toolProjectId}:`, error);
                   throw new Error(`Database error updating script: ${error.message}. Check RLS policies if access denied.`);
                 }
 
                 output = `Successfully updated script for project ${toolProjectId}.`;
-                console.log(`[Trace] Executed update_project_script.`);
+                console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executed ${functionName}.`);
 
               } catch (toolError) {
-                // Log the full error object for more details
-                console.error(`[Error] Detailed error executing tool ${functionName}:`, JSON.stringify(toolError, null, 2));
-                // Keep the original user-facing output message
+                console.error(`[${new Date().toISOString()}] [Error] Error executing tool ${functionName} (Call ID: ${toolCall.id}):`, toolError);
                 output = `Error executing tool ${functionName}: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
               }
             } else if (functionName === "add_scene") {
+               console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executing ${functionName}...`);
                try {
                  const args = JSON.parse(toolCall.function.arguments);
                  const toolProjectId = args.projectId;
                  const sceneNumber = args.sceneNumber;
-                 // Validate required fields
                  if (!toolProjectId || typeof toolProjectId !== 'string') {
                    throw new Error("Missing or invalid 'projectId' argument.");
                  }
                  if (typeof sceneNumber !== 'number') {
                     throw new Error("Missing or invalid 'sceneNumber' argument.");
                  }
-                 console.log(`[Trace] Handling add_scene call for projectId: ${toolProjectId}, sceneNumber: ${sceneNumber}`);
+                 console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Handling add_scene call for projectId: ${toolProjectId}, sceneNumber: ${sceneNumber}`);
 
-                 // Prepare scene data, including optional fields
                  const sceneData: any = {
                     project_id: toolProjectId,
                     scene_number: sceneNumber,
-                    script: args.script || "", // Default to empty string if not provided
+                    script: args.script || "",
                     image_prompt: args.imagePrompt || "",
                     voiceover: args.voiceover || ""
-                    // user_id will be set by RLS policy or default value based on the authenticated user
                  };
 
                  const { data: newScene, error } = await supabaseClient
                    .from('canvas_scenes')
                    .insert(sceneData)
-                   .select('id') // Select only the ID of the newly created scene
-                   .single(); // Expecting a single row back
+                   .select('id')
+                   .single(); // single() is appropriate for insert returning ID
 
                  if (error) {
-                   console.error(`[Error] Supabase error adding scene to project ${toolProjectId}:`, error);
+                   console.error(`[${new Date().toISOString()}] [Error] Supabase error in ${functionName} for project ${toolProjectId}:`, error);
                    throw new Error(`Database error adding scene: ${error.message}. Check RLS policies.`);
                  }
 
                  output = `Successfully added new scene (ID: ${newScene?.id}) to project ${toolProjectId}.`;
-                 console.log(`[Trace] Executed add_scene.`);
+                 console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executed ${functionName}. New Scene ID: ${newScene?.id}`);
 
                } catch (toolError) {
-                 console.error(`[Error] Error executing tool ${functionName}:`, toolError);
+                 console.error(`[${new Date().toISOString()}] [Error] Error executing tool ${functionName} (Call ID: ${toolCall.id}):`, toolError);
                  output = `Error executing tool ${functionName}: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
                }
             } else if (functionName === "update_scene_script") {
+               console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executing ${functionName}...`);
                try {
                  const args = JSON.parse(toolCall.function.arguments);
                  const sceneId = args.sceneId;
                  const newScript = args.newScript;
-                 // Validate required fields
                  if (!sceneId || typeof sceneId !== 'string') {
                    throw new Error("Missing or invalid 'sceneId' argument.");
                  }
                  if (typeof newScript !== 'string') {
                    throw new Error("Missing or invalid 'newScript' argument (must be a string).");
                  }
-                 console.log(`[Trace] Handling update_scene_script call for sceneId: ${sceneId}`);
+                 console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Handling update_scene_script call for sceneId: ${sceneId}`);
 
                  const { error } = await supabaseClient
                    .from('canvas_scenes')
                    .update({ script: newScript, updated_at: new Date().toISOString() })
                    .eq('id', sceneId);
-                   // RLS policy must ensure user owns the project this scene belongs to
 
                  if (error) {
-                   console.error(`[Error] Supabase error updating script for scene ${sceneId}:`, error);
+                   console.error(`[${new Date().toISOString()}] [Error] Supabase error in ${functionName} for scene ${sceneId}:`, error);
                    throw new Error(`Database error updating scene script: ${error.message}. Check RLS policies.`);
                  }
 
                  output = `Successfully updated script for scene ${sceneId}.`;
-                 console.log(`[Trace] Executed update_scene_script.`);
+                 console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executed ${functionName}.`);
 
                } catch (toolError) {
-                 console.error(`[Error] Error executing tool ${functionName}:`, toolError);
+                 console.error(`[${new Date().toISOString()}] [Error] Error executing tool ${functionName} (Call ID: ${toolCall.id}):`, toolError);
                  output = `Error executing tool ${functionName}: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
                }
             } else if (functionName === "update_scene_image_prompt") { // Add handler for new tool
+               console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executing ${functionName}...`);
                try {
                  const args = JSON.parse(toolCall.function.arguments);
                  const sceneId = args.sceneId;
                  const newImagePrompt = args.newImagePrompt;
-                 // Validate required fields
                  if (!sceneId || typeof sceneId !== 'string') {
                    throw new Error("Missing or invalid 'sceneId' argument.");
                  }
                  if (typeof newImagePrompt !== 'string') {
                    throw new Error("Missing or invalid 'newImagePrompt' argument (must be a string).");
                  }
-                 console.log(`[Trace] Handling update_scene_image_prompt call for sceneId: ${sceneId}`);
+                 console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Handling update_scene_image_prompt call for sceneId: ${sceneId}`);
 
                  const { error } = await supabaseClient
                    .from('canvas_scenes')
                    .update({ image_prompt: newImagePrompt, updated_at: new Date().toISOString() })
                    .eq('id', sceneId);
-                   // RLS policy must ensure user owns the project this scene belongs to
 
                  if (error) {
-                   console.error(`[Error] Supabase error updating image prompt for scene ${sceneId}:`, error);
+                   console.error(`[${new Date().toISOString()}] [Error] Supabase error in ${functionName} for scene ${sceneId}:`, error);
                    throw new Error(`Database error updating scene image prompt: ${error.message}. Check RLS policies.`);
                  }
 
                  output = `Successfully updated image prompt for scene ${sceneId}.`;
-                 console.log(`[Trace] Executed update_scene_image_prompt.`);
+                 console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executed ${functionName}.`);
 
                } catch (toolError) {
-                 console.error(`[Error] Error executing tool ${functionName}:`, toolError);
+                 console.error(`[${new Date().toISOString()}] [Error] Error executing tool ${functionName} (Call ID: ${toolCall.id}):`, toolError);
                  output = `Error executing tool ${functionName}: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
                }
             } else if (functionName === "delete_scene") { // Add handler for new tool
+               console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executing ${functionName}...`);
                try {
                  const args = JSON.parse(toolCall.function.arguments);
                  const sceneId = args.sceneId;
-                 // Validate required fields
                  if (!sceneId || typeof sceneId !== 'string') {
                    throw new Error("Missing or invalid 'sceneId' argument.");
                  }
-                 console.log(`[Trace] Handling delete_scene call for sceneId: ${sceneId}`);
+                 console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Handling delete_scene call for sceneId: ${sceneId}`);
 
                  const { error } = await supabaseClient
                    .from('canvas_scenes')
                    .delete()
                    .eq('id', sceneId);
-                   // RLS policy must ensure user owns the project this scene belongs to
 
                  if (error) {
-                   console.error(`[Error] Supabase error deleting scene ${sceneId}:`, error);
+                   console.error(`[${new Date().toISOString()}] [Error] Supabase error in ${functionName} for scene ${sceneId}:`, error);
                    throw new Error(`Database error deleting scene: ${error.message}. Check RLS policies.`);
                  }
 
                  output = `Successfully deleted scene ${sceneId}.`;
-                 console.log(`[Trace] Executed delete_scene.`);
+                 console.log(`[${new Date().toISOString()}] [Runner Tool Call]     Executed ${functionName}.`);
 
                } catch (toolError) {
-                 console.error(`[Error] Error executing tool ${functionName}:`, toolError);
+                 console.error(`[${new Date().toISOString()}] [Error] Error executing tool ${functionName} (Call ID: ${toolCall.id}):`, toolError);
                  output = `Error executing tool ${functionName}: ${toolError instanceof Error ? toolError.message : String(toolError)}`;
                }
             } else {
-              console.warn(`[Warn] Unsupported tool called: ${functionName}`);
+              console.warn(`[${new Date().toISOString()}] [Warn] Unsupported tool called: ${functionName} (Call ID: ${toolCall.id})`);
               output = `Tool '${functionName}' is not supported by this runner.`;
             }
 
@@ -686,82 +685,91 @@ export async function runOrchestrator(
 
           // Submit tool outputs
           try {
-            console.log(`[Trace] Submitting ${toolOutputs.length} tool output(s) for Run ID: ${run.id}...`);
+            console.log(`[${new Date().toISOString()}] [Runner Submit Outputs] Submitting ${toolOutputs.length} tool output(s) for Run ID: ${run.id}...`);
+            // Log the outputs being submitted
+            console.log(`[${new Date().toISOString()}] [Runner Submit Outputs] Outputs:`, JSON.stringify(toolOutputs));
             run = await openai.beta.threads.runs.submitToolOutputs(currentThreadId, run.id, {
               tool_outputs: toolOutputs,
             });
-            console.log(`[Trace] Tool outputs submitted. New Run status: ${run.status}`);
+            console.log(`[${new Date().toISOString()}] [Runner Submit Outputs] Tool outputs submitted. New Run status: ${run.status}`);
             // Continue polling immediately after submitting
             continue;
           } catch (submitError) {
-            console.error(`[Error] Failed to submit tool outputs for Run ID: ${run.id}:`, submitError);
-            // Decide how to handle submission failure - maybe retry or fail the run?
-            // For now, let's fail the run.
+            console.error(`[${new Date().toISOString()}] [Error] Failed to submit tool outputs for Run ID: ${run.id}:`, submitError);
             return {
               error: "Failed to submit tool outputs to the Assistant.",
               details: submitError instanceof Error ? submitError.message : String(submitError),
-              threadId: currentThreadId,
+              threadId: currentThreadId, // Return threadId even on error
             };
           }
         } else {
-           console.warn(`[Warn] Run ${run.id} requires an unhandled action type: ${run.required_action?.type}`);
-           // Decide how to handle unexpected action types. Fail the run for now.
+           console.warn(`[${new Date().toISOString()}] [Warn] Run ${run.id} requires an unhandled action type: ${run.required_action?.type}`);
            return {
              error: "Orchestrator run requires an unhandled action.",
              details: `Required action type: ${run.required_action?.type}`,
-             threadId: currentThreadId,
+             threadId: currentThreadId, // Return threadId even on error
            };
         }
       }
     }
 
-    console.log(`[Trace] Run finished with status: ${run.status}`);
+    console.log(`[${new Date().toISOString()}] [Runner Poll Run] Polling loop finished. Final Run status: ${run.status}`);
 
     // 6. Process Final Run Status
     if (run.status === "completed") {
-      console.log("[Trace] Run completed. Fetching latest message...");
+      console.log(`[${new Date().toISOString()}] [Runner Get Response] Run completed. Fetching latest messages from Thread ID: ${currentThreadId}...`);
       const messages = await openai.beta.threads.messages.list(currentThreadId, {
-        order: "desc",
-        limit: 1,
+        order: "desc", // Get the latest messages first
+        limit: 5,      // Fetch a few messages to be safe
       });
+      console.log(`[${new Date().toISOString()}] [Runner Get Response] Fetched ${messages.data.length} messages.`);
 
-      const assistantMessage = messages.data.find((m: ThreadMessage) => m.role === 'assistant');
+      // Find the latest assistant message with text content
+      const latestAssistantMessage = messages.data.find(
+          (m: ThreadMessage) => m.role === 'assistant' && m.content[0]?.type === 'text'
+      );
 
-      if (assistantMessage && assistantMessage.content[0]?.type === 'text') {
-        const responseText = assistantMessage.content[0].text.value;
-        console.log("[Trace] Assistant response extracted.");
+      if (latestAssistantMessage && latestAssistantMessage.content[0]?.type === 'text') {
+        const responseText = latestAssistantMessage.content[0].text.value;
+        console.log(`[${new Date().toISOString()}] [Runner Get Response] Assistant response extracted. Length: ${responseText.length}`);
         return {
           response: responseText,
           threadId: currentThreadId,
         };
       } else {
-        console.error("[Error] No suitable text message found from assistant.");
+        console.error(`[${new Date().toISOString()}] [Error] No suitable text message found from assistant in the last ${messages.data.length} messages.`);
+        // Log the content types found for debugging
+        messages.data.forEach((m: ThreadMessage, index: number) => { // Add explicit types
+            console.error(`[${new Date().toISOString()}] [Error] Message ${index}: Role=${m.role}, ContentType=${m.content[0]?.type}`);
+        });
         return {
           error: "Assistant finished but no text response was found.",
-          threadId: currentThreadId,
+          threadId: currentThreadId, // Return threadId even on error
         };
       }
     } else {
       // Handle failed, cancelled, expired states
-      console.error(`[Error] Run ended with non-completed status: ${run.status}`);
-      const errorDetails = run.last_error ? `${run.last_error.code}: ${run.last_error.message}` : 'No error details provided.';
+      console.error(`[${new Date().toISOString()}] [Error] Run ended with non-completed status: ${run.status}. Run ID: ${run.id}`);
+      const errorDetails = run.last_error ? `${run.last_error.code}: ${run.last_error.message}` : 'No specific error details provided by API.';
+      console.error(`[${new Date().toISOString()}] [Error Details] ${errorDetails}`);
       return {
         error: `Orchestrator run failed or ended unexpectedly.`,
         details: `Status: ${run.status}. ${errorDetails}`,
-        threadId: currentThreadId,
+        threadId: currentThreadId, // Return threadId even on error
       };
     }
 
   } catch (error) {
-    console.error("[Error] Exception during orchestrator execution:", error);
+    console.error(`[${new Date().toISOString()}] [FATAL ERROR] Exception during orchestrator execution in runner.ts:`, error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-    // Include stack trace in logs if available and helpful for debugging
+    // Include stack trace in logs if available
     if (error instanceof Error && error.stack) {
-        console.error("[Error Stack Trace]:", error.stack);
+        console.error(`[${new Date().toISOString()}] [FATAL ERROR Stack Trace]:`, error.stack);
     }
     return {
       error: "Orchestrator execution failed due to an exception.",
       details: errorMessage,
+      threadId: currentThreadId ?? undefined, // Return threadId if available
     };
   }
 }

@@ -1,5 +1,11 @@
 // src/types/canvas.ts (Corrected Content)
 
+export interface ProjectAsset {
+  url: string;
+  type: 'image' | 'video' | 'audio'; // Define allowed asset types
+  name: string; // Original file name
+}
+
 export interface CanvasProject {
   id: string;
   title: string;
@@ -7,6 +13,7 @@ export interface CanvasProject {
   final_video_url: string | null;
   full_script: string | null;
   main_product_image_url: string | null;
+  project_assets?: ProjectAsset[] | null; // Add the new field (optional for backward compatibility)
   user_id: string; // Matches DB schema
   created_at: string; // Matches DB schema
   updated_at: string; // Matches DB schema
@@ -47,6 +54,10 @@ export interface CanvasScene {
   voiceOverText?: string; // Already exists in DB schema as voice_over_text
   voiceOverUrl?: string; // Already exists in DB schema as voice_over_url
   sceneOrder?: number; // Keep normalized field if used
+  scene_image_v1_url?: string | null; // Add V1 snake_case
+  sceneImageV1Url?: string; // Add V1 camelCase
+  scene_image_v2_url?: string | null; // Add V2 snake_case
+  sceneImageV2Url?: string; // Add V2 camelCase
 }
 
 export type WorkflowStage =

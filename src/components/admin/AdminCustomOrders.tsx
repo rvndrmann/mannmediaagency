@@ -83,7 +83,8 @@ export const AdminCustomOrders = () => {
       let query = supabase
         .from('custom_orders')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000); // Explicitly set a high limit
       
       if (statusFilter !== "all") {
         query = query.eq('status', statusFilter);

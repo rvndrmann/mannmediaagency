@@ -23,58 +23,34 @@ import AdminTaskManagement from "./pages/AdminTaskManagement"; // Import the new
 import Plans from "./pages/Plans"; // Import the Plans component
 import Payment from "./pages/Payment"; // Import the Payment component
 // import WorkerTasks from "./pages/WorkerTasks"; // Removed import
-import { useAuth } from "./hooks/use-auth"; // Import useAuth hook
-import { supabase } from "./integrations/supabase/client"; // Import supabase client
-import { useEffect, useState } from "react"; // Import React hooks
+import { useUser } from "./hooks/use-user"; // Import useUser hook instead of useAuth
+// import { supabase } from "./integrations/supabase/client"; // No longer needed here
+import { useEffect, useState } from "react"; // Import React hooks (useState might not be needed anymore)
 import { Button } from "./components/ui/button"; // For potential access denied message
 
 // Helper component for protected admin routes
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading: authLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Use useUser hook to get user, isAdmin status, and loading state
+  const { user, isAdmin, isLoading } = useUser();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (!user) {
-        // If no user is logged in after auth check, they are not admin
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-      // Only proceed if we have a user object
-      try {
-        setLoading(true); // Ensure loading state is true while checking
-        const { data, error } = await supabase.rpc('check_is_admin');
-        if (error) {
-          console.error("Error checking admin status:", error);
-          setIsAdmin(false);
-        } else {
-          setIsAdmin(!!data); // Set admin status based on RPC result
-        }
-      } catch (error) {
-        console.error("Error checking admin status:", error);
-        setIsAdmin(false); // Assume not admin on error
-      } finally {
-        setLoading(false); // Set loading to false after check completes
-      }
-    };
+  // Removed the useEffect and useState for local isAdmin/loading,
+  // as we get this directly from the useUser hook now.
 
-    // Only run the check when auth loading is finished
-    if (!authLoading) {
-      checkAdminStatus();
-    }
-  }, [user, authLoading]); // Dependencies: user object and auth loading state
-
-  // Show loading indicator while auth or admin check is in progress
-  if (authLoading || loading) {
+  // Show loading indicator while useUser is loading
+  if (isLoading) {
     // Optional: Add a more sophisticated loading spinner here
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
   // If loading is finished and user is not admin (or not logged in), show access denied
+  // Also check if user exists, otherwise non-logged in users might see the denied message briefly
   if (!isAdmin) {
+    // First, check if the user is logged in at all. If not, redirect to login.
+    if (!user) {
+      return <Navigate to="/auth/login" replace />;
+    }
+    // If the user is logged in but is not an admin, show the Access Denied message.
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
         <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
@@ -119,18 +95,18 @@ function App() {
           {/* Main routes */}
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Index />} />
-          {/* Added optional projectId parameter */}
-          <Route path="/multi-agent-chat/:projectId?" element={<MultiAgentChatPageWrapper />} />
-          <Route path="/canvas" element={<Canvas />} />
-          <Route path="/canvas/:projectId" element={<Canvas />} />
-          <Route path="/product-shoot" element={<ProductShot />} />
-          <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
-          <Route path="/image-to-video" element={<ImageToVideo />} />
+          {/* Added optional projectId parameter & AdminRoute */}
+          <Route path="/multi-agent-chat/:projectId?" element={<AdminRoute><MultiAgentChatPageWrapper /></AdminRoute>} />
+          <Route path="/canvas" element={<AdminRoute><Canvas /></AdminRoute>} />
+          <Route path="/canvas/:projectId" element={<AdminRoute><Canvas /></AdminRoute>} />
+          <Route path="/product-shoot" element={<AdminRoute><ProductShot /></AdminRoute>} />
+          <Route path="/product-shoot-v2" element={<AdminRoute><ProductShootV2 /></AdminRoute>} />
+          <Route path="/image-to-video" element={<AdminRoute><ImageToVideo /></AdminRoute>} />
           <Route path="/browser-use" element={<AdminRoute><BrowserUse /></AdminRoute>} />
-          <Route path="/trace-analytics" element={<TraceAnalytics />} />
-          <Route path="/custom-orders" element={<CustomOrders />} />
-          <Route path="/video-projects" element={<VideoProjectPage />} />
-          <Route path="/video-projects/:projectId" element={<VideoProjectPage />} />
+          <Route path="/trace-analytics" element={<AdminRoute><TraceAnalytics /></AdminRoute>} />
+          <Route path="/custom-orders" element={<CustomOrders />} /> {/* Public */}
+          <Route path="/video-projects" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
+          <Route path="/video-projects/:projectId" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
           <Route path="/plans" element={<Plans />} /> {/* Add the route for the plans page */}
 
           {/* Admin routes */}

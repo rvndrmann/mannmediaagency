@@ -275,12 +275,15 @@ export const Navigation = () => {
     comingSoon: true,
   };
 
+  // Define allowed item names for non-admins
+  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings"];
+
   // Construct mainNavigation based on user loading state and admin status
   const mainNavigation: NavigationItem[] = isUserLoading
-    ? combinedNavigation // Show base items while loading
+    ? baseNavigation.filter(item => nonAdminAllowedNames.includes(item.name)) // Show filtered base items while loading
     : isAdmin
-      ? [...combinedNavigation, browserWorkerItem, traceAnalyticsItem, adminItem, adminTasksItem, integrationsItem] // Add all admin items if admin
-      : [...combinedNavigation, integrationsItem]; // Only add non-admin items otherwise
+      ? [...combinedNavigation, browserWorkerItem, traceAnalyticsItem, adminItem, adminTasksItem, integrationsItem] // If admin (and not loading), show all combined + admin items
+      : [...baseNavigation.filter(item => nonAdminAllowedNames.includes(item.name)), integrationsItem]; // If not admin (and not loading), show filtered base items + integrations
 
   const legalNavigation: BaseNavigationItem[] = [
     {
@@ -316,7 +319,9 @@ export const Navigation = () => {
   const hasComingSoon = (item: NavigationItem): boolean => {
     return 'comingSoon' in item && item.comingSoon === true;
   };
-
+ 
+  // Removed debug logs
+ 
   return (
     <>
       <Button

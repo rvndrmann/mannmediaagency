@@ -7,9 +7,11 @@ export const useUser = () => {
   const [userCredits, setUserCredits] = useState<{ credits_remaining: number } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // const ADMIN_EMAIL = "rvndr.mann@gmail.com"; // Remove admin email constant
 
-  // Define checkAdminStatus within the hook's scope
+  // Restore checkAdminStatus function
   const checkAdminStatus = useCallback(async (userId: string | undefined) => {
+    // Removed debug logs
     if (!userId) return false;
     try {
       const { data, error, count } = await supabase
@@ -27,7 +29,6 @@ export const useUser = () => {
       return false;
     }
   }, []); // useCallback dependency array is empty as supabase client is stable
-
   // Define fetchCredits within the hook's scope
   const fetchCredits = useCallback(async (userId: string | undefined) => {
      if (!userId) {
@@ -66,10 +67,12 @@ export const useUser = () => {
         if (isMounted) {
           setUser(currentUser);
           if (currentUser) {
+            // Call checkAdminStatus and set state
             const adminStatus = await checkAdminStatus(currentUser.id);
             if (isMounted) setIsAdmin(adminStatus);
             await fetchCredits(currentUser.id);
           } else {
+             // If no user, not admin
              setIsAdmin(false);
              setUserCredits(null);
           }
@@ -78,7 +81,7 @@ export const useUser = () => {
         console.error("Error fetching initial user data:", error);
          if (isMounted) {
              setUser(null);
-             setIsAdmin(false);
+             setIsAdmin(false); // Reset admin status on error
              setUserCredits(null);
          }
       } finally {
@@ -97,10 +100,12 @@ export const useUser = () => {
       setUser(currentUser);
 
       if (currentUser) {
+        // Call checkAdminStatus on auth change
         const adminStatus = await checkAdminStatus(currentUser.id);
          if (isMounted) setIsAdmin(adminStatus);
         await fetchCredits(currentUser.id);
       } else {
+         // If no user, not admin
          if (isMounted) {
              setIsAdmin(false);
              setUserCredits(null);
@@ -115,7 +120,7 @@ export const useUser = () => {
       isMounted = false; // Set flag on unmount
       authListener?.subscription?.unsubscribe();
     };
-  }, [checkAdminStatus, fetchCredits, isLoading]); // Add dependencies
+  }, [checkAdminStatus, fetchCredits]); // Removed isLoading from dependencies
 
   return { user, userCredits, isAdmin, isLoading };
 };

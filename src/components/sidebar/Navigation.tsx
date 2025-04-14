@@ -223,8 +223,15 @@ export const Navigation = () => {
     },
     {
       name: "Profile Settings",
-      to: "/profile",
+      to: "/settings", // Updated path to match the new route
       icon: User,
+    },
+    {
+      name: "Chat",
+      subtext: "Chat with Admin",
+      to: "/chat",
+      icon: MessageSquare,
+      current: location.pathname === "/chat",
     },
   ];
 

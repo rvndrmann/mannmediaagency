@@ -13,7 +13,7 @@ interface ChatInputProps {
   input: string;
   isLoading: boolean;
   onInputChange: (value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent, userRole: 'user' | 'admin') => void; // Modified onSubmit prop
   useAssistantsApi?: boolean;
   setUseAssistantsApi?: (value: boolean) => void;
   useMcp?: boolean;
@@ -22,12 +22,12 @@ interface ChatInputProps {
   onAttachmentAdd?: (attachments: Attachment[]) => void;
   onAttachmentRemove?: (id: string) => void;
   showAttachmentButton?: boolean;
-}
-
-export const ChatInput = ({ 
+  userRole: 'user' | 'admin'; // Add userRole prop
+}; // Add semicolon here
+export const ChatInput = ({
   input = '', // Provide default empty string
-  isLoading, 
-  onInputChange, 
+  isLoading,
+  onInputChange,
   onSubmit,
   useAssistantsApi = false,
   setUseAssistantsApi = () => {},
@@ -36,7 +36,8 @@ export const ChatInput = ({
   attachments = [],
   onAttachmentAdd,
   onAttachmentRemove,
-  showAttachmentButton = false
+  showAttachmentButton = false,
+  userRole, // Add userRole to props
 }: ChatInputProps) => {
   const MAX_WORDS = 350;
 
@@ -72,7 +73,7 @@ export const ChatInput = ({
     // Only submit if there's input or attachments and not already loading
     if (!isLoading && ((input && input.trim() !== '') || (attachments && attachments.length > 0))) {
       // Call the onSubmit handler with the event
-      onSubmit(e as any);
+      onSubmit(e as any, userRole);
     }
   };
 
@@ -80,7 +81,7 @@ export const ChatInput = ({
     <form onSubmit={(e) => {
       e.preventDefault();
       if (!isLoading && ((input && input.trim() !== '') || (attachments && attachments.length > 0))) {
-        onSubmit(e);
+        onSubmit(e, userRole);
       }
     }} className="space-y-1 w-full">
       {attachments.length > 0 && (

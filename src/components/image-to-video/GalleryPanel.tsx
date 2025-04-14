@@ -51,7 +51,7 @@ export function GalleryPanel({
         "w-full",
         isMobile ? "h-[calc(100vh-16rem)]" : "h-[calc(100vh-3rem)]"
       )}>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
           {isLoading ? (
             <div className="col-span-2 md:col-span-3 flex items-center justify-center h-32">
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />

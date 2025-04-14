@@ -24,6 +24,9 @@ import Plans from "./pages/Plans"; // Import the Plans component
 import Payment from "./pages/Payment"; // Import the Payment component
 // import WorkerTasks from "./pages/WorkerTasks"; // Removed import
 import { useUser } from "./hooks/use-user"; // Import useUser hook instead of useAuth
+import { ChatPage } from "./pages/ChatPage"; // Import ChatPage component
+import ProfileSettings from "./pages/ProfileSettings"; // Import ProfileSettings page
+import ProtectedRoute from "./components/auth/ProtectedRoute"; // Import ProtectedRoute component
 // import { supabase } from "./integrations/supabase/client"; // No longer needed here
 import { useEffect, useState } from "react"; // Import React hooks (useState might not be needed anymore)
 import { Button } from "./components/ui/button"; // For potential access denied message
@@ -108,6 +111,7 @@ function App() {
           <Route path="/video-projects" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
           <Route path="/video-projects/:projectId" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
           <Route path="/plans" element={<Plans />} /> {/* Add the route for the plans page */}
+          <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} /> {/* Add the route for profile settings */}
 
           {/* Admin routes */}
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
@@ -125,6 +129,7 @@ function App() {
           <Route path="/payment" element={<Payment />} /> {/* Add the route for the payment page */}
           
           {/* Fallback route for 404 */}
+          <Route path="/chat" element={<ChatPage />} />
           <Route path="/not-found" element={<NotFound />} />
           <Route path="*" element={<Navigate to="/not-found" replace />} />
         </Routes>

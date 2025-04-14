@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import type { Database } from '@/types/supabase'; // Use generated types
 
 // Read Supabase credentials from Vite environment variables
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;

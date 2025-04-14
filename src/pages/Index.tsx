@@ -29,7 +29,7 @@ const Index: React.FC = () => {
         {session ? (
           <div className="flex h-screen overflow-hidden">
             {!isMobile && <Sidebar />}
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto p-4 md:p-6">
               <Dashboard />
             </main>
           </div>

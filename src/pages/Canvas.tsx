@@ -227,56 +227,43 @@ export default function Canvas() {
         />
 
         {/* Main content area - Side-by-side layout */}
-        <main className="flex flex-1 overflow-hidden border-t"> {/* Added border-t */}
+        <main className="flex flex-col md:flex-row flex-1 overflow-hidden border-t">
 
           {/* Left Panel: Scene List (using CanvasWorkspaceAdapter) */}
-          {/* Using w-1/3, adjust as needed. Added flex structure for scrolling */}
-          <div className="w-1/3 border-r flex flex-col overflow-hidden">
-             {/* Optional Header for Scene List */}
-             {/* <div className="p-3 border-b flex-shrink-0">
-               <h3 className="font-medium text-sm">Scenes</h3>
-             </div> */}
-             <div className="flex-1 overflow-y-auto"> {/* Scrollable container */}
-               {/* CanvasWorkspaceAdapter is assumed to render the scene list and handle selection */}
+          <div className="md:w-1/3 border-r flex flex-col overflow-hidden">
+             <div className="flex-1 overflow-y-auto">
                <CanvasWorkspaceAdapter
-                 scenes={scenes} // Pass scenes state down
+                 scenes={scenes}
                  project={project}
-                 // scenes={scenes} // Removed: Adapter likely gets scenes from project prop or context
-                 selectedScene={selectedScene} // Pass selected scene for highlighting
-                 selectedSceneId={selectedSceneId} // Pass selected ID
-                 setSelectedSceneId={setSelectedSceneId} // Pass the setter to handle clicks
+                 selectedScene={selectedScene}
+                 selectedSceneId={selectedSceneId}
+                 setSelectedSceneId={setSelectedSceneId}
                  mainImageUrl={project?.main_product_image_url}
-                 // Pass necessary actions for scene management within the list
                  addScene={async () => { await addScene(); }}
                  updateScene={updateScene}
                  deleteScene={handleDeleteScene}
-                 // Re-adding props required by CanvasWorkspaceAdapterProps, even if UI is different
-                 // Wrap functions to match expected void promises if necessary (based on original code)
                  divideScriptToScenes={async (script: string) => { await divideScriptToScenes(script); }}
                  saveFullScript={async (script: string) => { await saveFullScript(script); }}
                  createNewProject={createNewProject}
                  updateProjectTitle={async (title: string) => { await updateProjectTitle(title); }}
-                 updateMainImageUrl={updateMainImageUrl}
-                 updateProject={updateProjectAction} // Pass the project update action
-                 updateProjectAssets={updateProjectAssets} // Pass the new function down
+                 updateMainImageUrl={(imageUrl: string) => { updateMainImageUrl(imageUrl); }}
+                 updateProject={updateProjectAction}
+                 updateProjectAssets={updateProjectAssets}
                />
              </div>
           </div>
 
           {/* Right Panel: Scene Details / Media */}
-          <div className="flex-1 flex flex-col overflow-hidden bg-muted/30"> {/* Added bg color */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-muted/30">
             {selectedScene ? (
-              // Render SceneDetailPanel when a scene is selected
-              // CanvasDetailPanelAdapter internally handles its scrolling now
               <CanvasDetailPanelAdapter
                 scene={selectedScene}
-                project={project} // Already passing project
-                projects={projects} // Pass projects list
+                project={project}
+                projects={projects}
                 projectId={project?.id || ''}
-                updateScene={updateScene} // Pass updateScene for editing within the panel
+                updateScene={updateScene}
               />
             ) : (
-              // Placeholder when no scene is selected
               <div className="flex items-center justify-center h-full text-muted-foreground p-4 text-center">
                 <p>Select a scene from the list to view details and edit assets.</p>
               </div>

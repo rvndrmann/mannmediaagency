@@ -64,7 +64,7 @@ export function InputPanel({
   const formattedMessages = ensureGlobalMessages(messages);
   
   return (
-    <div className="flex flex-col h-full bg-[#1A1F2C] border-r border-gray-800">
+    <div className="flex flex-col h-full bg-[#1A1F2C] border-r border-gray-800 p-4 md:p-6">
       <ScrollArea className="flex-1 pb-32">
         <div className="p-6 space-y-6">
           {!isMobile && (

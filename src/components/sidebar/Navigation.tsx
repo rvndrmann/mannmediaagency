@@ -217,6 +217,13 @@ export const Navigation = () => {
       icon: Film,
     },
     {
+      name: "Product Video",
+      subtext: "Create Videos from Products",
+      to: "/create-video",
+      icon: Film, // Using Film icon as Video icon wasn't imported
+      current: location.pathname === "/create-video",
+    },
+    {
       name: "Plans & Billing",
       to: "/plans",
       icon: CreditCard,
@@ -283,7 +290,7 @@ export const Navigation = () => {
   };
 
   // Define allowed item names for non-admins
-  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings"];
+  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings", "Product Video"];
 
   // Construct mainNavigation based on user loading state and admin status
   const mainNavigation: NavigationItem[] = isUserLoading

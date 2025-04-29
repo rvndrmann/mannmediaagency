@@ -25,6 +25,7 @@ import Payment from "./pages/Payment"; // Import the Payment component
 // import WorkerTasks from "./pages/WorkerTasks"; // Removed import
 import { useUser } from "./hooks/use-user"; // Import useUser hook instead of useAuth
 import { ChatPage } from "./pages/ChatPage"; // Import ChatPage component
+import CreateVideo from "./pages/CreateVideo"; // Import CreateVideo page
 import ProfileSettings from "./pages/ProfileSettings"; // Import ProfileSettings page
 import ProtectedRoute from "./components/auth/ProtectedRoute"; // Import ProtectedRoute component
 // import { supabase } from "./integrations/supabase/client"; // No longer needed here
@@ -111,6 +112,7 @@ function App() {
           <Route path="/video-projects" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
           <Route path="/video-projects/:projectId" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
           <Route path="/plans" element={<Plans />} /> {/* Add the route for the plans page */}
+          <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} /> {/* Add the route for Create Video */}
           <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} /> {/* Add the route for profile settings */}
 
           {/* Admin routes */}

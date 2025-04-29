@@ -16,7 +16,7 @@ interface CreateVideoParams {
 }
 
 export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Removed isSubmitting state
   const { toast } = useToast();
 
   const createVideo = async ({
@@ -35,10 +35,9 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
       return;
     }
 
-    setIsSubmitting(true);
+    // Removed setIsSubmitting(true)
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
         throw new Error("No authenticated user found");
       }
@@ -54,18 +53,27 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
       const storyData = {
         source: source.trim(),
         ready_to_go: readyToGo,
-        background_music: backgroundMusicUrl,
+        // background_music: backgroundMusicUrl, // Remove direct assignment here
         story_type_id: story_type_id,
         user_id: user.id,
-      };
+      } as any; // Use 'as any' temporarily to allow adding property conditionally
+
+      // Only add background_music if a URL exists
+      if (backgroundMusicUrl) {
+        storyData.background_music = backgroundMusicUrl;
+      }
 
       // If a product photo URL is provided, set the "PRODUCT IMAGE" column to 1
       // This indicates that a product image is associated with this story
+      // If a product photo URL is provided, store it in the "PRODUCT IMAGE" column
       if (productPhotoUrl) {
-        storyData["PRODUCT IMAGE"] = 1;
+        storyData["PRODUCT IMAGE"] = productPhotoUrl; // Store the URL string
       }
+      // else { // Optional: Explicitly set to null if no photo, depending on column constraints
+      //   storyData["PRODUCT IMAGE"] = null;
+      // }
 
-      // Insert the story with the product image flag
+      // Insert the story data
       const { data: newStory, error } = await supabase
         .from("stories")
         .insert([storyData])
@@ -74,28 +82,9 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
 
       if (error) throw error;
 
-      // If we have a product photo URL and a new story was created successfully,
-      // update any relevant metadata or linked tables
-      if (productPhotoUrl && newStory) {
-        const storyId = newStory["stories id"];
+      // Removed the redundant upsert to story_metadata as the URL is now in the stories table
 
-        // You might want to store the actual URL in a separate table or metadata
-        // Here we'll create an entry in story_metadata if it doesn't exist already
-        const { error: metadataError } = await supabase
-          .from("story_metadata")
-          .upsert({
-            story_id: storyId,
-            additional_context: `Product photo URL: ${productPhotoUrl}`,
-          }, {
-            onConflict: "story_id"
-          });
-
-        if (metadataError) {
-          console.error("Error saving product photo metadata:", metadataError);
-          // Continue anyway as this is not critical
-        }
-      }
-
+      // State reset moved to finally block
       toast({
         title: "Success",
         description: "Your video has been created successfully",
@@ -103,18 +92,18 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
       onSuccess();
     } catch (error) {
       console.error("Error creating video:", error);
+      // State reset moved to finally block
       toast({
         title: "Error",
-        description: "Failed to create video. Please try again.",
+        description: `Failed to create video: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
+    // Removed finally block as state is managed in the component
   };
 
   return {
-    isSubmitting,
+    // Removed isSubmitting from return
     createVideo
   };
 };

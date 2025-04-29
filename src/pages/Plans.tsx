@@ -49,8 +49,8 @@ const Plans = () => {
   const plans = [
     {
       name: "BASIC",
-      credits: "10 Credits",
-      price: 299,
+      credits: "20 Credits",
+      price: 600,
       billing: "One-time payment",
       features: [
         "Product Video: 20 credits",

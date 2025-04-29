@@ -10,13 +10,13 @@ import { FilterBar } from "./dashboard/FilterBar";
 import { AnnouncementBanner } from "./announcements/AnnouncementBanner";
 import { UserOrdersList } from "./custom-orders/UserOrdersList";
 
-type ContentType = "all" | "stories" | "images" | "videos" | "orders";
+type ContentType = "stories" | "images";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<ContentType>("all");
+  const [activeTab, setActiveTab] = useState<ContentType>("stories");
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
@@ -136,24 +136,9 @@ export const Dashboard = () => {
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)} className="mt-6">
         <TabsList>
-          <TabsTrigger value="all">All Content</TabsTrigger>
           <TabsTrigger value="stories">Stories</TabsTrigger>
           <TabsTrigger value="images">Images</TabsTrigger>
-          <TabsTrigger value="videos">Videos</TabsTrigger>
-          <TabsTrigger value="orders">Custom Orders</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="all">
-          <ContentGrid
-            stories={stories}
-            images={images}
-            videos={videos}
-            isLoading={isLoadingStories || isLoadingImages || isLoadingVideos}
-            searchQuery={searchQuery}
-            dateRange={dateRange}
-            type="all"
-          />
-        </TabsContent>
 
         <TabsContent value="stories">
           <ContentGrid
@@ -175,19 +160,6 @@ export const Dashboard = () => {
           />
         </TabsContent>
 
-        <TabsContent value="videos">
-          <ContentGrid
-            videos={videos}
-            isLoading={isLoadingVideos}
-            searchQuery={searchQuery}
-            dateRange={dateRange}
-            type="videos"
-          />
-        </TabsContent>
-
-        <TabsContent value="orders">
-          <UserOrdersList userId={session?.user?.id} />
-        </TabsContent>
       </Tabs>
     </div>
   );

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText } from "lucide-react"; // Assuming lucide-react is used for icons
+import { LayoutDashboard, FileText, Video } from "lucide-react"; // Added Video icon
 import { cn } from "@/lib/utils"; // Assuming a utility for class names exists
 
 export const BottomNavBar = () => {
@@ -7,6 +7,7 @@ export const BottomNavBar = () => {
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/create-video", label: "Product Video", icon: Video }, // Added Product Video item
     { href: "/plans", label: "Plan", icon: FileText },
   ];
 

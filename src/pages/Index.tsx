@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Auth from "./Auth";
+import { BottomNavBar } from "@/components/mobile/BottomNavBar"; // Import BottomNavBar
 
 /**
  * Main index page component that displays either the dashboard or authentication form
@@ -25,13 +26,16 @@ const Index: React.FC = () => {
 
   return (
     <SidebarProvider>
-      <div className="flex flex-col min-h-screen w-full bg-background pb-16 md:pb-0">
+      {/* Removed pb-16 md:pb-0 from here */}
+      <div className="flex flex-col min-h-screen w-full bg-background">
         {session ? (
-          <div className="flex h-screen overflow-hidden">
+          // Added pb-16 md:pb-0 to the main content area when logged in
+          <div className="flex h-screen overflow-hidden pb-16 md:pb-0">
             {!isMobile && <Sidebar />}
             <main className="flex-1 overflow-y-auto p-4 md:p-6">
               <Dashboard />
             </main>
+            <BottomNavBar /> {/* Add BottomNavBar here */}
           </div>
         ) : (
           <Auth />

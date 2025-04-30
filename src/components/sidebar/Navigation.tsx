@@ -186,13 +186,6 @@ export const Navigation = () => {
       current: location.pathname === "/" || location.pathname === "/dashboard",
     },
     {
-      name: "Custom Orders",
-      subtext: "Request Personalized Content",
-      to: "/custom-orders",
-      icon: PlusSquare,
-      badge: customOrderNotifications > 0 ? customOrderNotifications : undefined,
-    },
-    {
       name: "Explore",
       subtext: "Discover Amazing Content",
       to: "/explore",

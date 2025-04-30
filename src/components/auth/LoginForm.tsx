@@ -123,50 +123,8 @@ const LoginForm = () => {
             {isLoading ? "Connecting..." : "Continue with Google"}
           </Button>
 
-          <PhoneLoginForm isSignUp={false} />
-
-          <div className="space-y-2">
-            <label
-              htmlFor="email"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-white"
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-          <div className="space-y-2">
-            <label
-              htmlFor="password"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-white"
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-          <Button 
-            onClick={handleEmailLogin}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-            ) : null}
-            Login with Email
-          </Button>
+          {/* Phone Login Removed */}
+          {/* Email Login Form Removed */}
 
           <div className="flex items-center gap-2 py-2 px-3 bg-blue-500/10 text-blue-300 rounded-md text-sm">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />

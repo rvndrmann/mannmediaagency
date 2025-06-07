@@ -7,48 +7,70 @@
 
 @layer base {
   :root {
-    --background: 223 28% 13%;
-    --foreground: 0 0% 100%;
-    --card: 222 25% 16%;
-    --card-foreground: 0 0% 100%;
-    --popover: 223 28% 13%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 262 58% 75%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 222 24% 20%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 222 24% 20%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 222 24% 20%;
-    --accent-foreground: 0 0% 100%;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 142.1 76.2% 36.3%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 100%;
-    --input: 222 24% 20%;
-    --ring: 262 58% 75%;
-    --radius: 0.75rem;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142.1 76.2% 36.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
   }
 
   /* Custom styles for larger Sonner toasts */
   [data-sonner-toast] {
-    padding: 1rem !important; /* Increase padding */
-    min-width: 400px !important; /* Ensure a minimum width */
+    padding: 1rem !important;
+    min-width: 400px !important;
   }
 
   [data-sonner-toast] [data-title] {
-     font-size: 1.1rem !important; /* Increase title font size */
+     font-size: 1.1rem !important;
   }
 
   [data-sonner-toast] [data-description] {
-     font-size: 0.95rem !important; /* Increase description font size */
+     font-size: 0.95rem !important;
   }
 
   [data-sonner-toast] [data-close-button] {
-      transform: scale(1.2); /* Make close button slightly larger */
+      transform: scale(1.2);
   }
 
   * {
-    @apply border-border/10;
+    @apply border-border;
     scroll-behavior: smooth;
   }
 
@@ -58,7 +80,7 @@
   }
 
   .glass-card {
-    @apply bg-[#222222]/60 backdrop-blur-xl border border-white/10 shadow-lg;
+    @apply bg-white/95 backdrop-blur-sm border border-gray-200 shadow-sm;
   }
 
   .animate-in {
@@ -70,12 +92,12 @@
   }
 
   .timeline-marker {
-    @apply absolute top-0 w-px h-full bg-white/20;
+    @apply absolute top-0 w-px h-full bg-gray-200;
   }
 
   .timeline-marker::after {
     content: attr(data-time);
-    @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-white/60;
+    @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-gray-500;
   }
 }
 

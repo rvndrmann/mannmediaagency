@@ -1,21 +1,23 @@
+
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, Video } from "lucide-react"; // Added Video icon
-import { cn } from "@/lib/utils"; // Assuming a utility for class names exists
+import { LayoutDashboard, FileText, Video } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const BottomNavBar = () => {
   const location = useLocation();
 
   const navItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/create-video", label: "Product Video", icon: Video }, // Added Product Video item
-    { href: "/plans", label: "Plan", icon: FileText },
+    { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/create-video", label: "Video", icon: Video },
+    { href: "/plans", label: "Plans", icon: FileText },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background p-2 md:hidden">
       <div className="flex justify-around">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.href;
+          const isActive = location.pathname === item.href || 
+            (item.href === "/" && location.pathname === "/dashboard");
           return (
             <Link
               key={item.href}

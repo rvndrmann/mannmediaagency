@@ -36,20 +36,20 @@ export function SceneCard({ scene, isSelected, onSelect, onDelete }: SceneCardPr
     >
       <div className="flex items-center gap-2 mb-1">
         <FileText className="h-4 w-4 shrink-0" />
-        <span className="font-medium truncate">{scene.title || `Scene ${scene.scene_order || ''}`}</span>
+        <span className="font-medium truncate">{scene.title || `Scene ${scene.scene_order || scene.sceneOrder || ''}`}</span>
       </div>
       
       <p className="text-xs opacity-80 truncate">
-        {getContentPreview(scene.voice_over_text || scene.script)}
+        {getContentPreview(scene.voice_over_text || scene.voiceOverText || scene.script)}
       </p>
       
       <div className="flex justify-between items-center mt-2 text-xs">
         <span className={cn(
           "px-1.5 py-0.5 rounded-sm text-xs",
-          scene.image_prompt ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : 
+          (scene.image_prompt || scene.imagePrompt) ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : 
                              "bg-gray-100 text-gray-800 dark:bg-gray-800/30 dark:text-gray-400"
         )}>
-          {scene.image_prompt ? "Has image prompt" : "No image prompt"}
+          {(scene.image_prompt || scene.imagePrompt) ? "Has image prompt" : "No image prompt"}
         </span>
       </div>
       

@@ -3,7 +3,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Message } from '@/types/message';
 import { toast } from 'sonner';
 
-export type AgentType = 'script_writer' | 'image_generator' | 'video_creator' | 'orchestrator' | 'generic';
+export type AgentType = 'script_writer' | 'image_generator' | 'video_creator' | 'orchestrator' | 'generic' | 'main' | 'script' | 'image' | 'tool' | 'scene' | 'data';
 
 export interface AgentInfo {
   id: string;

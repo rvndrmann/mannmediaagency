@@ -6,16 +6,25 @@ export interface SceneData {
   script?: string;
   description?: string;
   imagePrompt?: string;
+  image_prompt?: string; // API compatibility
   imageUrl?: string;
+  image_url?: string; // API compatibility
   videoUrl?: string;
+  video_url?: string; // API compatibility
   sceneOrder?: number;
+  scene_order?: number; // API compatibility
   createdAt?: string;
+  created_at?: string; // API compatibility
   updatedAt?: string;
+  updated_at?: string; // API compatibility
   voiceOver?: string;
   voiceOverText?: string;
+  voice_over_text?: string; // API compatibility
   productImageUrl?: string;
+  product_image_url?: string; // API compatibility
   voiceOverUrl?: string;
   backgroundMusicUrl?: string;
+  background_music_url?: string; // API compatibility
   duration?: number;
   order?: number;
 }
@@ -60,14 +69,14 @@ export interface CanvasScene {
   voice_over_text?: string;
   voiceOverText?: string; // Alias for voice_over_text for compatibility
   productImageUrl?: string;
+  product_image_url?: string; // For API compatibility
   voiceOverUrl?: string;
   backgroundMusicUrl?: string;
+  background_music_url?: string; // For API compatibility
   duration?: number;
   order?: number; // Alias for sceneOrder/scene_order
-  sceneImageV1Url?: string; // Add V1
-  // scene_image_v1_url?: string; // Removed snake_case alias
-  sceneImageV2Url?: string; // Add V2
-  // scene_image_v2_url?: string; // Removed snake_case alias
+  sceneImageV1Url?: string;
+  sceneImageV2Url?: string;
 }
 
 export interface SceneUpdateParams {
@@ -99,8 +108,9 @@ export type SceneUpdateType =
   | 'voiceOverText'
   | 'productImage'
   | 'backgroundMusic'
-  | 'sceneImageV1' // Added for Scene Image V1 upload
-  | 'sceneImageV2'; // Added for Scene Image V2 upload
+  | 'sceneImageV1'
+  | 'sceneImageV2'
+  | 'voiceoverAudioUrl';
 
 // Define update function type with the complete SceneUpdateType
 export type UpdateSceneFunction = (

@@ -13,7 +13,7 @@ interface ChatInputProps {
   input: string;
   isLoading: boolean;
   onInputChange: (value: string) => void;
-  onSubmit: (e: React.FormEvent, userRole: 'user' | 'admin') => void; // Modified onSubmit prop
+  onSubmit: (e: React.FormEvent) => void;
   useAssistantsApi?: boolean;
   setUseAssistantsApi?: (value: boolean) => void;
   useMcp?: boolean;
@@ -22,10 +22,11 @@ interface ChatInputProps {
   onAttachmentAdd?: (attachments: Attachment[]) => void;
   onAttachmentRemove?: (id: string) => void;
   showAttachmentButton?: boolean;
-  userRole: 'user' | 'admin'; // Add userRole prop
-}; // Add semicolon here
+  userRole?: 'user' | 'admin';
+}
+
 export const ChatInput = ({
-  input = '', // Provide default empty string
+  input = '',
   isLoading,
   onInputChange,
   onSubmit,
@@ -37,7 +38,7 @@ export const ChatInput = ({
   onAttachmentAdd,
   onAttachmentRemove,
   showAttachmentButton = false,
-  userRole, // Add userRole to props
+  userRole = 'user',
 }: ChatInputProps) => {
   const MAX_WORDS = 350;
 
@@ -67,13 +68,10 @@ export const ChatInput = ({
   };
 
   const handleSubmitClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Prevent default behavior to avoid unwanted form submission
     e.preventDefault();
     
-    // Only submit if there's input or attachments and not already loading
     if (!isLoading && ((input && input.trim() !== '') || (attachments && attachments.length > 0))) {
-      // Call the onSubmit handler with the event
-      onSubmit(e as any, userRole);
+      onSubmit(e as any);
     }
   };
 
@@ -81,7 +79,7 @@ export const ChatInput = ({
     <form onSubmit={(e) => {
       e.preventDefault();
       if (!isLoading && ((input && input.trim() !== '') || (attachments && attachments.length > 0))) {
-        onSubmit(e, userRole);
+        onSubmit(e);
       }
     }} className="space-y-1 w-full">
       {attachments.length > 0 && (
@@ -100,7 +98,7 @@ export const ChatInput = ({
             onKeyDown={handleInputKeyPress}
             placeholder="Type your message..."
             disabled={isLoading}
-            className="min-h-[40px] max-h-[100px] bg-gradient-to-r from-[#262B38] to-[#2D3240] border-none text-white placeholder:text-white/50 resize-none rounded-2xl px-3 py-2 shadow-inner"
+            className="min-h-[40px] max-h-[100px] bg-white border border-gray-200 text-gray-900 placeholder:text-gray-500 resize-none rounded-2xl px-3 py-2 shadow-sm"
           />
           <div className="absolute bottom-1 left-3 right-10">
             <div className="flex justify-between items-center">
@@ -126,9 +124,9 @@ export const ChatInput = ({
           type="button" 
           onClick={handleSubmitClick}
           disabled={isLoading || !input || input.trim() === '' && (!attachments || attachments.length === 0)}
-          variant="gradient"
+          variant="default"
           size="icon"
-          className="rounded-full h-10 w-10 p-0 flex items-center justify-center"
+          className="rounded-full h-10 w-10 p-0 flex items-center justify-center bg-green-600 hover:bg-green-700"
         >
           <span>
             {isLoading ? (

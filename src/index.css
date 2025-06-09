@@ -8,47 +8,47 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 0 0% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 9%;
     --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 210 40% 98%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 98%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 98%;
-    --accent-foreground: 222.2 84% 4.9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89%;
+    --input: 0 0% 89%;
     --ring: 142.1 76.2% 36.3%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 142.1 76.2% 36.3%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89%;
+    --input: 0 0% 89%;
+    --ring: 142.1 76.2% 36.3%;
   }
 
   /* Custom styles for larger Sonner toasts */
@@ -77,12 +77,11 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
-    /* Force light theme by default */
-    background: white;
-    color: #1a1a1a;
+    background: white !important;
+    color: #1a1a1a !important;
   }
 
-  /* ChatGPT-style white theme */
+  /* ChatGPT-style white theme enforced */
   .chat-container {
     @apply bg-white text-gray-900;
   }
@@ -116,12 +115,21 @@
     @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-gray-500;
   }
 
-  /* Override dark mode styles to ensure white theme */
-  .dark {
-    --background: 0 0% 100% !important;
-    --foreground: 222.2 84% 4.9% !important;
-    --card: 0 0% 100% !important;
-    --card-foreground: 222.2 84% 4.9% !important;
+  /* Force white theme everywhere */
+  html, body, #root {
+    background-color: white !important;
+    color: #1a1a1a !important;
+  }
+
+  /* Override any dark mode attempts */
+  .dark, [data-theme="dark"] {
+    background-color: white !important;
+    color: #1a1a1a !important;
+  }
+
+  /* Ensure all components use white background */
+  div, section, main, aside, nav, header, footer {
+    background-color: inherit;
   }
 }
 
@@ -149,6 +157,23 @@
 
   .border-chat {
     @apply border-gray-200;
+  }
+
+  /* Force white backgrounds */
+  .bg-background {
+    background-color: white !important;
+  }
+
+  .bg-card {
+    background-color: white !important;
+  }
+
+  .bg-secondary {
+    background-color: #f8f9fa !important;
+  }
+
+  .bg-muted {
+    background-color: #f8f9fa !important;
   }
 }
 

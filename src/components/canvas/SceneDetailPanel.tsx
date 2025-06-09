@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Loader2 } from '@/components/ui/loader2';
+import { Loader2 } from 'lucide-react';
 import { uploadFileToBucket, deleteFileFromBucket } from '@/utils/supabase-helpers';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -449,7 +449,7 @@ export function SceneDetailPanel({
               <h2 className="text-2xl font-bold">Scene Details</h2>
               <div className="flex items-center gap-2">
                 <Badge variant="outline">
-                  Scene {scene.scene_order || scene.sceneOrder || 1}
+                  Scene {scene.scene_order || 1}
                 </Badge>
                 {(scene.image_prompt) && (
                   <Badge variant="secondary">Has Prompt</Badge>
@@ -636,7 +636,7 @@ export function SceneDetailPanel({
                   disabled={isGenerating || !(scene.image_prompt)}
                   className="w-full"
                 >
-                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Image className="mr-2 h-4 w-4" />}
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
                   Generate Image
                 </Button>
 

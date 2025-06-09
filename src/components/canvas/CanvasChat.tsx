@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
@@ -48,7 +47,6 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
     if (useMcp && projectId) {
       reconnectToMcp().catch(error => {
         console.error("Failed to establish MCP connection:", error);
-        // Don't show an error toast because error state is handled by MCPContext
       });
     }
   }, [useMcp, projectId, reconnectToMcp]);
@@ -95,7 +93,7 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
     try {
       switch (command.action) {
         case 'generate_script':
-          await generateSceneScript(sceneId, command.content || "");
+          await generateSceneScript(sceneId, command.content || "", command.voiceOverText || "", command.customInstruction || "");
           toast.success("Script generated for scene");
           break;
         case 'generate_description':
@@ -103,7 +101,7 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
           toast.success("Description generated for scene");
           break;
         case 'generate_image_prompt':
-          await generateImagePrompt(sceneId, command.content || "");
+          await generateImagePrompt(sceneId, command.script || "", command.voiceOverText || "", command.customInstruction || "", command.content || "");
           toast.success("Image prompt generated for scene");
           break;
         case 'generate_scene_image':

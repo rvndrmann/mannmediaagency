@@ -33,11 +33,13 @@ export interface CanvasProject {
   id: string;
   title: string;
   description?: string;
-  cover_image_url?: string;
-  created_at: string;
-  updated_at?: string;
-  user_id: string;
+  final_video_url?: string;
   full_script?: string;
+  main_product_image_url?: string;
+  project_assets?: ProjectAsset[];
+  user_id: string;
+  created_at: string;
+  updated_at: string;
   
   // Aliases for compatibility
   fullScript?: string; 
@@ -45,37 +47,47 @@ export interface CanvasProject {
   updatedAt?: string; 
   userId?: string;
   scenes?: CanvasScene[]; 
+  cover_image_url?: string;
+}
+
+export interface ProjectAsset {
+  url: string;
+  type: 'image' | 'video' | 'audio';
+  name: string;
 }
 
 export interface CanvasScene {
   id: string;
-  projectId: string;
-  project_id?: string; // For API compatibility
+  project_id: string;
+  projectId?: string; // For compatibility
   title?: string;
   description?: string;
   script?: string;
-  imagePrompt?: string;
-  image_prompt?: string; // For API compatibility
-  imageUrl?: string;
-  image_url?: string; // For API compatibility
-  videoUrl?: string;
-  video_url?: string; // For API compatibility
-  sceneOrder?: number;
-  scene_order?: number; // For API compatibility
+  image_prompt?: string;
+  imagePrompt?: string; // For compatibility
+  image_url?: string;
+  imageUrl?: string; // For compatibility
+  video_url?: string;
+  videoUrl?: string; // For compatibility
+  scene_order?: number;
+  sceneOrder?: number; // For compatibility
   created_at?: string;
   updated_at?: string;
-  createdAt?: string; // Alias for created_at for compatibility
-  updatedAt?: string; // Alias for updated_at for compatibility
+  createdAt?: string; 
+  updatedAt?: string; 
   voice_over_text?: string;
-  voiceOverText?: string; // Alias for voice_over_text for compatibility
-  productImageUrl?: string;
-  product_image_url?: string; // For API compatibility
+  voiceOverText?: string; 
+  product_image_url?: string;
+  productImageUrl?: string; // For compatibility
   voiceOverUrl?: string;
-  backgroundMusicUrl?: string;
-  background_music_url?: string; // For API compatibility
+  voice_over_url?: string;
+  background_music_url?: string;
+  backgroundMusicUrl?: string; // For compatibility
   duration?: number;
-  order?: number; // Alias for sceneOrder/scene_order
+  order?: number;
+  scene_image_v1_url?: string;
   sceneImageV1Url?: string;
+  scene_image_v2_url?: string;
   sceneImageV2Url?: string;
 }
 
@@ -97,7 +109,6 @@ export interface VideoGenerationParams {
   aspectRatio?: string;
 }
 
-// Comprehensive list of all possible update types
 export type SceneUpdateType = 
   | 'description' 
   | 'script' 
@@ -112,14 +123,12 @@ export type SceneUpdateType =
   | 'sceneImageV2'
   | 'voiceoverAudioUrl';
 
-// Define update function type with the complete SceneUpdateType
 export type UpdateSceneFunction = (
   sceneId: string,
   type: SceneUpdateType,
   value: string
 ) => Promise<void>;
 
-// Add workflow types
 export interface WorkflowState {
   projectId: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';

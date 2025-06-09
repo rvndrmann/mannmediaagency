@@ -86,7 +86,6 @@ export function BrowserUseApp() {
       
       setTimeout(() => {
         if (scheduledTaskInput && userCredits && userCredits.credits_remaining > 0) {
-          // Fix: Remove the environment argument as startTask doesn't expect it anymore
           startTask();
           toast.info("Executing scheduled task automatically");
         }

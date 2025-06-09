@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { CanvasScene } from '@/types/canvas';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import {
   Trash2,
   LucideProps,
   Upload,
-  Sparkles // Added Sparkles icon
+  Sparkles
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -22,7 +23,6 @@ interface SceneDetailPanelProps {
   scene: CanvasScene | null;
   projectId: string;
   updateScene: (sceneId: string, type: 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2' | 'voiceOverText' | 'script' | 'voiceoverAudioUrl', value: string) => Promise<void>;
-  // Removed collapsed and setCollapsed props
 }
 
 export function SceneDetailPanel({
@@ -43,18 +43,15 @@ export function SceneDetailPanel({
 
   useEffect(() => {
     if (scene) {
-      setImagePrompt(scene.image_prompt || '');
-      setSceneDescription(scene.voiceOverText || scene.script || '');
+      setImagePrompt(scene.image_prompt || scene.imagePrompt || '');
+      setSceneDescription(scene.voice_over_text || scene.voiceOverText || scene.script || '');
     } else {
       setImagePrompt('');
       setSceneDescription('');
     }
   }, [scene]);
 
-  // Keep the null check, but the parent component (Canvas.tsx) will handle
-  // whether to render this panel at all based on scene selection.
   if (!scene) {
-    // Render nothing or a placeholder if needed, but Canvas.tsx handles the conditional rendering
     return null;
   }
 
@@ -94,7 +91,7 @@ export function SceneDetailPanel({
           ? 'background-music'
           : uploadType === 'video'
             ? 'scene-videos'
-            : 'canvas_assets'; // Default for images
+            : 'canvas_assets';
 
       const publicUrl = await uploadFileToBucket(bucket, file);
       if (!publicUrl) throw new Error('Failed to get public URL');
@@ -120,14 +117,14 @@ export function SceneDetailPanel({
       let updateField: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2' | 'voiceoverAudioUrl' = uploadType as any;
 
       switch (uploadType) {
-        case 'image': currentUrl = scene.imageUrl; bucket = 'canvas_assets'; updateField = 'image'; break;
-        case 'productImage': currentUrl = scene.product_image_url; bucket = 'canvas_assets'; updateField = 'productImage'; break;
-        case 'video': currentUrl = scene.videoUrl; bucket = 'scene-videos'; updateField = 'video'; break;
-        case 'voiceOver': currentUrl = scene.voiceOverUrl; bucket = 'voice-over'; updateField = 'voiceOver'; break;
-        case 'generatedVoiceOver': currentUrl = scene.voiceOverUrl || ''; bucket = 'voice-over'; updateField = 'voiceOver'; break; // Use voiceOverUrl and updateField 'voiceOver'
-        case 'backgroundMusic': currentUrl = scene.background_music_url; bucket = 'background-music'; updateField = 'backgroundMusic'; break;
-        case 'sceneImageV1': currentUrl = scene.sceneImageV1Url || ''; bucket = 'canvas_assets'; updateField = 'sceneImageV1'; break;
-        case 'sceneImageV2': currentUrl = scene.sceneImageV2Url || ''; bucket = 'canvas_assets'; updateField = 'sceneImageV2'; break;
+        case 'image': currentUrl = scene.image_url || scene.imageUrl || ''; bucket = 'canvas_assets'; updateField = 'image'; break;
+        case 'productImage': currentUrl = scene.product_image_url || scene.productImageUrl || ''; bucket = 'canvas_assets'; updateField = 'productImage'; break;
+        case 'video': currentUrl = scene.video_url || scene.videoUrl || ''; bucket = 'scene-videos'; updateField = 'video'; break;
+        case 'voiceOver': currentUrl = scene.voice_over_url || scene.voiceOverUrl || ''; bucket = 'voice-over'; updateField = 'voiceOver'; break;
+        case 'generatedVoiceOver': currentUrl = scene.voice_over_url || scene.voiceOverUrl || ''; bucket = 'voice-over'; updateField = 'voiceOver'; break;
+        case 'backgroundMusic': currentUrl = scene.background_music_url || scene.backgroundMusicUrl || ''; bucket = 'background-music'; updateField = 'backgroundMusic'; break;
+        case 'sceneImageV1': currentUrl = scene.scene_image_v1_url || scene.sceneImageV1Url || ''; bucket = 'canvas_assets'; updateField = 'sceneImageV1'; break;
+        case 'sceneImageV2': currentUrl = scene.scene_image_v2_url || scene.sceneImageV2Url || ''; bucket = 'canvas_assets'; updateField = 'sceneImageV2'; break;
       }
 
       if (!currentUrl) {
@@ -228,14 +225,10 @@ export function SceneDetailPanel({
     </div>
   );
 
-  const generatedAudioUrl = scene?.voiceOverUrl; // Use voiceOverUrl for generated audio as well for now
-  const manualAudioUrl = scene?.voiceOverUrl;
+  const generatedAudioUrl = scene?.voice_over_url || scene?.voiceOverUrl;
+  const manualAudioUrl = scene?.voice_over_url || scene?.voiceOverUrl;
 
-  // Removed the outer div with conditional width and the header with the collapse button.
-  // The parent component will control the layout and visibility.
   return (
-    // This div now represents the always-visible content area when a scene is selected.
-    // Added h-full and flex-col to allow internal scrolling
     <div className="p-4 overflow-y-auto flex-1 h-full flex flex-col">
       {/* --- Scene Text Section --- */}
       <div className="mb-4">
@@ -248,11 +241,10 @@ export function SceneDetailPanel({
           className="mb-2 h-24"
         />
         <Button onClick={handleSaveDescription} size="sm">Save Text</Button>
-        {/* Added AI Generation Button */}
         <Button
           variant="outline"
           size="sm"
-          className="mt-2 ml-2" // Added margin-left for spacing
+          className="mt-2 ml-2"
           onClick={() => toast.info('AI generation for script not implemented yet')}
         >
           <Sparkles className="w-4 h-4 mr-2" />
@@ -271,11 +263,10 @@ export function SceneDetailPanel({
           className="mb-2"
         />
         <Button onClick={handleSaveImagePrompt} size="sm">Save Prompt</Button>
-        {/* Added AI Generation Button */}
         <Button
           variant="outline"
           size="sm"
-          className="mt-2 ml-2" // Added margin-left for spacing
+          className="mt-2 ml-2"
           onClick={() => toast.info('AI generation for image prompt not implemented yet')}
         >
           <Sparkles className="w-4 h-4 mr-2" />
@@ -284,31 +275,31 @@ export function SceneDetailPanel({
       </div>
 
       {/* --- File Uploads Section --- */}
-      <div className="space-y-3 flex-1"> {/* Added flex-1 to allow this section to grow if needed */}
+      <div className="space-y-3 flex-1">
         <FileUploadItem
           title="Scene Image" icon={ImageIcon} fileType="image" uploadType="image"
           isUploading={isUploadingImage} setUploading={setIsUploadingImage}
-          currentUrl={scene.imageUrl} acceptedTypes="image/*"
+          currentUrl={scene.image_url || scene.imageUrl || ''} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Product Image" icon={ImageIcon} fileType="product image" uploadType="productImage"
           isUploading={isUploadingProductImage} setUploading={setIsUploadingProductImage}
-          currentUrl={scene.product_image_url} acceptedTypes="image/*"
+          currentUrl={scene.product_image_url || scene.productImageUrl || ''} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Scene Image V1" icon={ImageIcon} fileType="scene image v1" uploadType="sceneImageV1"
           isUploading={isUploadingSceneImageV1} setUploading={setIsUploadingSceneImageV1}
-          currentUrl={scene.sceneImageV1Url || ''} acceptedTypes="image/*"
+          currentUrl={scene.scene_image_v1_url || scene.sceneImageV1Url || ''} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Scene Image V2" icon={ImageIcon} fileType="scene image v2" uploadType="sceneImageV2"
           isUploading={isUploadingSceneImageV2} setUploading={setIsUploadingSceneImageV2}
-          currentUrl={scene.sceneImageV2Url || ''} acceptedTypes="image/*"
+          currentUrl={scene.scene_image_v2_url || scene.sceneImageV2Url || ''} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Video Clip" icon={Video} fileType="video" uploadType="video"
           isUploading={isUploadingVideo} setUploading={setIsUploadingVideo}
-          currentUrl={scene.videoUrl} acceptedTypes="video/*"
+          currentUrl={scene.video_url || scene.videoUrl || ''} acceptedTypes="video/*"
         />
 
         {/* --- Combined Voice Over Section --- */}
@@ -359,7 +350,7 @@ export function SceneDetailPanel({
         <FileUploadItem
           title="Background Music" icon={Music} fileType="music" uploadType="backgroundMusic"
           isUploading={isUploadingMusic} setUploading={setIsUploadingMusic}
-          currentUrl={scene.background_music_url} acceptedTypes="audio/*"
+          currentUrl={scene.background_music_url || scene.backgroundMusicUrl || ''} acceptedTypes="audio/*"
         />
       </div>
     </div>

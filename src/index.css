@@ -15,11 +15,11 @@
     --popover-foreground: 222.2 84% 4.9%;
     --primary: 142.1 76.2% 36.3%;
     --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 210 40% 96%;
+    --secondary: 210 40% 98%;
     --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
+    --muted: 210 40% 98%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
+    --accent: 210 40% 98%;
     --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -77,6 +77,22 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+    /* Force light theme by default */
+    background: white;
+    color: #1a1a1a;
+  }
+
+  /* ChatGPT-style white theme */
+  .chat-container {
+    @apply bg-white text-gray-900;
+  }
+
+  .chat-message {
+    @apply bg-gray-50 border-gray-200;
+  }
+
+  .chat-input {
+    @apply bg-white border-gray-300 text-gray-900 placeholder:text-gray-500;
   }
 
   .glass-card {
@@ -99,11 +115,40 @@
     content: attr(data-time);
     @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-gray-500;
   }
+
+  /* Override dark mode styles to ensure white theme */
+  .dark {
+    --background: 0 0% 100% !important;
+    --foreground: 222.2 84% 4.9% !important;
+    --card: 0 0% 100% !important;
+    --card-foreground: 222.2 84% 4.9% !important;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Light theme utilities */
+  .bg-chat {
+    @apply bg-white;
+  }
+
+  .bg-chat-message {
+    @apply bg-gray-50;
+  }
+
+  .text-chat {
+    @apply text-gray-900;
+  }
+
+  .text-chat-muted {
+    @apply text-gray-600;
+  }
+
+  .border-chat {
+    @apply border-gray-200;
   }
 }
 

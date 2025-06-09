@@ -17,6 +17,24 @@ export interface BrowserTask {
   browser_task_id?: string;
 }
 
+export interface SensitiveDataItem {
+  id: string;
+  name: string;
+  value: string;
+  type: 'password' | 'email' | 'text' | 'number';
+}
+
+export interface BrowserContextConfig {
+  minWaitPageLoadTime?: number;
+  waitForNetworkIdlePageLoadTime?: number;
+  maxWaitPageLoadTime?: number;
+  highlightElements?: boolean;
+  viewportExpansion?: number;
+  userAgent?: string;
+  locale?: string;
+  allowedDomains?: string[];
+}
+
 export interface BrowserConfig {
   wssUrl?: string;
   cdpUrl?: string;
@@ -24,8 +42,36 @@ export interface BrowserConfig {
   chromePath?: string;
   useOwnBrowser?: boolean;
   proxy?: string;
+  resolution?: string;
+  theme?: string;
+  darkMode?: boolean;
+  headless?: boolean;
+  persistentSession?: boolean;
+  disableSecurity?: boolean;
+  extraChromiumArgs?: string[];
+  contextConfig?: BrowserContextConfig;
+  sensitiveData?: SensitiveDataItem[];
 }
 
 export interface UserCredits {
   credits_remaining: number;
+}
+
+export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'expired';
+
+export interface TaskStep {
+  id: string;
+  description: string;
+  status: TaskStatus;
+  timestamp: string;
+  details?: any;
+}
+
+export interface BrowserTaskHistory {
+  id: string;
+  task_input: string;
+  status: TaskStatus;
+  created_at: string;
+  completed_at?: string;
+  output?: any;
 }

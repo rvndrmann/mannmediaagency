@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CanvasScene } from '@/types/canvas';
 import { Button } from '@/components/ui/button';
@@ -18,6 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import clsx from 'clsx';
+import { Card, Badge, Input, Separator, Loader2, Image, FileText } from '@/components/ui';
 
 interface SceneDetailPanelProps {
   scene: CanvasScene | null;
@@ -228,6 +228,56 @@ export function SceneDetailPanel({
   const generatedAudioUrl = scene?.voice_over_url || scene?.voiceOverUrl;
   const manualAudioUrl = scene?.voice_over_url || scene?.voiceOverUrl;
 
+  const handleSceneUpdate = (field: string, value: string) => {
+    if (scene) {
+      updateScene(scene.id, field, value);
+    }
+  };
+
+  const handleGenerateImagePrompt = async () => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'imagePrompt', imagePrompt);
+      toast.success('Image prompt generated');
+    } catch (error) {
+      console.error('Error generating image prompt:', error);
+      toast.error('Failed to generate image prompt');
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'image', imagePrompt);
+      toast.success('Image generated');
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast.error('Failed to generate image');
+    }
+  };
+
+  const handleGenerateVideo = async () => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'video', imagePrompt);
+      toast.success('Video generated');
+    } catch (error) {
+      console.error('Error generating video:', error);
+      toast.error('Failed to generate video');
+    }
+  };
+
+  const handleGenerateScript = async () => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'script', sceneDescription);
+      toast.success('Script generated');
+    } catch (error) {
+      console.error('Error generating script:', error);
+      toast.error('Failed to generate script');
+    }
+  };
+
   return (
     <div className="p-4 overflow-y-auto flex-1 h-full flex flex-col">
       {/* --- Scene Text Section --- */}
@@ -353,6 +403,227 @@ export function SceneDetailPanel({
           currentUrl={scene.background_music_url || scene.backgroundMusicUrl || ''} acceptedTypes="audio/*"
         />
       </div>
+
+      {scene && (
+        <Card className="p-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">Scene Details</h2>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  Scene {scene.scene_order || scene.sceneOrder || 1}
+                </Badge>
+                {(scene.image_prompt || scene.imagePrompt) && (
+                  <Badge variant="secondary">Has Prompt</Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Scene Content */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="scene-title" className="text-sm font-medium">
+                  Scene Title
+                </Label>
+                <Input
+                  id="scene-title"
+                  value={scene.title || ""}
+                  onChange={(e) => handleSceneUpdate("title", e.target.value)}
+                  placeholder="Enter scene title..."
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="scene-description" className="text-sm font-medium">
+                  Description
+                </Label>
+                <Textarea
+                  id="scene-description"
+                  value={scene.description || ""}
+                  onChange={(e) => handleSceneUpdate("description", e.target.value)}
+                  placeholder="Describe what happens in this scene..."
+                  className="mt-1 min-h-[100px]"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="scene-script" className="text-sm font-medium">
+                  Script
+                </Label>
+                <Textarea
+                  id="scene-script"
+                  value={scene.script || ""}
+                  onChange={(e) => handleSceneUpdate("script", e.target.value)}
+                  placeholder="Enter the script for this scene..."
+                  className="mt-1 min-h-[120px]"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="voice-over-text" className="text-sm font-medium">
+                  Voice Over Text
+                </Label>
+                <Textarea
+                  id="voice-over-text"
+                  value={scene.voice_over_text || scene.voiceOverText || ""}
+                  onChange={(e) => handleSceneUpdate("voiceOverText", e.target.value)}
+                  placeholder="Enter voice over text..."
+                  className="mt-1 min-h-[100px]"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="image-prompt" className="text-sm font-medium">
+                  Image Generation Prompt
+                </Label>
+                <Textarea
+                  id="image-prompt"
+                  value={scene.image_prompt || scene.imagePrompt || ""}
+                  onChange={(e) => handleSceneUpdate("imagePrompt", e.target.value)}
+                  placeholder="Describe the visual style and content for this scene..."
+                  className="mt-1 min-h-[100px]"
+                />
+              </div>
+            </div>
+
+            {/* Generated Assets */}
+            <Separator />
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Generated Assets</h3>
+              
+              {/* Product Image */}
+              {(scene.product_image_url || scene.productImageUrl) && (
+                <div>
+                  <Label className="text-sm font-medium">Product Image</Label>
+                  <div className="mt-2">
+                    <img 
+                      src={scene.product_image_url || scene.productImageUrl || ""} 
+                      alt="Product" 
+                      className="max-w-full h-auto rounded-lg border"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Scene Images */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {scene.scene_image_v1_url && (
+                  <div>
+                    <Label className="text-sm font-medium">Scene Image V1</Label>
+                    <div className="mt-2">
+                      <img 
+                        src={scene.scene_image_v1_url} 
+                        alt="Scene V1" 
+                        className="w-full h-auto rounded-lg border"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {scene.scene_image_v2_url && (
+                  <div>
+                    <Label className="text-sm font-medium">Scene Image V2</Label>
+                    <div className="mt-2">
+                      <img 
+                        src={scene.scene_image_v2_url} 
+                        alt="Scene V2" 
+                        className="w-full h-auto rounded-lg border"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Generated Image */}
+              {(scene.image_url || scene.imageUrl) && (
+                <div>
+                  <Label className="text-sm font-medium">Generated Image</Label>
+                  <div className="mt-2">
+                    <img 
+                      src={scene.image_url || scene.imageUrl || ""} 
+                      alt="Generated scene" 
+                      className="max-w-full h-auto rounded-lg border"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Generated Video */}
+              {(scene.video_url || scene.videoUrl) && (
+                <div>
+                  <Label className="text-sm font-medium">Generated Video</Label>
+                  <div className="mt-2">
+                    <video 
+                      src={scene.video_url || scene.videoUrl || ""} 
+                      controls 
+                      className="max-w-full h-auto rounded-lg border"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Background Music */}
+              {(scene.background_music_url || scene.backgroundMusicUrl) && (
+                <div>
+                  <Label className="text-sm font-medium">Background Music</Label>
+                  <div className="mt-2">
+                    <audio 
+                      src={scene.background_music_url || scene.backgroundMusicUrl || ""} 
+                      controls 
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Generation Actions */}
+            <Separator />
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Generate Content</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  onClick={() => handleGenerateImagePrompt()}
+                  disabled={isGenerating}
+                  className="w-full"
+                >
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Generate Image Prompt
+                </Button>
+
+                <Button
+                  onClick={() => handleGenerateImage()}
+                  disabled={isGenerating || !(scene.image_prompt || scene.imagePrompt)}
+                  className="w-full"
+                >
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Image className="mr-2 h-4 w-4" />}
+                  Generate Image
+                </Button>
+
+                <Button
+                  onClick={() => handleGenerateVideo()}
+                  disabled={isGenerating || !(scene.image_url || scene.imageUrl)}
+                  className="w-full"
+                >
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="mr-2 h-4 w-4" />}
+                  Generate Video
+                </Button>
+
+                <Button
+                  onClick={() => handleGenerateScript()}
+                  disabled={isGenerating}
+                  className="w-full"
+                >
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                  Generate Script
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

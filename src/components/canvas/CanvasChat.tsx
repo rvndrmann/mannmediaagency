@@ -101,7 +101,7 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
           toast.success("Description generated for scene");
           break;
         case 'generate_image_prompt':
-          await generateImagePrompt(sceneId, command.script || "", command.voiceOverText || "", command.customInstruction || "", command.content || "");
+          await generateImagePrompt(sceneId, command.content || "");
           toast.success("Image prompt generated for scene");
           break;
         case 'generate_scene_image':

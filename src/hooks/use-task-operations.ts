@@ -14,7 +14,9 @@ export const useTaskOperations = () => {
     return data;
   };
 
-  const pauseTask = async (taskId: string): Promise<BrowserTask> => {
+  const pauseTask = async (taskId?: string): Promise<BrowserTask> => {
+    if (!taskId) throw new Error("Task ID is required");
+    
     const { data, error } = await supabase
       .from('browser_automation_tasks')
       .update({ status: 'paused' })
@@ -26,7 +28,9 @@ export const useTaskOperations = () => {
     return data;
   };
 
-  const resumeTask = async (taskId: string): Promise<BrowserTask> => {
+  const resumeTask = async (taskId?: string): Promise<BrowserTask> => {
+    if (!taskId) throw new Error("Task ID is required");
+    
     const { data, error } = await supabase
       .from('browser_automation_tasks')
       .update({ status: 'running' })
@@ -38,7 +42,9 @@ export const useTaskOperations = () => {
     return data;
   };
 
-  const stopTask = async (taskId: string): Promise<BrowserTask> => {
+  const stopTask = async (taskId?: string): Promise<BrowserTask> => {
+    if (!taskId) throw new Error("Task ID is required");
+    
     const { data, error } = await supabase
       .from('browser_automation_tasks')
       .update({ status: 'stopped' })
@@ -50,7 +56,9 @@ export const useTaskOperations = () => {
     return data;
   };
 
-  const restartTask = async (taskId: string): Promise<BrowserTask> => {
+  const restartTask = async (taskId?: string): Promise<BrowserTask> => {
+    if (!taskId) throw new Error("Task ID is required");
+    
     const { data, error } = await supabase
       .from('browser_automation_tasks')
       .update({ status: 'pending' })

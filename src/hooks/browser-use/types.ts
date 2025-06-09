@@ -53,10 +53,13 @@ export interface BrowserConfig {
   contextConfig?: BrowserContextConfig;
   sensitiveData?: SensitiveDataItem[];
   desktopApps?: DesktopApplication[];
+  chromeUserData?: string;
+  taskTemplates?: any[];
 }
 
 export interface UserCredits {
   credits_remaining: number;
+  credits?: number;
 }
 
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'expired' | 'created';
@@ -78,13 +81,21 @@ export interface BrowserTaskHistory {
   output?: any;
   browser_task_id?: string;
   result_url?: string;
+  user_id?: string;
+  screenshot_url?: string;
+  browser_data?: any;
 }
 
-// Additional types that were missing
 export interface BrowserTaskState {
   task: BrowserTask | null;
   isLoading: boolean;
   error: string | null;
+  taskInput?: string;
+  currentTaskId?: string;
+  isProcessing?: boolean;
+  taskStatus?: TaskStatus;
+  connectionStatus?: 'connected' | 'disconnected' | 'connecting';
+  liveUrl?: string;
 }
 
 export interface BrowserUseError {
@@ -99,4 +110,10 @@ export interface DesktopApplication {
   executable: string;
   arguments?: string[];
   workingDirectory?: string;
+}
+
+export interface CaptureWebsiteResponse {
+  success: boolean;
+  screenshot_url?: string;
+  error?: string;
 }

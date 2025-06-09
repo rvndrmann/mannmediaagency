@@ -48,7 +48,7 @@ export interface CanvasScene {
   voice_over_url: string | null;
   scene_image_v1_url?: string | null;
   scene_image_v2_url?: string | null;
-  // Compatibility aliases
+  // Compatibility aliases for both naming conventions
   projectId?: string;
   createdAt?: string;
   updatedAt?: string;

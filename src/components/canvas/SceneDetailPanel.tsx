@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CanvasScene } from '@/types/canvas';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ import {
   Music,
   Mic,
   Trash2,
-  LucideProps,
   Upload,
   Sparkles,
   FileText

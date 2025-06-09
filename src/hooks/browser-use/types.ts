@@ -33,6 +33,7 @@ export interface BrowserContextConfig {
   userAgent?: string;
   locale?: string;
   allowedDomains?: string[];
+  browserWindowSize?: { width: number; height: number };
 }
 
 export interface BrowserConfig {
@@ -51,6 +52,7 @@ export interface BrowserConfig {
   extraChromiumArgs?: string[];
   contextConfig?: BrowserContextConfig;
   sensitiveData?: SensitiveDataItem[];
+  desktopApps?: DesktopApplication[];
 }
 
 export interface UserCredits {
@@ -76,4 +78,25 @@ export interface BrowserTaskHistory {
   output?: any;
   browser_task_id?: string;
   result_url?: string;
+}
+
+// Additional types that were missing
+export interface BrowserTaskState {
+  task: BrowserTask | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+export interface BrowserUseError {
+  message: string;
+  code?: string;
+  details?: any;
+}
+
+export interface DesktopApplication {
+  id: string;
+  name: string;
+  executable: string;
+  arguments?: string[];
+  workingDirectory?: string;
 }

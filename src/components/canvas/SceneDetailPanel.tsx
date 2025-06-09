@@ -1,8 +1,14 @@
+
 import { useState, useEffect } from 'react';
 import { CanvasScene } from '@/types/canvas';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { Loader2 } from '@/components/ui/loader2';
 import { uploadFileToBucket, deleteFileFromBucket } from '@/utils/supabase-helpers';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -14,10 +20,10 @@ import {
   Trash2,
   LucideProps,
   Upload,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import clsx from 'clsx';
-import { Card, Badge, Input, Separator, Loader2, Image, FileText } from '@/components/ui';
 
 interface SceneDetailPanelProps {
   scene: CanvasScene | null;
@@ -117,14 +123,46 @@ export function SceneDetailPanel({
       let updateField: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2' | 'voiceoverAudioUrl' = uploadType as any;
 
       switch (uploadType) {
-        case 'image': currentUrl = scene.image_url || scene.imageUrl || ''; bucket = 'canvas_assets'; updateField = 'image'; break;
-        case 'productImage': currentUrl = scene.product_image_url || scene.productImageUrl || ''; bucket = 'canvas_assets'; updateField = 'productImage'; break;
-        case 'video': currentUrl = scene.video_url || scene.videoUrl || ''; bucket = 'scene-videos'; updateField = 'video'; break;
-        case 'voiceOver': currentUrl = scene.voice_over_url || scene.voiceOverUrl || ''; bucket = 'voice-over'; updateField = 'voiceOver'; break;
-        case 'generatedVoiceOver': currentUrl = scene.voice_over_url || scene.voiceOverUrl || ''; bucket = 'voice-over'; updateField = 'voiceOver'; break;
-        case 'backgroundMusic': currentUrl = scene.background_music_url || scene.backgroundMusicUrl || ''; bucket = 'background-music'; updateField = 'backgroundMusic'; break;
-        case 'sceneImageV1': currentUrl = scene.scene_image_v1_url || scene.sceneImageV1Url || ''; bucket = 'canvas_assets'; updateField = 'sceneImageV1'; break;
-        case 'sceneImageV2': currentUrl = scene.scene_image_v2_url || scene.sceneImageV2Url || ''; bucket = 'canvas_assets'; updateField = 'sceneImageV2'; break;
+        case 'image': 
+          currentUrl = scene.image_url || ''; 
+          bucket = 'canvas_assets'; 
+          updateField = 'image'; 
+          break;
+        case 'productImage': 
+          currentUrl = scene.product_image_url || ''; 
+          bucket = 'canvas_assets'; 
+          updateField = 'productImage'; 
+          break;
+        case 'video': 
+          currentUrl = scene.video_url || ''; 
+          bucket = 'scene-videos'; 
+          updateField = 'video'; 
+          break;
+        case 'voiceOver': 
+          currentUrl = scene.voice_over_url || ''; 
+          bucket = 'voice-over'; 
+          updateField = 'voiceOver'; 
+          break;
+        case 'generatedVoiceOver': 
+          currentUrl = scene.voice_over_url || ''; 
+          bucket = 'voice-over'; 
+          updateField = 'voiceOver'; 
+          break;
+        case 'backgroundMusic': 
+          currentUrl = scene.background_music_url || ''; 
+          bucket = 'background-music'; 
+          updateField = 'backgroundMusic'; 
+          break;
+        case 'sceneImageV1': 
+          currentUrl = scene.scene_image_v1_url || ''; 
+          bucket = 'canvas_assets'; 
+          updateField = 'sceneImageV1'; 
+          break;
+        case 'sceneImageV2': 
+          currentUrl = scene.scene_image_v2_url || ''; 
+          bucket = 'canvas_assets'; 
+          updateField = 'sceneImageV2'; 
+          break;
       }
 
       if (!currentUrl) {
@@ -230,7 +268,7 @@ export function SceneDetailPanel({
 
   const handleSceneUpdate = (field: string, value: string) => {
     if (scene) {
-      updateScene(scene.id, field, value);
+      updateScene(scene.id, field as any, value);
     }
   };
 

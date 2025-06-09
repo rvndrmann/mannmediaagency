@@ -28,7 +28,6 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
         return <Badge className="bg-red-500">Expired</Badge>;
       case 'pending':
       case 'created':
-      case 'idle':
       default:
         return <Badge className="bg-gray-500">Pending</Badge>;
     }

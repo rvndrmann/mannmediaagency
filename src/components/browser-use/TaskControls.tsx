@@ -56,7 +56,7 @@ export function TaskControls({
           onClick={onStart}
           disabled={isProcessing || typeof userCredits !== 'number' || userCredits <= 0}
         >
-          {!isProcessing && taskStatus === 'idle' ? 'Start Task' : 'New Task'}
+          {!isProcessing && (taskStatus === 'pending' || taskStatus === 'created') ? 'Start Task' : 'New Task'}
         </Button>
       )}
       

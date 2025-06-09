@@ -69,7 +69,8 @@ export function BrowserUseApp() {
     connectionStatus,
     taskOutput,
     environment,
-    setEnvironment
+    setEnvironment,
+    currentTaskId
   } = useBrowserUseTask();
 
   useEffect(() => {
@@ -148,16 +149,34 @@ export function BrowserUseApp() {
     startTask();
   };
 
-  const handlePauseTask = () => {
-    pauseTask();
+  const handlePauseTask = async () => {
+    if (!currentTaskId) return;
+    try {
+      await pauseTask(currentTaskId);
+    } catch (error) {
+      console.error('Error pausing task:', error);
+      toast.error('Failed to pause task');
+    }
   };
 
-  const handleResumeTask = () => {
-    resumeTask();
+  const handleResumeTask = async () => {
+    if (!currentTaskId) return;
+    try {
+      await resumeTask(currentTaskId);
+    } catch (error) {
+      console.error('Error resuming task:', error);
+      toast.error('Failed to resume task');
+    }
   };
 
-  const handleStopTask = () => {
-    stopTask();
+  const handleStopTask = async () => {
+    if (!currentTaskId) return;
+    try {
+      await stopTask(currentTaskId);
+    } catch (error) {
+      console.error('Error stopping task:', error);
+      toast.error('Failed to stop task');
+    }
   };
 
   const handleRestartTask = () => {

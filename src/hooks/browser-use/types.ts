@@ -2,7 +2,7 @@
 export interface BrowserTask {
   id?: string;
   input: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'created' | 'expired';
   output?: string;
   current_url?: string;
   live_url?: string;
@@ -57,7 +57,7 @@ export interface UserCredits {
   credits_remaining: number;
 }
 
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'expired';
+export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'expired' | 'created';
 
 export interface TaskStep {
   id: string;
@@ -74,4 +74,6 @@ export interface BrowserTaskHistory {
   created_at: string;
   completed_at?: string;
   output?: any;
+  browser_task_id?: string;
+  result_url?: string;
 }

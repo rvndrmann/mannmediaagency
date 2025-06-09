@@ -43,8 +43,8 @@ export function SceneDetailPanel({
 
   useEffect(() => {
     if (scene) {
-      setImagePrompt(scene.image_prompt || scene.imagePrompt || '');
-      setSceneDescription(scene.voice_over_text || scene.voiceOverText || scene.script || '');
+      setImagePrompt(scene.image_prompt || '');
+      setSceneDescription(scene.voice_over_text || scene.script || '');
     } else {
       setImagePrompt('');
       setSceneDescription('');
@@ -225,8 +225,8 @@ export function SceneDetailPanel({
     </div>
   );
 
-  const generatedAudioUrl = scene?.voice_over_url || scene?.voiceOverUrl;
-  const manualAudioUrl = scene?.voice_over_url || scene?.voiceOverUrl;
+  const generatedAudioUrl = scene?.voice_over_url;
+  const manualAudioUrl = scene?.voice_over_url;
 
   const handleSceneUpdate = (field: string, value: string) => {
     if (scene) {
@@ -329,27 +329,27 @@ export function SceneDetailPanel({
         <FileUploadItem
           title="Scene Image" icon={ImageIcon} fileType="image" uploadType="image"
           isUploading={isUploadingImage} setUploading={setIsUploadingImage}
-          currentUrl={scene.image_url || scene.imageUrl || ''} acceptedTypes="image/*"
+          currentUrl={scene.image_url || ''} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Product Image" icon={ImageIcon} fileType="product image" uploadType="productImage"
           isUploading={isUploadingProductImage} setUploading={setIsUploadingProductImage}
-          currentUrl={scene.product_image_url || scene.productImageUrl || ''} acceptedTypes="image/*"
+          currentUrl={scene.product_image_url || ''} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Scene Image V1" icon={ImageIcon} fileType="scene image v1" uploadType="sceneImageV1"
           isUploading={isUploadingSceneImageV1} setUploading={setIsUploadingSceneImageV1}
-          currentUrl={scene.scene_image_v1_url || scene.sceneImageV1Url || ''} acceptedTypes="image/*"
+          currentUrl={scene.scene_image_v1_url || ''} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Scene Image V2" icon={ImageIcon} fileType="scene image v2" uploadType="sceneImageV2"
           isUploading={isUploadingSceneImageV2} setUploading={setIsUploadingSceneImageV2}
-          currentUrl={scene.scene_image_v2_url || scene.sceneImageV2Url || ''} acceptedTypes="image/*"
+          currentUrl={scene.scene_image_v2_url || ''} acceptedTypes="image/*"
         />
         <FileUploadItem
           title="Video Clip" icon={Video} fileType="video" uploadType="video"
           isUploading={isUploadingVideo} setUploading={setIsUploadingVideo}
-          currentUrl={scene.video_url || scene.videoUrl || ''} acceptedTypes="video/*"
+          currentUrl={scene.video_url || ''} acceptedTypes="video/*"
         />
 
         {/* --- Combined Voice Over Section --- */}
@@ -400,7 +400,7 @@ export function SceneDetailPanel({
         <FileUploadItem
           title="Background Music" icon={Music} fileType="music" uploadType="backgroundMusic"
           isUploading={isUploadingMusic} setUploading={setIsUploadingMusic}
-          currentUrl={scene.background_music_url || scene.backgroundMusicUrl || ''} acceptedTypes="audio/*"
+          currentUrl={scene.background_music_url || ''} acceptedTypes="audio/*"
         />
       </div>
 
@@ -413,7 +413,7 @@ export function SceneDetailPanel({
                 <Badge variant="outline">
                   Scene {scene.scene_order || scene.sceneOrder || 1}
                 </Badge>
-                {(scene.image_prompt || scene.imagePrompt) && (
+                {(scene.image_prompt) && (
                   <Badge variant="secondary">Has Prompt</Badge>
                 )}
               </div>
@@ -466,7 +466,7 @@ export function SceneDetailPanel({
                 </Label>
                 <Textarea
                   id="voice-over-text"
-                  value={scene.voice_over_text || scene.voiceOverText || ""}
+                  value={scene.voice_over_text || ""}
                   onChange={(e) => handleSceneUpdate("voiceOverText", e.target.value)}
                   placeholder="Enter voice over text..."
                   className="mt-1 min-h-[100px]"
@@ -479,7 +479,7 @@ export function SceneDetailPanel({
                 </Label>
                 <Textarea
                   id="image-prompt"
-                  value={scene.image_prompt || scene.imagePrompt || ""}
+                  value={scene.image_prompt || ""}
                   onChange={(e) => handleSceneUpdate("imagePrompt", e.target.value)}
                   placeholder="Describe the visual style and content for this scene..."
                   className="mt-1 min-h-[100px]"
@@ -493,12 +493,12 @@ export function SceneDetailPanel({
               <h3 className="text-lg font-semibold">Generated Assets</h3>
               
               {/* Product Image */}
-              {(scene.product_image_url || scene.productImageUrl) && (
+              {scene.product_image_url && (
                 <div>
                   <Label className="text-sm font-medium">Product Image</Label>
                   <div className="mt-2">
                     <img 
-                      src={scene.product_image_url || scene.productImageUrl || ""} 
+                      src={scene.product_image_url} 
                       alt="Product" 
                       className="max-w-full h-auto rounded-lg border"
                     />
@@ -536,12 +536,12 @@ export function SceneDetailPanel({
               </div>
 
               {/* Generated Image */}
-              {(scene.image_url || scene.imageUrl) && (
+              {scene.image_url && (
                 <div>
                   <Label className="text-sm font-medium">Generated Image</Label>
                   <div className="mt-2">
                     <img 
-                      src={scene.image_url || scene.imageUrl || ""} 
+                      src={scene.image_url} 
                       alt="Generated scene" 
                       className="max-w-full h-auto rounded-lg border"
                     />
@@ -550,12 +550,12 @@ export function SceneDetailPanel({
               )}
 
               {/* Generated Video */}
-              {(scene.video_url || scene.videoUrl) && (
+              {scene.video_url && (
                 <div>
                   <Label className="text-sm font-medium">Generated Video</Label>
                   <div className="mt-2">
                     <video 
-                      src={scene.video_url || scene.videoUrl || ""} 
+                      src={scene.video_url} 
                       controls 
                       className="max-w-full h-auto rounded-lg border"
                     />
@@ -564,12 +564,12 @@ export function SceneDetailPanel({
               )}
 
               {/* Background Music */}
-              {(scene.background_music_url || scene.backgroundMusicUrl) && (
+              {scene.background_music_url && (
                 <div>
                   <Label className="text-sm font-medium">Background Music</Label>
                   <div className="mt-2">
                     <audio 
-                      src={scene.background_music_url || scene.backgroundMusicUrl || ""} 
+                      src={scene.background_music_url} 
                       controls 
                       className="w-full"
                     />
@@ -595,7 +595,7 @@ export function SceneDetailPanel({
 
                 <Button
                   onClick={() => handleGenerateImage()}
-                  disabled={isGenerating || !(scene.image_prompt || scene.imagePrompt)}
+                  disabled={isGenerating || !(scene.image_prompt)}
                   className="w-full"
                 >
                   {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Image className="mr-2 h-4 w-4" />}
@@ -604,7 +604,7 @@ export function SceneDetailPanel({
 
                 <Button
                   onClick={() => handleGenerateVideo()}
-                  disabled={isGenerating || !(scene.image_url || scene.imageUrl)}
+                  disabled={isGenerating || !(scene.image_url)}
                   className="w-full"
                 >
                   {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="mr-2 h-4 w-4" />}

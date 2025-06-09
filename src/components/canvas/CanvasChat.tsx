@@ -93,7 +93,7 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
     try {
       switch (command.action) {
         case 'generate_script':
-          await generateSceneScript(sceneId, command.content || "", command.voiceOverText || "", command.customInstruction || "");
+          await generateSceneScript(sceneId, command.content || "");
           toast.success("Script generated for scene");
           break;
         case 'generate_description':

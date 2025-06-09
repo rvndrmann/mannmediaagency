@@ -20,21 +20,26 @@ export function SensitiveDataManager({
   onChange,
   disabled = false
 }: SensitiveDataManagerProps) {
-  const [newKey, setNewKey] = useState("");
+  const [newName, setNewName] = useState("");
   const [newValue, setNewValue] = useState("");
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
   const [showExample, setShowExample] = useState(false);
 
   const addSensitiveData = () => {
-    if (!newKey.trim()) return;
+    if (!newName.trim()) return;
     
     const updatedData = [
       ...sensitiveData,
-      { key: newKey.trim(), value: newValue }
+      { 
+        id: crypto.randomUUID(),
+        name: newName.trim(),
+        value: newValue,
+        type: 'text' as const
+      }
     ];
     
     onChange(updatedData);
-    setNewKey("");
+    setNewName("");
     setNewValue("");
   };
 
@@ -44,10 +49,10 @@ export function SensitiveDataManager({
     onChange(updatedData);
   };
 
-  const toggleShowValue = (key: string) => {
+  const toggleShowValue = (id: string) => {
     setShowValues({
       ...showValues,
-      [key]: !showValues[key]
+      [id]: !showValues[id]
     });
   };
 
@@ -99,16 +104,16 @@ export function SensitiveDataManager({
       <div className="grid gap-3">
         {sensitiveData.length > 0 ? (
           sensitiveData.map((item, index) => (
-            <Card key={index} className="p-3">
+            <Card key={item.id} className="p-3">
               <div className="flex items-center gap-2">
                 <div className="flex-1 grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">Placeholder</Label>
                     <div className="flex items-center">
                       <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1 text-sm font-medium text-amber-800 flex-1">
-                        {item.key}
+                        {item.name}
                       </div>
-                      <div className="text-xs text-gray-500 ml-2">Use as: {'{' + item.key + '}'}</div>
+                      <div className="text-xs text-gray-500 ml-2">Use as: {'{' + item.name + '}'}</div>
                     </div>
                   </div>
                   <div>
@@ -121,7 +126,7 @@ export function SensitiveDataManager({
                           updatedData[index].value = e.target.value;
                           onChange(updatedData);
                         }}
-                        type={showValues[item.key] ? "text" : "password"}
+                        type={showValues[item.id] ? "text" : "password"}
                         disabled={disabled}
                         className="text-sm border-none bg-muted"
                       />
@@ -129,10 +134,10 @@ export function SensitiveDataManager({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => toggleShowValue(item.key)}
+                        onClick={() => toggleShowValue(item.id)}
                         className="ml-1 h-8 w-8 p-0"
                       >
-                        {showValues[item.key] ? (
+                        {showValues[item.id] ? (
                           <EyeOff className="h-4 w-4" />
                         ) : (
                           <Eye className="h-4 w-4" />
@@ -165,12 +170,12 @@ export function SensitiveDataManager({
 
       <div className="grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
         <div>
-          <Label htmlFor="placeholderKey" className="text-xs">Placeholder Key</Label>
+          <Label htmlFor="placeholderKey" className="text-xs">Placeholder Name</Label>
           <Input
             id="placeholderKey"
             placeholder="e.g., my_password"
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value)}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
             disabled={disabled}
           />
         </div>
@@ -188,7 +193,7 @@ export function SensitiveDataManager({
         <Button
           type="button"
           onClick={addSensitiveData}
-          disabled={disabled || !newKey.trim()}
+          disabled={disabled || !newName.trim()}
           className="mt-auto"
         >
           <Plus className="h-4 w-4 mr-1" />

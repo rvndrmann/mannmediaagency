@@ -420,7 +420,7 @@ export function BrowserUseApp() {
                   </Button>
                 )}
 
-                {(taskStatus === 'completed' || taskStatus === 'stopped' || taskStatus === 'failed' || taskStatus === 'expired') && (
+                {(taskStatus === 'finished' || taskStatus === 'stopped' || taskStatus === 'failed') && (
                   <Button
                     onClick={handleRestartTask}
                     disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}

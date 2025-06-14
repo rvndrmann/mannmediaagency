@@ -15,11 +15,15 @@ export interface BrowserConfig {
     maxWaitPageLoadTime: number;
     highlightElements: boolean;
     viewportExpansion: number;
+    userAgent?: string;
+    locale?: string;
+    allowedDomains?: string[];
   };
   wssUrl?: string;
   cdpUrl?: string;
   browserInstancePath?: string;
   proxy?: string;
+  extraChromiumArgs?: string[];
 }
 
 export interface SensitiveDataItem {
@@ -46,3 +50,40 @@ export interface BrowserTaskHistory {
 }
 
 export type TaskStatus = 'created' | 'running' | 'finished' | 'stopped' | 'paused' | 'failed';
+
+export interface TaskStep {
+  id: string;
+  description: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  timestamp: string;
+}
+
+export interface BrowserTaskState {
+  taskId: string;
+  status: TaskStatus;
+  progress: number;
+  currentStep?: string;
+  steps: TaskStep[];
+}
+
+export interface BrowserTask {
+  id: string;
+  input: string;
+  status: TaskStatus;
+  output?: any;
+  error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserCredits {
+  credits_remaining: number;
+  credits_used: number;
+  last_updated: string;
+}
+
+export interface CaptureWebsiteResponse {
+  success: boolean;
+  screenshot_url?: string;
+  error?: string;
+}

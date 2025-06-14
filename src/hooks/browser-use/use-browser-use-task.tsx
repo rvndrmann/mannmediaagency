@@ -45,7 +45,10 @@ export const useBrowserUseTask = () => {
 
       setState(prev => ({
         ...prev,
-        task: newTask,
+        task: {
+          ...newTask,
+          status: newTask.status as TaskStatus
+        },
         currentTaskId: newTask.id || '',
         taskStatus: newTask.status as TaskStatus,
         isLoading: false

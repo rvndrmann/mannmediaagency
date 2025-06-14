@@ -78,7 +78,7 @@ const MultiAgentChatPageWrapper = () => {
 function App() {
   return (
     <MCPProvider>
-      <ProjectProvider>
+      <ProjectProvider projectId={null}>
         <Routes>
           {/* Main routes */}
           <Route path="/" element={<Index />} />

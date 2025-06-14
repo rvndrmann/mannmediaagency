@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from 'react';
 import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from '@/types/canvas';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +24,7 @@ export function useCanvasProjects() {
     createProject,
     addScene: createScene,
     updateScene,
-    deleteScene: deleteSceneFromCanvas, // Destructure and rename
+    deleteScene: deleteSceneFromCanvas,
     divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,
@@ -120,16 +121,20 @@ export function useCanvasProjects() {
         id: p.id,
         title: p.title,
         description: p.description || '',
-        userId: p.user_id || p.userId || '',
-        user_id: p.user_id || p.userId || '',
-        fullScript: p.full_script || p.fullScript || '',
-        full_script: p.full_script || p.fullScript || '',
-        createdAt: p.created_at || p.createdAt || new Date().toISOString(),
-        created_at: p.created_at || p.createdAt || new Date().toISOString(),
-        updatedAt: p.updated_at || p.updatedAt || new Date().toISOString(),
-        updated_at: p.updated_at || p.updatedAt || new Date().toISOString(),
+        final_video_url: p.final_video_url || null,
+        full_script: p.full_script || '',
+        main_product_image_url: p.main_product_image_url || null,
+        project_assets: p.project_assets || [],
+        user_id: p.user_id || '',
+        created_at: p.created_at || new Date().toISOString(),
+        updated_at: p.updated_at || new Date().toISOString(),
         cover_image_url: p.cover_image_url || '',
-        scenes: p.scenes || []
+        scenes: p.scenes || [],
+        // Compatibility aliases
+        userId: p.user_id || '',
+        createdAt: p.created_at || new Date().toISOString(),
+        updatedAt: p.updated_at || new Date().toISOString(),
+        fullScript: p.full_script || ''
       }));
       
       setProjects(normalizedProjects);
@@ -149,31 +154,39 @@ export function useCanvasProjects() {
         id: "mock-1",
         title: "Sample Project 1",
         description: "This is a sample project for testing",
-        userId: "mock-user",
-        user_id: "mock-user",
-        fullScript: "This is a sample script for Project 1",
+        final_video_url: null,
         full_script: "This is a sample script for Project 1",
-        createdAt: new Date().toISOString(),
+        main_product_image_url: null,
+        project_assets: [],
+        user_id: "mock-user",
         created_at: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         cover_image_url: "",
-        scenes: []
+        scenes: [],
+        // Compatibility aliases
+        userId: "mock-user",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        fullScript: "This is a sample script for Project 1"
       },
       {
         id: "mock-2",
         title: "Sample Project 2",
         description: "Another sample project for testing",
-        userId: "mock-user",
-        user_id: "mock-user",
-        fullScript: "This is a sample script for Project 2",
+        final_video_url: null,
         full_script: "This is a sample script for Project 2",
-        createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+        main_product_image_url: null,
+        project_assets: [],
+        user_id: "mock-user",
         created_at: new Date(Date.now() - 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
         updated_at: new Date(Date.now() - 86400000).toISOString(),
         cover_image_url: "",
-        scenes: []
+        scenes: [],
+        // Compatibility aliases
+        userId: "mock-user",
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        updatedAt: new Date(Date.now() - 86400000).toISOString(),
+        fullScript: "This is a sample script for Project 2"
       }
     ];
   };

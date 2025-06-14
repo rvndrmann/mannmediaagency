@@ -55,6 +55,7 @@ export interface BrowserConfig {
   desktopApps?: DesktopApplication[];
   chromeUserData?: string;
   taskTemplates?: any[];
+  desktopTimeout?: number;
 }
 
 export interface UserCredits {
@@ -62,7 +63,7 @@ export interface UserCredits {
   credits?: number;
 }
 
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'expired' | 'created';
+export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'expired' | 'created' | 'idle';
 
 export interface TaskStep {
   id: string;
@@ -97,6 +98,7 @@ export interface BrowserTaskState {
   connectionStatus?: 'connected' | 'disconnected' | 'connecting' | 'error';
   liveUrl?: string;
   progress?: number;
+  taskSteps?: TaskStep[];
 }
 
 export interface BrowserUseError {

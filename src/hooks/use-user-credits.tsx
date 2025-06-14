@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface UserCredits {
   user_id: string;
   credits_remaining: number;
+  credits?: number;
 }
 
 export function useUserCredits() {

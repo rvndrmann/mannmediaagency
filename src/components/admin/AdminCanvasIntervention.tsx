@@ -101,7 +101,11 @@ export const AdminCanvasIntervention = () => {
           scene_image_v1_url: s.scene_image_v1_url || null,
           scene_image_v2_url: s.scene_image_v2_url || null,
           image_prompt: s.image_prompt || null,
-          duration: s.duration || null
+          duration: s.duration || null,
+          // Added required fields for CanvasScene type, with defaults
+          fal_tts_request_id: s.fal_tts_request_id || null,
+          is_template: s.is_template ?? false,
+          template_id: s.template_id || null
         }));
         setScenes(normalizedScenes);
       }
@@ -137,7 +141,7 @@ export const AdminCanvasIntervention = () => {
         console.error('Edge function invocation error:', error);
         let detailedError = error.message;
         if (error.context && typeof error.context === 'object' && 'error' in error.context) {
-            detailedError = error.context.error as string;
+          detailedError = error.context.error as string;
         }
         throw new Error(detailedError || error.message);
       }
@@ -192,9 +196,9 @@ export const AdminCanvasIntervention = () => {
             <SelectTrigger id="scene-select">
               <SelectValue placeholder={
                 !selectedProjectId ? "Select a project first" :
-                isLoadingScenes ? "Loading scenes..." :
-                scenes.length === 0 ? "No scenes found" :
-                "Select a scene"
+                  isLoadingScenes ? "Loading scenes..." :
+                    scenes.length === 0 ? "No scenes found" :
+                      "Select a scene"
               } />
             </SelectTrigger>
             <SelectContent>

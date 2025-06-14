@@ -94,8 +94,9 @@ export interface BrowserTaskState {
   currentTaskId?: string;
   isProcessing?: boolean;
   taskStatus?: TaskStatus;
-  connectionStatus?: 'connected' | 'disconnected' | 'connecting';
+  connectionStatus?: 'connected' | 'disconnected' | 'connecting' | 'error';
   liveUrl?: string;
+  progress?: number;
 }
 
 export interface BrowserUseError {
@@ -115,5 +116,7 @@ export interface DesktopApplication {
 export interface CaptureWebsiteResponse {
   success: boolean;
   screenshot_url?: string;
+  image_url?: string;
+  screenshot?: string;
   error?: string;
 }

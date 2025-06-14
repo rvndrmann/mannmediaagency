@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { CanvasScene } from '@/types/canvas';
 import { Button } from '@/components/ui/button';
@@ -208,9 +209,14 @@ export function SceneDetailPanel({
   const FileUploadItem = ({
     title, icon: Icon, fileType, uploadType, isUploading, setUploading, currentUrl, acceptedTypes
   }: {
-    title: string; icon: React.ComponentType<LucideProps>; fileType: string;
+    title: string; 
+    icon: React.ComponentType<{ className?: string }>; 
+    fileType: string;
     uploadType: 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'sceneImageV1' | 'sceneImageV2';
-    isUploading: boolean; setUploading: (uploading: boolean) => void; currentUrl: string; acceptedTypes: string;
+    isUploading: boolean; 
+    setUploading: (uploading: boolean) => void; 
+    currentUrl: string; 
+    acceptedTypes: string;
   }) => (
     <div className="border rounded-md p-3">
       <div className="flex justify-between items-center mb-2">

@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useContext,
@@ -62,7 +63,7 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
         final_video_url: data.final_video_url,
         full_script: data.full_script,
         main_product_image_url: data.main_product_image_url,
-        project_assets: data.project_assets || [], // Add missing property
+        project_assets: Array.isArray(data.project_assets) ? data.project_assets : [],
         user_id: data.user_id,
         created_at: data.created_at,
         updated_at: data.updated_at,
@@ -92,9 +93,15 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
     }
 
     try {
+      // Convert project_assets to JSON if needed
+      const dbUpdates = { ...updates };
+      if (updates.project_assets) {
+        dbUpdates.project_assets = JSON.parse(JSON.stringify(updates.project_assets));
+      }
+
       const { data, error } = await supabase
         .from('canvas_projects')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', projectId)
         .select()
         .single();
@@ -124,7 +131,7 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
       final_video_url: project.final_video_url,
       full_script: project.full_script,
       main_product_image_url: project.main_product_image_url,
-      project_assets: project.project_assets || [], // Add missing property
+      project_assets: project.project_assets || [],
       user_id: project.user_id,
       created_at: project.created_at,
       updated_at: project.updated_at,
@@ -142,3 +149,9 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
     </ProjectContext.Provider>
   );
 };
+
+// Export as ProjectProvider for backward compatibility
+export const ProjectProvider = ProjectContextProvider;
+
+// Export the type for other components to use
+export type { ProjectContextType };

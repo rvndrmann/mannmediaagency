@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: credits, refetch } = useUserCredits();
+  const { data: creditsData, refetch } = useUserCredits();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -112,9 +113,9 @@ export const Navbar = () => {
 
             {user ? (
               <div className="flex items-center space-x-3">
-                {credits && (
+                {creditsData && (
                   <Badge variant="outline" className="bg-white">
-                    {credits.credits_remaining.toFixed(2)} Credits
+                    {creditsData.credits_remaining.toFixed(2)} Credits
                   </Badge>
                 )}
                 
@@ -217,9 +218,9 @@ export const Navbar = () => {
                       )}
                       <span className="font-medium">{getUserDisplayName()}</span>
                     </div>
-                    {credits && (
+                    {creditsData && (
                       <Badge variant="outline" className="bg-white">
-                        {credits.credits_remaining.toFixed(2)} Credits
+                        {creditsData.credits_remaining.toFixed(2)} Credits
                       </Badge>
                     )}
                   </div>
@@ -268,23 +269,4 @@ export const Navbar = () => {
       </div>
     </nav>
   );
-
-  function handleLogout() {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Error signing out");
-    } else {
-      toast.success("Signed out successfully");
-      navigate('/');
-    }
-  }
-
-  function getUserDisplayName() {
-    if (!user) return "Guest";
-    return user.user_metadata?.full_name || user.email?.split('@')[0] || "User";
-  }
-
-  function getUserAvatar() {
-    return user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
-  }
 };

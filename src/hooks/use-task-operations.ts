@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { BrowserTask } from "./browser-use/types";
+import { BrowserTask, TaskStatus } from "./browser-use/types";
 
 export const useTaskOperations = () => {
   const createTask = async (taskData: Omit<BrowserTask, 'id' | 'created_at' | 'updated_at'>): Promise<BrowserTask> => {
@@ -23,7 +23,12 @@ export const useTaskOperations = () => {
       .single();
 
     if (error) throw error;
-    return data;
+    
+    // Cast the returned data to match BrowserTask interface
+    return {
+      ...data,
+      status: data.status as TaskStatus
+    } as BrowserTask;
   };
 
   const pauseTask = async (taskId?: string): Promise<BrowserTask> => {
@@ -37,7 +42,10 @@ export const useTaskOperations = () => {
       .single();
 
     if (error) throw error;
-    return data;
+    return {
+      ...data,
+      status: data.status as TaskStatus
+    } as BrowserTask;
   };
 
   const resumeTask = async (taskId?: string): Promise<BrowserTask> => {
@@ -51,7 +59,10 @@ export const useTaskOperations = () => {
       .single();
 
     if (error) throw error;
-    return data;
+    return {
+      ...data,
+      status: data.status as TaskStatus
+    } as BrowserTask;
   };
 
   const stopTask = async (taskId?: string): Promise<BrowserTask> => {
@@ -65,7 +76,10 @@ export const useTaskOperations = () => {
       .single();
 
     if (error) throw error;
-    return data;
+    return {
+      ...data,
+      status: data.status as TaskStatus
+    } as BrowserTask;
   };
 
   const restartTask = async (taskId?: string): Promise<BrowserTask> => {
@@ -79,7 +93,10 @@ export const useTaskOperations = () => {
       .single();
 
     if (error) throw error;
-    return data;
+    return {
+      ...data,
+      status: data.status as TaskStatus
+    } as BrowserTask;
   };
 
   const startTask = async (taskId?: string): Promise<BrowserTask> => {
@@ -93,7 +110,10 @@ export const useTaskOperations = () => {
       .single();
 
     if (error) throw error;
-    return data;
+    return {
+      ...data,
+      status: data.status as TaskStatus
+    } as BrowserTask;
   };
 
   return {

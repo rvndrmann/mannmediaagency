@@ -21,7 +21,8 @@ export function TaskProgress({ taskStatus, taskSteps, progress }: TaskProgressPr
     failed: "Task failed to complete",
     stopped: "Task was stopped",
     paused: "Task is paused",
-    expired: "Task has expired"
+    expired: "Task has expired",
+    idle: "Task is idle"
   };
 
   const statusColors: Record<TaskStatus, string> = {
@@ -32,7 +33,8 @@ export function TaskProgress({ taskStatus, taskSteps, progress }: TaskProgressPr
     failed: "bg-red-500",
     stopped: "bg-orange-500",
     paused: "bg-yellow-500",
-    expired: "bg-red-500"
+    expired: "bg-red-500",
+    idle: "bg-gray-500"
   };
 
   useEffect(() => {

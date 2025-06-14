@@ -20,7 +20,12 @@ export function useUserCredits() {
         .maybeSingle();
 
       if (error) throw error;
-      return data as UserCredits;
+      
+      // Return data with credits property for backward compatibility
+      return data ? {
+        ...data,
+        credits: data.credits_remaining
+      } as UserCredits : null;
     },
   });
 }

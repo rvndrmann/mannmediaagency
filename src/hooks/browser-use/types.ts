@@ -2,7 +2,7 @@
 export interface BrowserTask {
   id?: string;
   input: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'created' | 'expired';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'created' | 'expired' | 'idle';
   output?: string;
   current_url?: string;
   live_url?: string;
@@ -56,6 +56,7 @@ export interface BrowserConfig {
   chromeUserData?: string;
   taskTemplates?: any[];
   desktopTimeout?: number;
+  streamDesktop?: boolean;
 }
 
 export interface UserCredits {
@@ -99,6 +100,7 @@ export interface BrowserTaskState {
   liveUrl?: string;
   progress?: number;
   taskSteps?: TaskStep[];
+  taskOutput?: string;
 }
 
 export interface BrowserUseError {

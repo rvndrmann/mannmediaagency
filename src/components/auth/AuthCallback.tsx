@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -21,16 +22,6 @@ const AuthCallback = () => {
         
         console.log("Hash params present:", !!hashParams && hashParams.has('access_token'));
         console.log("Query params present:", queryParams.has('code'));
-        
-        // PKCE flow detection (preferred method in Supabase v2)
-        if (queryParams.has('code')) {
-          console.log("PKCE flow detected with code parameter");
-          
-          // With PKCE, Supabase should handle the exchange automatically
-          // Just need to get the session after the callback
-          
-          // First, ensure any existing corrupted sessions are cleared
-        }
         
         // Get the current session
         console.log("Requesting session from Supabase...");
@@ -138,12 +129,14 @@ const AuthCallback = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center">
-      <div className="text-white text-center">
-        <div className="size-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-lg">Completing login...</p>
+    <ThemeProvider>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="size-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-lg">Completing login...</p>
+        </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 };
 

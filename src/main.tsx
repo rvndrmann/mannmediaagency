@@ -32,7 +32,7 @@ root.render(
         <Toaster />
         <ReactQueryDevtools 
           initialIsOpen={false} 
-          position="bottom-right"
+          buttonPosition="bottom-right"
         />
       </BrowserRouter>
     </QueryClientProvider>

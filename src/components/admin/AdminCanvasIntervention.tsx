@@ -100,7 +100,6 @@ export const AdminCanvasIntervention = () => {
           custom_instruction: s.custom_instruction || null,
           scene_image_v1_url: s.scene_image_v1_url || null,
           scene_image_v2_url: s.scene_image_v2_url || null,
-          pending_generation_id: s.pending_generation_id || null,
           image_prompt: s.image_prompt || null,
           duration: s.duration || null
         }));

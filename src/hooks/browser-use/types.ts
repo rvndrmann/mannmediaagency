@@ -22,6 +22,7 @@ export interface SensitiveDataItem {
   name: string;
   value: string;
   type: 'password' | 'email' | 'text' | 'number';
+  key?: string; // Add the missing key property
 }
 
 export interface BrowserContextConfig {
@@ -101,6 +102,9 @@ export interface BrowserTaskState {
   progress?: number;
   taskSteps?: TaskStep[];
   taskOutput?: string;
+  currentUrl?: string; // Add missing currentUrl property
+  environment?: 'browser' | 'desktop';
+  browserConfig?: BrowserConfig;
 }
 
 export interface BrowserUseError {

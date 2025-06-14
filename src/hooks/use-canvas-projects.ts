@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from 'react';
 import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from '@/types/canvas';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,7 +115,7 @@ export function useCanvasProjects() {
       
       console.log(`Found ${data?.length || 0} projects for user ${currentUser.id}`);
       
-      // Properly normalize the data from snake_case to camelCase
+      // Properly normalize the data with all required properties
       const normalizedProjects = (data || []).map((p: any): CanvasProject => ({
         id: p.id,
         title: p.title,
@@ -124,7 +123,7 @@ export function useCanvasProjects() {
         final_video_url: p.final_video_url || null,
         full_script: p.full_script || '',
         main_product_image_url: p.main_product_image_url || null,
-        project_assets: p.project_assets || [],
+        project_assets: Array.isArray(p.project_assets) ? p.project_assets : [], // Ensure array
         user_id: p.user_id || '',
         created_at: p.created_at || new Date().toISOString(),
         updated_at: p.updated_at || new Date().toISOString(),
@@ -147,7 +146,7 @@ export function useCanvasProjects() {
     }
   }, []);
 
-  // Mock projects for development/testing purposes
+  // Mock projects for development/testing - update to include all required properties
   const getMockProjects = (): CanvasProject[] => {
     return [
       {
@@ -157,7 +156,7 @@ export function useCanvasProjects() {
         final_video_url: null,
         full_script: "This is a sample script for Project 1",
         main_product_image_url: null,
-        project_assets: [],
+        project_assets: [], // Add required property
         user_id: "mock-user",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -176,7 +175,7 @@ export function useCanvasProjects() {
         final_video_url: null,
         full_script: "This is a sample script for Project 2",
         main_product_image_url: null,
-        project_assets: [],
+        project_assets: [], // Add required property
         user_id: "mock-user",
         created_at: new Date(Date.now() - 86400000).toISOString(),
         updated_at: new Date(Date.now() - 86400000).toISOString(),
@@ -337,12 +336,12 @@ export function useCanvasProjects() {
     error,
     fetchProjects,
     selectProject,
-    createProject,
+    createProject, // Include createProject
     updateProject,
     deleteProject,
     createScene,
     updateScene,
-    deleteScene: deleteSceneFromCanvas, // Return the renamed function as deleteScene
+    deleteScene: deleteSceneFromCanvas,
     divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,

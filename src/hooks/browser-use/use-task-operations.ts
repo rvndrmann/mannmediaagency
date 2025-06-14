@@ -10,9 +10,26 @@ export const useTaskOperations = () => {
   const createTask = async (taskData: Partial<BrowserTask>) => {
     setIsLoading(true);
     try {
+      // Ensure required fields are present
+      if (!taskData.input || !taskData.user_id) {
+        throw new Error('Missing required fields: input and user_id');
+      }
+
       const { data, error } = await supabase
         .from('browser_automation_tasks')
-        .insert([taskData])
+        .insert([{
+          input: taskData.input,
+          user_id: taskData.user_id,
+          status: taskData.status || 'pending',
+          environment: taskData.environment || 'browser',
+          browser_data: taskData.browser_data || null,
+          applications_config: taskData.applications_config || null,
+          browser_task_id: taskData.browser_task_id || null,
+          current_url: taskData.current_url || null,
+          live_url: taskData.live_url || null,
+          output: taskData.output || null,
+          progress: taskData.progress || 0
+        }])
         .select()
         .single();
 
@@ -92,6 +109,14 @@ export const useTaskOperations = () => {
     return updateTaskStatus(taskId, 'stopped');
   };
 
+  const startTask = async (taskId: string) => {
+    return updateTaskStatus(taskId, 'running');
+  };
+
+  const restartTask = async (taskId: string) => {
+    return updateTaskStatus(taskId, 'pending');
+  };
+
   return {
     createTask,
     updateTaskStatus,
@@ -99,6 +124,8 @@ export const useTaskOperations = () => {
     pauseTask,
     resumeTask,
     stopTask,
+    startTask,
+    restartTask,
     isLoading
   };
 };

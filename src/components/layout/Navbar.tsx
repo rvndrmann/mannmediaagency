@@ -31,7 +31,7 @@ export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { credits, refetch } = useUserCredits();
+  const { data: credits, refetch } = useUserCredits();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -268,4 +268,23 @@ export const Navbar = () => {
       </div>
     </nav>
   );
+
+  function handleLogout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Error signing out");
+    } else {
+      toast.success("Signed out successfully");
+      navigate('/');
+    }
+  }
+
+  function getUserDisplayName() {
+    if (!user) return "Guest";
+    return user.user_metadata?.full_name || user.email?.split('@')[0] || "User";
+  }
+
+  function getUserAvatar() {
+    return user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
+  }
 };

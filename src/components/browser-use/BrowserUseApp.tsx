@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -78,7 +77,17 @@ export function BrowserUseApp() {
   const [currentUrl, setCurrentUrl] = useState("");
   const [screenshot, setScreenshot] = useState<string | null>(null);
   
+  // use the hook and destructure relevant state fields
   const browserUseTask = useBrowserUseTask();
+  const {
+    isLoading,
+    taskStatus,
+    liveUrl,
+    connectionStatus,
+    progress,
+    error,
+    taskOutput,
+  } = browserUseTask;
 
   const captureScreenshot = () => {
     // Placeholder function

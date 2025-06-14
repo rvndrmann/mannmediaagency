@@ -1,7 +1,6 @@
 
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { supabase } from "@/integrations/supabase/client";
 import { BrowserAutomationAdapter, BrowserAutomationConfig, BrowserAutomationResult } from './browser-automation-adapter';
 
 export interface UseBrowserAutomationResult {

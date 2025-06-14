@@ -56,6 +56,7 @@ export interface TaskStep {
   description: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   timestamp: string;
+  details?: string;
 }
 
 export interface BrowserTaskState {
@@ -64,6 +65,11 @@ export interface BrowserTaskState {
   progress: number;
   currentStep?: string;
   steps: TaskStep[];
+  liveUrl?: string;
+  connectionStatus?: 'connected' | 'disconnected' | 'connecting';
+  currentTaskId?: string;
+  isProcessing?: boolean;
+  taskStatus?: TaskStatus;
 }
 
 export interface BrowserTask {
@@ -74,6 +80,7 @@ export interface BrowserTask {
   error?: string;
   created_at: string;
   updated_at: string;
+  user_id?: string;
 }
 
 export interface UserCredits {
@@ -85,5 +92,7 @@ export interface UserCredits {
 export interface CaptureWebsiteResponse {
   success: boolean;
   screenshot_url?: string;
+  image_url?: string;
+  screenshot?: string;
   error?: string;
 }

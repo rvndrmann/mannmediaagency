@@ -34,7 +34,7 @@ export function TaskControls({
   const canResume = isProcessing && taskStatus === 'paused';
   const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused');
   const canScreenshot = Boolean(onScreenshot) && taskStatus === 'running' && isProcessing;
-  const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'completed' || taskStatus === 'expired' || error?.includes('expired'));
+  const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'finished');
   
   const copyTaskError = () => {
     if (!error) return;
@@ -56,7 +56,7 @@ export function TaskControls({
           onClick={onStart}
           disabled={isProcessing || typeof userCredits !== 'number' || userCredits <= 0}
         >
-          {!isProcessing && (taskStatus === 'pending' || taskStatus === 'created') ? 'Start Task' : 'New Task'}
+          {!isProcessing && (taskStatus === 'created') ? 'Start Task' : 'New Task'}
         </Button>
       )}
       

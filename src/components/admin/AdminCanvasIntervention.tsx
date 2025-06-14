@@ -103,9 +103,9 @@ export const AdminCanvasIntervention = () => {
           image_prompt: s.image_prompt || null,
           duration: s.duration || null,
           // Added required fields for CanvasScene type, with defaults
-          fal_tts_request_id: s.fal_tts_request_id || null,
+          fal_tts_request_id: s.fal_tts_request_id ?? null,
           is_template: s.is_template ?? false,
-          template_id: s.template_id || null
+          template_id: s.template_id ?? null
         }));
         setScenes(normalizedScenes);
       }

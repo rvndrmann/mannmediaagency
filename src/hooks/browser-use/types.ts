@@ -22,7 +22,7 @@ export interface SensitiveDataItem {
   name: string;
   value: string;
   type: 'password' | 'email' | 'text' | 'number';
-  key?: string;
+  key: string;
 }
 
 export interface BrowserContextConfig {
@@ -87,24 +87,25 @@ export interface BrowserTaskHistory {
   user_id?: string;
   screenshot_url?: string;
   browser_data?: any;
+  environment: 'browser' | 'desktop';
 }
 
 export interface BrowserTaskState {
   task: BrowserTask | null;
   isLoading: boolean;
   error: string | null;
-  taskInput?: string;
-  currentTaskId?: string;
-  isProcessing?: boolean;
-  taskStatus?: TaskStatus;
-  connectionStatus?: 'connected' | 'disconnected' | 'connecting' | 'error';
-  liveUrl?: string;
-  progress?: number;
-  taskSteps?: TaskStep[];
-  taskOutput?: string;
-  currentUrl?: string;
-  environment?: 'browser' | 'desktop';
-  browserConfig?: BrowserConfig;
+  taskInput: string;
+  currentTaskId: string;
+  isProcessing: boolean;
+  taskStatus: TaskStatus;
+  connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'error';
+  liveUrl: string;
+  progress: number;
+  taskSteps: TaskStep[];
+  taskOutput: string;
+  currentUrl: string;
+  environment: 'browser' | 'desktop';
+  browserConfig: BrowserConfig;
 }
 
 export interface BrowserUseError {

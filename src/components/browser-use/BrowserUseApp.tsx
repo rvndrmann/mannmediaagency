@@ -12,6 +12,7 @@ import { TaskTemplateSelector } from "./TaskTemplateSelector";
 import { ScheduledTasksList } from "./ScheduledTasksList";
 import { useUserCredits } from "@/hooks/use-user-credits";
 import { useAuth } from "@/hooks/use-auth";
+import { BrowserConfig } from "@/hooks/browser-use/types";
 import { 
   Bot, 
   History, 
@@ -44,6 +45,27 @@ import {
 } from "@/components/ui/tooltip";
 import { useLocation } from "react-router-dom";
 
+const getDefaultBrowserConfig = (): BrowserConfig => {
+  return {
+    headless: false,
+    disableSecurity: false,
+    useOwnBrowser: false,
+    chromePath: "",
+    persistentSession: true,
+    resolution: "1920x1080",
+    theme: "Ocean",
+    darkMode: false,
+    sensitiveData: [],
+    contextConfig: {
+      minWaitPageLoadTime: 0.5,
+      waitForNetworkIdlePageLoadTime: 5.0,
+      maxWaitPageLoadTime: 15.0,
+      highlightElements: true,
+      viewportExpansion: 500
+    }
+  };
+};
+
 export function BrowserUseApp() {
   const location = useLocation();
   const { user } = useAuth();
@@ -51,26 +73,12 @@ export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
   const [showTemplatesPanel, setShowTemplatesPanel] = useState(true);
   const [taskInput, setTaskInput] = useState("");
-  const [browserConfig, setBrowserConfig] = useState({});
+  const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(getDefaultBrowserConfig());
   const [environment, setEnvironment] = useState<'browser' | 'desktop'>('browser');
   const [currentUrl, setCurrentUrl] = useState("");
   const [screenshot, setScreenshot] = useState<string | null>(null);
   
-  const {
-    submitTask,
-    pauseTask,
-    resumeTask,
-    stopTask,
-    restartTask,
-    isLoading,
-    error,
-    taskStatus,
-    progress,
-    taskOutput,
-    connectionStatus,
-    liveUrl,
-    currentTaskId
-  } = useBrowserUseTask();
+  const browserUseTask = useBrowserUseTask();
 
   const captureScreenshot = () => {
     // Placeholder function
@@ -156,7 +164,7 @@ export function BrowserUseApp() {
     }
     
     try {
-      await submitTask(taskInput, user.id);
+      await browserUseTask.submitTask(taskInput, user.id);
     } catch (error) {
       console.error('Error starting task:', error);
       toast.error('Failed to start task');
@@ -164,9 +172,9 @@ export function BrowserUseApp() {
   };
 
   const handlePauseTask = async () => {
-    if (!currentTaskId) return;
+    if (!browserUseTask.currentTaskId) return;
     try {
-      await pauseTask();
+      await browserUseTask.pauseTask();
     } catch (error) {
       console.error('Error pausing task:', error);
       toast.error('Failed to pause task');
@@ -174,9 +182,9 @@ export function BrowserUseApp() {
   };
 
   const handleResumeTask = async () => {
-    if (!currentTaskId) return;
+    if (!browserUseTask.currentTaskId) return;
     try {
-      await resumeTask();
+      await browserUseTask.resumeTask();
     } catch (error) {
       console.error('Error resuming task:', error);
       toast.error('Failed to resume task');
@@ -184,9 +192,9 @@ export function BrowserUseApp() {
   };
 
   const handleStopTask = async () => {
-    if (!currentTaskId) return;
+    if (!browserUseTask.currentTaskId) return;
     try {
-      await stopTask();
+      await browserUseTask.stopTask();
     } catch (error) {
       console.error('Error stopping task:', error);
       toast.error('Failed to stop task');
@@ -198,7 +206,7 @@ export function BrowserUseApp() {
       return;
     }
     try {
-      await submitTask(taskInput, user.id);
+      await browserUseTask.submitTask(taskInput, user.id);
     } catch (error) {
       console.error('Error restarting task:', error);
       toast.error('Failed to restart task');
@@ -476,7 +484,7 @@ export function BrowserUseApp() {
           <BrowserConfigPanel
             config={browserConfig}
             setConfig={setBrowserConfig}
-            disabled={isLoading}
+            disabled={browserUseTask.isLoading}
             environment={environment}
             setEnvironment={setEnvironment}
           />

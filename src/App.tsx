@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Toaster } from "sonner";
 import MultiAgentChat from "./pages/MultiAgentChat";
@@ -37,8 +36,8 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
       </div>
     );
   }
@@ -48,15 +47,15 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
       return <Navigate to="/auth/login" replace />;
     }
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-        <p className="mb-8">You don't have permission to access this page.</p>
-        <Button onClick={() => navigate("/")}>Return to Home</Button>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-white">
+        <h1 className="text-2xl font-bold mb-4 text-gray-900">Access Denied</h1>
+        <p className="mb-8 text-gray-600">You don't have permission to access this page.</p>
+        <Button onClick={() => navigate("/")} className="bg-gray-900 text-white hover:bg-gray-800">Return to Home</Button>
       </div>
     );
   }
 
-  return <>{children}</>;
+  return <div className="bg-white min-h-screen">{children}</div>;
 };
 
 // Wrapper component to handle projectId extraction for MultiAgentChat route
@@ -77,49 +76,51 @@ const MultiAgentChatPageWrapper = () => {
 
 function App() {
   return (
-    <MCPProvider>
-      <ProjectProvider projectId={null}>
-        <Routes>
-          {/* Main routes */}
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Navigate to="/" replace />} />
-          
-          {/* Admin routes */}
-          <Route path="/multi-agent-chat/:projectId" element={<AdminRoute><MultiAgentChatPageWrapper /></AdminRoute>} />
-          <Route path="/canvas" element={<AdminRoute><Canvas /></AdminRoute>} />
-          <Route path="/canvas/:projectId" element={<AdminRoute><Canvas /></AdminRoute>} />
-          <Route path="/product-shoot" element={<AdminRoute><ProductShot /></AdminRoute>} />
-          <Route path="/product-shoot-v2" element={<AdminRoute><ProductShootV2 /></AdminRoute>} />
-          <Route path="/image-to-video" element={<AdminRoute><ImageToVideo /></AdminRoute>} />
-          <Route path="/browser-use" element={<AdminRoute><BrowserUse /></AdminRoute>} />
-          <Route path="/trace-analytics" element={<AdminRoute><TraceAnalytics /></AdminRoute>} />
-          <Route path="/video-projects" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
-          <Route path="/video-projects/:projectId" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
-          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-          <Route path="/admin/tasks" element={<AdminRoute><AdminTaskManagement /></AdminRoute>} />
-
-          {/* Public routes */}
-          <Route path="/custom-orders" element={<CustomOrders />} />
-          <Route path="/plans" element={<Plans />} />
-          <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-          <Route path="/chat" element={<ChatPage />} />
-
-          {/* Auth routes */}
-          <Route path="/auth/login" element={<LoginForm />} />
-          <Route path="/auth/signup" element={<SignupForm />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-
-          {/* Payment routes */}
-          <Route path="/payment" element={<Payment />} />
-          
-          {/* Fallback routes */}
-          <Route path="/not-found" element={<NotFound />} />
-          <Route path="*" element={<Navigate to="/not-found" replace />} />
-        </Routes>
-        <Toaster position="top-right" closeButton />
-      </ProjectProvider>
-    </MCPProvider>
+    <div className="bg-white min-h-screen">
+      <MCPProvider>
+        <ProjectProvider projectId={null}>
+          <Routes>
+            {/* Main routes */}
+            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            
+            {/* Admin routes */}
+            <Route path="/multi-agent-chat/:projectId" element={<AdminRoute><MultiAgentChatPageWrapper /></AdminRoute>} />
+            <Route path="/canvas" element={<AdminRoute><Canvas /></AdminRoute>} />
+            <Route path="/canvas/:projectId" element={<AdminRoute><Canvas /></AdminRoute>} />
+            <Route path="/product-shoot" element={<AdminRoute><ProductShot /></AdminRoute>} />
+            <Route path="/product-shoot-v2" element={<AdminRoute><ProductShootV2 /></AdminRoute>} />
+            <Route path="/image-to-video" element={<AdminRoute><ImageToVideo /></AdminRoute>} />
+            <Route path="/browser-use" element={<AdminRoute><BrowserUse /></AdminRoute>} />
+            <Route path="/trace-analytics" element={<AdminRoute><TraceAnalytics /></AdminRoute>} />
+            <Route path="/video-projects" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
+            <Route path="/video-projects/:projectId" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
+            <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+            <Route path="/admin/tasks" element={<AdminRoute><AdminTaskManagement /></AdminRoute>} />
+            
+            {/* Public routes */}
+            <Route path="/custom-orders" element={<CustomOrders />} />
+            <Route path="/plans" element={<Plans />} />
+            <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+            <Route path="/chat" element={<ChatPage />} />
+            
+            {/* Auth routes */}
+            <Route path="/auth/login" element={<LoginForm />} />
+            <Route path="/auth/signup" element={<SignupForm />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            
+            {/* Payment routes */}
+            <Route path="/payment" element={<Payment />} />
+            
+            {/* Fallback routes */}
+            <Route path="/not-found" element={<NotFound />} />
+            <Route path="*" element={<Navigate to="/not-found" replace />} />
+          </Routes>
+          <Toaster position="top-right" closeButton />
+        </ProjectProvider>
+      </MCPProvider>
+    </div>
   );
 }
 

@@ -1,143 +1,147 @@
 
 import { useState, useCallback } from 'react';
-import { BrowserTask, BrowserTaskState, TaskStatus, TaskStep, BrowserConfig } from './types';
-import { useTaskOperations } from './use-task-operations';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-const getDefaultBrowserConfig = (): BrowserConfig => {
-  return {
-    headless: false,
-    disableSecurity: false,
-    useOwnBrowser: false,
-    chromePath: "",
-    persistentSession: true,
-    resolution: "1920x1080",
-    theme: "Ocean",
-    darkMode: false,
-    sensitiveData: [],
-    contextConfig: {
-      minWaitPageLoadTime: 0.5,
-      waitForNetworkIdlePageLoadTime: 5.0,
-      maxWaitPageLoadTime: 15.0,
-      highlightElements: true,
-      viewportExpansion: 500
-    }
-  };
-};
+export interface BrowserUseTaskResult {
+  isLoading: boolean;
+  taskStatus: 'created' | 'running' | 'finished' | 'stopped' | 'paused' | 'failed' | null;
+  liveUrl: string | null;
+  connectionStatus: 'connected' | 'disconnected' | 'connecting';
+  progress: number;
+  error: string | null;
+  taskOutput: string | null;
+  currentTaskId: string | null;
+  submitTask: (taskInput: string, userId: string) => Promise<void>;
+  pauseTask: () => Promise<void>;
+  resumeTask: () => Promise<void>;
+  stopTask: () => Promise<void>;
+}
 
-export const useBrowserUseTask = () => {
-  const [state, setState] = useState<BrowserTaskState>({
-    task: null,
-    isLoading: false,
-    error: null,
-    taskInput: '',
-    currentTaskId: '',
-    isProcessing: false,
-    taskStatus: 'idle',
-    connectionStatus: 'disconnected',
-    liveUrl: '',
-    progress: 0,
-    taskSteps: [],
-    taskOutput: '',
-    currentUrl: '',
-    environment: 'browser',
-    browserConfig: getDefaultBrowserConfig()
-  });
-
-  const { 
-    createTask,
-    pauseTask,
-    resumeTask,
-    stopTask,
-    startTask,
-    restartTask,
-    isLoading: operationsLoading
-  } = useTaskOperations();
+export const useBrowserUseTask = (): BrowserUseTaskResult => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [taskStatus, setTaskStatus] = useState<'created' | 'running' | 'finished' | 'stopped' | 'paused' | 'failed' | null>(null);
+  const [liveUrl, setLiveUrl] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [taskOutput, setTaskOutput] = useState<string | null>(null);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
 
   const submitTask = useCallback(async (taskInput: string, userId: string) => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      setIsLoading(true);
+      setError(null);
       
-      const newTask = await createTask({
-        input: taskInput,
-        user_id: userId,
-        environment: 'browser' as 'browser' | 'desktop',
-        status: 'pending' as TaskStatus
+      const { data, error } = await supabase.functions.invoke('browser-use-submit-task', {
+        body: { task: taskInput, userId }
       });
 
-      setState(prev => ({
-        ...prev,
-        task: {
-          ...newTask,
-          status: newTask.status as TaskStatus,
-          environment: (newTask.environment || 'browser') as 'browser' | 'desktop'
-        },
-        currentTaskId: newTask.id || '',
-        taskStatus: newTask.status as TaskStatus,
-        isLoading: false
-      }));
-
-      return newTask;
-    } catch (error: any) {
-      setState(prev => ({
-        ...prev,
-        error: error.message || 'Failed to create task',
-        isLoading: false
-      }));
-      throw error;
+      if (error) throw error;
+      
+      if (data?.taskId) {
+        setCurrentTaskId(data.taskId);
+        setTaskStatus('created');
+        setLiveUrl(data.liveUrl || null);
+        toast.success('Task submitted successfully');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-  }, [createTask]);
+  }, []);
 
-  const pauseCurrentTask = useCallback(async () => {
-    if (!state.currentTaskId) return;
-    
+  const pauseTask = useCallback(async () => {
+    if (!currentTaskId) {
+      toast.error('No active task to pause');
+      return;
+    }
+
     try {
-      await pauseTask();
-      setState(prev => ({ ...prev, taskStatus: 'paused' }));
-    } catch (error: any) {
-      setState(prev => ({ ...prev, error: error.message }));
-    }
-  }, [pauseTask]);
+      setIsLoading(true);
+      const { error } = await supabase.functions.invoke('browser-use-pause-task', {
+        body: { taskId: currentTaskId }
+      });
 
-  const resumeCurrentTask = useCallback(async () => {
-    if (!state.currentTaskId) return;
-    
-    try {
-      await resumeTask();
-      setState(prev => ({ ...prev, taskStatus: 'running' }));
-    } catch (error: any) {
-      setState(prev => ({ ...prev, error: error.message }));
+      if (error) throw error;
+      
+      setTaskStatus('paused');
+      toast.success('Task paused');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to pause task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-  }, [resumeTask]);
+  }, [currentTaskId]);
 
-  const stopCurrentTask = useCallback(async () => {
-    if (!state.currentTaskId) return;
-    
-    try {
-      await stopTask();
-      setState(prev => ({ ...prev, taskStatus: 'stopped' }));
-    } catch (error: any) {
-      setState(prev => ({ ...prev, error: error.message }));
+  const resumeTask = useCallback(async () => {
+    if (!currentTaskId) {
+      toast.error('No task to resume');
+      return;
     }
-  }, [stopTask]);
 
-  const restartCurrentTask = useCallback(async () => {
-    if (!state.currentTaskId) return;
-    
     try {
-      await restartTask();
-      setState(prev => ({ ...prev, taskStatus: 'pending' }));
-    } catch (error: any) {
-      setState(prev => ({ ...prev, error: error.message }));
+      setIsLoading(true);
+      const { error } = await supabase.functions.invoke('browser-use-resume-task', {
+        body: { taskId: currentTaskId }
+      });
+
+      if (error) throw error;
+      
+      setTaskStatus('running');
+      toast.success('Task resumed');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to resume task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-  }, [restartTask]);
+  }, [currentTaskId]);
+
+  const stopTask = useCallback(async () => {
+    if (!currentTaskId) {
+      toast.error('No task to stop');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.functions.invoke('browser-use-stop-task', {
+        body: { taskId: currentTaskId }
+      });
+
+      if (error) throw error;
+      
+      setTaskStatus('stopped');
+      setCurrentTaskId(null);
+      toast.success('Task stopped');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to stop task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentTaskId]);
 
   return {
-    ...state,
+    isLoading,
+    taskStatus,
+    liveUrl,
+    connectionStatus,
+    progress,
+    error,
+    taskOutput,
+    currentTaskId,
     submitTask,
-    pauseTask: pauseCurrentTask,
-    resumeTask: resumeCurrentTask,
-    stopTask: stopCurrentTask,
-    restartTask: restartCurrentTask,
-    isLoading: state.isLoading || operationsLoading
+    pauseTask,
+    resumeTask,
+    stopTask,
   };
 };

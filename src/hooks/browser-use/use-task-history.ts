@@ -26,10 +26,11 @@ export const useTaskHistory = (userId?: string) => {
 
       if (error) throw error;
 
-      // Cast the status to TaskStatus type
+      // Map the data to match BrowserTaskHistory interface
       const typedHistory = (data || []).map(item => ({
         ...item,
-        status: item.status as TaskStatus
+        status: item.status as TaskStatus,
+        environment: (item.environment as 'browser' | 'desktop') || 'browser'
       }));
 
       setHistory(typedHistory);

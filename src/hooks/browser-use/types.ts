@@ -81,6 +81,13 @@ export interface BrowserTask {
   created_at: string;
   updated_at: string;
   user_id?: string;
+  environment?: 'browser' | 'desktop';
+  browser_data?: any;
+  applications_config?: any;
+  browser_task_id?: string;
+  current_url?: string;
+  live_url?: string;
+  progress?: number;
 }
 
 export interface UserCredits {

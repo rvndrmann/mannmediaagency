@@ -10,6 +10,23 @@ export interface UseBrowserAutomationResult {
   getTaskStatus: (taskId: string) => Promise<BrowserAutomationResult>;
   stopTask: (taskId: string) => Promise<void>;
   error: string | null;
+  // Legacy properties for compatibility
+  taskDescription?: string;
+  setTaskDescription?: (desc: string) => void;
+  isProcessing?: boolean;
+  startSession?: () => Promise<void>;
+  executeAction?: (action: any) => Promise<void>;
+  clearSession?: () => Promise<void>;
+  currentActions?: any[];
+  reasoning?: string;
+  actionHistory?: any[];
+  userCredits?: any;
+  formatAction?: (action: any) => string;
+  captureScreenshot?: () => Promise<void>;
+  currentUrl?: string;
+  setCurrentUrl?: (url: string) => void;
+  screenshot?: string | null;
+  browserSessionConnected?: boolean;
 }
 
 export const useBrowserAutomation = (): UseBrowserAutomationResult => {
@@ -82,5 +99,12 @@ export const useBrowserAutomation = (): UseBrowserAutomationResult => {
     getTaskStatus,
     stopTask,
     error,
+    // Legacy compatibility properties
+    isProcessing: isLoading,
+    currentActions: [],
+    actionHistory: [],
+    reasoning: '',
+    screenshot: null,
+    browserSessionConnected: false,
   };
 };

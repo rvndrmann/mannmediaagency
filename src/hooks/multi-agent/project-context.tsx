@@ -13,6 +13,12 @@ interface ProjectContextType {
   project: CanvasProject | null;
   scenes?: any[];
   updateProject?: (updates: Partial<CanvasProject>) => Promise<void>;
+  setActiveProject?: (project: CanvasProject) => void;
+  setActiveScene?: (scene: any) => void;
+  activeProject?: CanvasProject | null;
+  projectDetails?: CanvasProject | null;
+  fetchProjectDetails?: () => Promise<void>;
+  fetchProjectScenes?: () => Promise<void>;
 }
 
 interface ProjectContextProviderProps {
@@ -56,14 +62,12 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
         throw error;
       }
 
-      setProject({
+      const mappedProject: CanvasProject = {
         id: data.id,
         title: data.title,
         description: data.description,
-        final_video_url: data.final_video_url,
+        cover_image_url: data.cover_image_url,
         full_script: data.full_script,
-        main_product_image_url: data.main_product_image_url,
-        project_assets: Array.isArray(data.project_assets) ? data.project_assets : [],
         user_id: data.user_id,
         created_at: data.created_at,
         updated_at: data.updated_at,
@@ -72,7 +76,9 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
         createdAt: data.created_at,
         updatedAt: data.updated_at,
         fullScript: data.full_script,
-      });
+      };
+
+      setProject(mappedProject);
       setError(null);
     } catch (err: any) {
       console.error("Error fetching project:", err);
@@ -93,15 +99,9 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
     }
 
     try {
-      // Convert project_assets to JSON if needed
-      const dbUpdates = { ...updates };
-      if (updates.project_assets) {
-        dbUpdates.project_assets = JSON.parse(JSON.stringify(updates.project_assets));
-      }
-
       const { data, error } = await supabase
         .from('canvas_projects')
-        .update(dbUpdates)
+        .update(updates)
         .eq('id', projectId)
         .select()
         .single();
@@ -124,23 +124,14 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
   };
 
   const value: ProjectContextType = {
-    project: project ? {
-      id: project.id,
-      title: project.title,
-      description: project.description,
-      final_video_url: project.final_video_url,
-      full_script: project.full_script,
-      main_product_image_url: project.main_product_image_url,
-      project_assets: project.project_assets || [],
-      user_id: project.user_id,
-      created_at: project.created_at,
-      updated_at: project.updated_at,
-      // Compatibility aliases
-      userId: project.user_id,
-      createdAt: project.created_at,
-      updatedAt: project.updated_at,
-    } : null,
+    project,
     updateProject,
+    setActiveProject: setProject,
+    setActiveScene: () => {}, // Placeholder
+    activeProject: project,
+    projectDetails: project,
+    fetchProjectDetails: fetchProject,
+    fetchProjectScenes: async () => {}, // Placeholder
   };
 
   return (

@@ -11,10 +11,11 @@ import { v4 as uuidv4 } from "uuid";
 
 interface SensitiveDataManagerProps {
   sensitiveData: SensitiveDataItem[];
-  onUpdate: (data: SensitiveDataItem[]) => void;
+  onChange: (data: SensitiveDataItem[]) => void;
+  disabled?: boolean;
 }
 
-export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataManagerProps) {
+export function SensitiveDataManager({ sensitiveData, onChange, disabled }: SensitiveDataManagerProps) {
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
 
   const addItem = () => {
@@ -26,18 +27,18 @@ export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataM
       type: 'text'
     };
     
-    onUpdate([...sensitiveData, newItem]);
+    onChange([...sensitiveData, newItem]);
   };
 
   const updateItem = (id: string, updates: Partial<SensitiveDataItem>) => {
     const updatedData = sensitiveData.map(item => 
       item.id === id ? { ...item, ...updates } : item
     );
-    onUpdate(updatedData);
+    onChange(updatedData);
   };
 
   const removeItem = (id: string) => {
-    onUpdate(sensitiveData.filter(item => item.id !== id));
+    onChange(sensitiveData.filter(item => item.id !== id));
   };
 
   const toggleShowValue = (id: string) => {
@@ -52,7 +53,7 @@ export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataM
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           Sensitive Data Management
-          <Button onClick={addItem} size="sm" variant="outline">
+          <Button onClick={addItem} size="sm" variant="outline" disabled={disabled}>
             <Plus className="h-4 w-4 mr-2" />
             Add Item
           </Button>
@@ -68,6 +69,7 @@ export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataM
                 value={item.key}
                 onChange={(e) => updateItem(item.id, { key: e.target.value })}
                 placeholder="username"
+                disabled={disabled}
               />
             </div>
             
@@ -78,6 +80,7 @@ export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataM
                 value={item.name}
                 onChange={(e) => updateItem(item.id, { name: e.target.value })}
                 placeholder="Username"
+                disabled={disabled}
               />
             </div>
             
@@ -91,6 +94,7 @@ export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataM
                   onChange={(e) => updateItem(item.id, { value: e.target.value })}
                   placeholder="Enter value"
                   className="rounded-r-none"
+                  disabled={disabled}
                 />
                 <Button
                   type="button"
@@ -98,6 +102,7 @@ export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataM
                   size="sm"
                   onClick={() => toggleShowValue(item.id)}
                   className="rounded-l-none border-l-0"
+                  disabled={disabled}
                 >
                   {showValues[item.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
@@ -106,7 +111,7 @@ export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataM
             
             <div className="col-span-2">
               <Label htmlFor={`type-${item.id}`}>Type</Label>
-              <Select value={item.type} onValueChange={(value: 'text' | 'password' | 'email') => updateItem(item.id, { type: value })}>
+              <Select value={item.type} onValueChange={(value: 'text' | 'password' | 'email') => updateItem(item.id, { type: value })} disabled={disabled}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -123,6 +128,7 @@ export function SensitiveDataManager({ sensitiveData, onUpdate }: SensitiveDataM
                 variant="destructive"
                 size="sm"
                 onClick={() => removeItem(item.id)}
+                disabled={disabled}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

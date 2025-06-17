@@ -29,6 +29,7 @@ export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
   const [activeAgent, setActiveAgent] = useState<AgentType>('generic');
   const [isMcpEnabled, setIsMcpEnabled] = useState(options.useMcp || false);
   const [isMcpConnected, setIsMcpConnected] = useState(false);
+  const [input, setInput] = useState('');
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -127,6 +128,9 @@ export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
     activeAgent,
     isMcpEnabled,
     isMcpConnected,
+    input,
+    setInput,
+    setMessages,
     setActiveAgent,
     addMessage,
     addUserMessage,

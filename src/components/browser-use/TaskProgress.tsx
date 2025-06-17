@@ -17,24 +17,20 @@ export function TaskProgress({ taskStatus, taskSteps, progress }: TaskProgressPr
     pending: "Task is waiting to start...",
     created: "Task has been created...",
     running: "Task is currently running...",
-    completed: "Task completed successfully!",
+    finished: "Task completed successfully!",
     failed: "Task failed to complete",
     stopped: "Task was stopped",
-    paused: "Task is paused",
-    expired: "Task has expired",
-    idle: "Task is idle"
+    paused: "Task is paused"
   };
 
   const statusColors: Record<TaskStatus, string> = {
     pending: "bg-yellow-500",
     created: "bg-blue-500",
     running: "bg-blue-500",
-    completed: "bg-green-500",
+    finished: "bg-green-500",
     failed: "bg-red-500",
     stopped: "bg-orange-500",
-    paused: "bg-yellow-500",
-    expired: "bg-red-500",
-    idle: "bg-gray-500"
+    paused: "bg-yellow-500"
   };
 
   useEffect(() => {

@@ -13,7 +13,7 @@ interface ProjectContextType {
   project: CanvasProject | null;
   scenes?: any[];
   updateProject?: (updates: Partial<CanvasProject>) => Promise<void>;
-  setActiveProject?: (project: CanvasProject) => void;
+  setActiveProject?: (project: CanvasProject | string) => void;
   setActiveScene?: (scene: any) => void;
   activeProject?: CanvasProject | null;
   projectDetails?: CanvasProject | null;
@@ -67,6 +67,9 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
         title: data.title,
         description: data.description,
         cover_image_url: data.cover_image_url,
+        final_video_url: data.final_video_url || null,
+        main_product_image_url: data.main_product_image_url || null,
+        project_assets: (data.project_assets as any) || [],
         full_script: data.full_script,
         user_id: data.user_id,
         created_at: data.created_at,
@@ -99,9 +102,15 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
     }
 
     try {
+      // Convert ProjectAsset[] to Json for database storage
+      const dbUpdates: any = { ...updates };
+      if (updates.project_assets) {
+        dbUpdates.project_assets = JSON.stringify(updates.project_assets);
+      }
+
       const { data, error } = await supabase
         .from('canvas_projects')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', projectId)
         .select()
         .single();
@@ -123,10 +132,22 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
     }
   };
 
+  const setActiveProject = (projectOrId: CanvasProject | string) => {
+    if (typeof projectOrId === 'string') {
+      // If it's a string, we need to fetch the project
+      if (projectOrId !== projectId) {
+        // This would require a different approach since we can't change the projectId here
+        console.warn("Cannot change project ID in this context");
+      }
+    } else {
+      setProject(projectOrId);
+    }
+  };
+
   const value: ProjectContextType = {
     project,
     updateProject,
-    setActiveProject: setProject,
+    setActiveProject,
     setActiveScene: () => {}, // Placeholder
     activeProject: project,
     projectDetails: project,

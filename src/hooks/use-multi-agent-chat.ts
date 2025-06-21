@@ -30,6 +30,9 @@ export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
   const [isMcpEnabled, setIsMcpEnabled] = useState(options.useMcp || false);
   const [isMcpConnected, setIsMcpConnected] = useState(false);
   const [input, setInput] = useState('');
+  const [userCredits, setUserCredits] = useState<any>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<any[]>([]);
+  const [tracingEnabled, setTracingEnabled] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -73,6 +76,18 @@ export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
 
   const toggleMcp = useCallback(() => {
     setIsMcpEnabled(prev => !prev);
+  }, []);
+
+  const toggleTracing = useCallback(() => {
+    setTracingEnabled(prev => !prev);
+  }, []);
+
+  const handleSubmit = useCallback(async (content: string) => {
+    await sendMessage(content);
+  }, []);
+
+  const clearChat = useCallback(() => {
+    setMessages([]);
   }, []);
 
   const sendMessage = useCallback(async (
@@ -140,5 +155,12 @@ export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
     clearMessages,
     stopGeneration,
     toggleMcp,
+    userCredits,
+    pendingAttachments,
+    setPendingAttachments,
+    tracingEnabled,
+    handleSubmit,
+    clearChat,
+    toggleTracing,
   };
 };

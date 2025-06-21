@@ -49,7 +49,7 @@ export interface BrowserTaskHistory {
   browser_data: any;
 }
 
-export type TaskStatus = 'created' | 'running' | 'finished' | 'stopped' | 'paused' | 'failed' | 'pending';
+export type TaskStatus = 'created' | 'running' | 'finished' | 'stopped' | 'paused' | 'failed';
 
 export interface TaskStep {
   id: string;

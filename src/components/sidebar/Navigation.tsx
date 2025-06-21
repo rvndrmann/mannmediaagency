@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -16,14 +17,8 @@ import {
   Bell,
   PlusSquare,
   LucideIcon,
-  Globe,
-  Camera,
-  ImagePlus,
-  Film,
   Layout,
-  MessageSquare,
-  BarChartBig,
-  ClipboardList // Added icon for Admin Tasks
+  ClipboardList
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -31,8 +26,7 @@ import { useSidebar } from "@/components/ui/sidebar/context";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { useUser } from "@/hooks/use-user"; // Import useUser hook
-import { useProjectContext } from "@/hooks/multi-agent/project-context"; // Import project context hook
+import { useUser } from "@/hooks/use-user";
 import { Notification } from "@/types/custom-order";
 import { 
   BaseNavigationItem, 
@@ -44,59 +38,10 @@ import {
 export const Navigation = () => {
   const location = useLocation();
   const { toggleSidebar } = useSidebar();
-  const { user, isAdmin, isLoading: isUserLoading } = useUser(); // Use the hook
-  // const [isAdmin, setIsAdmin] = useState<boolean | null>(null); // Remove local state
-  // const [isLoadingAdmin, setIsLoadingAdmin] = useState(true); // Remove local state
+  const { user, isAdmin, isLoading: isUserLoading } = useUser();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
   const [customOrderNotifications, setCustomOrderNotifications] = useState<number>(0);
-  // const { activeProject } = useProjectContext(); // No longer needed for this link
-  const [latestProjectId, setLatestProjectId] = useState<string | null>(null);
-  const [isLoadingLatestProject, setIsLoadingLatestProject] = useState(true);
-
-  // Remove the local useEffect for checking admin status, as useUser handles it.
-  // useEffect(() => {
-  //   const checkAdminStatus = async () => { ... };
-  //   checkAdminStatus();
-  // }, []);
-  useEffect(() => {
-    const fetchLatestProject = async () => {
-      setIsLoadingLatestProject(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user?.id) {
-          console.log('[Navigation.tsx] No user session found for fetching latest project.');
-          setLatestProjectId(null);
-          setIsLoadingLatestProject(false);
-          return;
-        }
-
-        console.log('[Navigation.tsx] Fetching latest project for user:', session.user.id);
-        const { data, error } = await supabase
-          .from('canvas_projects')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(); // Use maybeSingle to handle 0 or 1 result
-
-        if (error) {
-          console.error("[Navigation.tsx] Error fetching latest project:", error);
-          setLatestProjectId(null);
-        } else {
-          console.log('[Navigation.tsx] Fetched latest project ID:', data?.id);
-          setLatestProjectId(data?.id || null);
-        }
-      } catch (error) {
-        console.error("[Navigation.tsx] Exception fetching latest project:", error);
-        setLatestProjectId(null);
-      } finally {
-        setIsLoadingLatestProject(false);
-      }
-    };
-
-    fetchLatestProject();
-  }, []); // Fetch only once on mount
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -167,17 +112,6 @@ export const Navigation = () => {
       current: location.pathname === "/canvas",
     },
     {
-      name: "Multi-Agent Chat",
-      subtext: "AI Collaboration",
-      // Link to latest project if available, otherwise base path
-      to: latestProjectId ? `/multi-agent-chat/${latestProjectId}` : "/multi-agent-chat",
-      icon: MessageSquare,
-      // Highlight if the path starts with /multi-agent-chat
-      current: location.pathname.startsWith("/multi-agent-chat"),
-    },
-    // Removed Trace Analytics from baseNavigation
-    // Removed Browser Worker AI from baseNavigation
-    {
       name: "Dashboard",
       subtext: "Your Content Overview",
       to: "/",
@@ -192,28 +126,10 @@ export const Navigation = () => {
       icon: Compass,
     },
     {
-      name: "Product Shot V1",
-      subtext: "Basic Product Photography",
-      to: "/product-shoot",
-      icon: Camera,
-    },
-    {
-      name: "Advanced Shot",
-      subtext: "Enhanced Product Photography",
-      to: "/product-shoot-v2",
-      icon: ImagePlus,
-    },
-    {
-      name: "Image to Video",
-      subtext: "Convert Images to Videos",
-      to: "/image-to-video",
-      icon: Film,
-    },
-    {
       name: "Product Video",
       subtext: "Create Videos from Products",
       to: "/create-video",
-      icon: Film, // Using Film icon as Video icon wasn't imported
+      icon: Layout,
       current: location.pathname === "/create-video",
     },
     {
@@ -223,41 +139,10 @@ export const Navigation = () => {
     },
     {
       name: "Profile Settings",
-      to: "/settings", // Updated path to match the new route
+      to: "/settings",
       icon: User,
     },
-    {
-      name: "Chat",
-      subtext: "Chat with Admin",
-      to: "/chat",
-      icon: MessageSquare,
-      current: location.pathname === "/chat",
-    },
   ];
-
-  const disabledItems: NavigationItemWithBadge[] = [];
-
-  const combinedNavigation = [...baseNavigation, ...disabledItems];
-
-  // Define Trace Analytics item separately
-  const traceAnalyticsItem: NavigationItem = {
-    name: "Trace Analytics",
-    subtext: "Agent Interaction Analysis",
-    to: "/trace-analytics",
-    icon: BarChartBig,
-    current: location.pathname === "/trace-analytics",
-    adminOnly: true, // Mark as admin only
-  };
-
-  // Define Browser Worker AI item separately
-  const browserWorkerItem: NavigationItem = {
-    name: "Browser Worker AI",
-    subtext: "Web Browser Automation",
-    to: "/browser-use",
-    icon: Globe,
-    current: location.pathname === "/browser-use",
-    adminOnly: true, // Mark as admin only
-  };
 
   const adminItem: NavigationItem = {
     name: "Admin",
@@ -271,7 +156,7 @@ export const Navigation = () => {
     name: "Admin Tasks",
     subtext: "Manage Admin Tasks",
     to: "/admin/tasks",
-    icon: ClipboardList, // Use the imported icon
+    icon: ClipboardList,
     adminOnly: true,
   };
 
@@ -283,14 +168,14 @@ export const Navigation = () => {
   };
 
   // Define allowed item names for non-admins
-  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings", "Product Video"];
+  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings", "Product Video", "Canvas", "Explore"];
 
   // Construct mainNavigation based on user loading state and admin status
   const mainNavigation: NavigationItem[] = isUserLoading
-    ? baseNavigation.filter(item => nonAdminAllowedNames.includes(item.name)) // Show filtered base items while loading
+    ? baseNavigation.filter(item => nonAdminAllowedNames.includes(item.name))
     : isAdmin
-      ? [...combinedNavigation, browserWorkerItem, traceAnalyticsItem, adminItem, adminTasksItem, integrationsItem] // If admin (and not loading), show all combined + admin items
-      : [...baseNavigation.filter(item => nonAdminAllowedNames.includes(item.name)), integrationsItem]; // If not admin (and not loading), show filtered base items + integrations
+      ? [...baseNavigation, adminItem, adminTasksItem, integrationsItem]
+      : [...baseNavigation.filter(item => nonAdminAllowedNames.includes(item.name)), integrationsItem];
 
   const legalNavigation: BaseNavigationItem[] = [
     {
@@ -326,8 +211,6 @@ export const Navigation = () => {
   const hasComingSoon = (item: NavigationItem): boolean => {
     return 'comingSoon' in item && item.comingSoon === true;
   };
- 
-  // Removed debug logs
  
   return (
     <>

@@ -17,12 +17,11 @@ import {
   LogOut, 
   Settings, 
   CreditCard,
-  MessageSquare,
   Palette,
   Video,
-  Globe,
   Menu,
-  X
+  X,
+  Layout
 } from "lucide-react";
 import { useUserCredits } from "@/hooks/use-user-credits";
 import { toast } from "sonner";
@@ -92,20 +91,8 @@ export const Navbar = () => {
               <>
                 <Link to="/canvas">
                   <Button variant="ghost" size="sm">
-                    <Video className="h-4 w-4 mr-2" />
+                    <Layout className="h-4 w-4 mr-2" />
                     Canvas
-                  </Button>
-                </Link>
-                <Link to="/multi-agent-chat">
-                  <Button variant="ghost" size="sm">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    AI Chat
-                  </Button>
-                </Link>
-                <Link to="/browser-use">
-                  <Button variant="ghost" size="sm">
-                    <Globe className="h-4 w-4 mr-2" />
-                    Browser Use
                   </Button>
                 </Link>
               </>
@@ -184,20 +171,8 @@ export const Navbar = () => {
                 <>
                   <Link to="/canvas" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="ghost" size="sm" className="w-full justify-start">
-                      <Video className="h-4 w-4 mr-2" />
+                      <Layout className="h-4 w-4 mr-2" />
                       Canvas
-                    </Button>
-                  </Link>
-                  <Link to="/multi-agent-chat" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      AI Chat
-                    </Button>
-                  </Link>
-                  <Link to="/browser-use" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                      <Globe className="h-4 w-4 mr-2" />
-                      Browser Use
                     </Button>
                   </Link>
                 </>

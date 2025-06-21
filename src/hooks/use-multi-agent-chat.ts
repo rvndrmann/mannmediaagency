@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Message } from '@/types/message';
+import { Message, Attachment } from '@/types/message';
 import { toast } from 'sonner';
 
 export type AgentType = 'script_writer' | 'image_generator' | 'video_creator' | 'orchestrator' | 'generic' | 'main' | 'script' | 'image' | 'tool' | 'scene' | 'data';
@@ -21,17 +21,18 @@ interface UseMultiAgentChatOptions {
   sceneId?: string;
   useAssistantsApi?: boolean;
   useMcp?: boolean;
+  initialMessages?: Message[];
 }
 
 export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(options.initialMessages || []);
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState<AgentType>('generic');
   const [isMcpEnabled, setIsMcpEnabled] = useState(options.useMcp || false);
   const [isMcpConnected, setIsMcpConnected] = useState(false);
   const [input, setInput] = useState('');
   const [userCredits, setUserCredits] = useState<any>(null);
-  const [pendingAttachments, setPendingAttachments] = useState<any[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [tracingEnabled, setTracingEnabled] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -82,9 +83,14 @@ export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
     setTracingEnabled(prev => !prev);
   }, []);
 
-  const handleSubmit = useCallback(async (content: string) => {
-    await sendMessage(content);
-  }, []);
+  const handleSubmit = useCallback(async (content?: string) => {
+    const messageContent = content || input;
+    if (!messageContent.trim() && pendingAttachments.length === 0) return;
+    
+    await sendMessage(messageContent);
+    setInput('');
+    setPendingAttachments([]);
+  }, [input, pendingAttachments]);
 
   const clearChat = useCallback(() => {
     setMessages([]);
@@ -128,6 +134,14 @@ export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
     setIsLoading(false);
   }, []);
 
+  const addAttachments = useCallback((newAttachments: Attachment[]) => {
+    setPendingAttachments(prev => [...prev, ...newAttachments]);
+  }, []);
+
+  const removeAttachment = useCallback((attachmentId: string) => {
+    setPendingAttachments(prev => prev.filter(att => att.id !== attachmentId));
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -162,5 +176,7 @@ export const useMultiAgentChat = (options: UseMultiAgentChatOptions = {}) => {
     handleSubmit,
     clearChat,
     toggleTracing,
+    addAttachments,
+    removeAttachment,
   };
 };

@@ -14,7 +14,6 @@ export function TaskProgress({ taskStatus, taskSteps, progress }: TaskProgressPr
   const [currentProgress, setCurrentProgress] = useState(0);
 
   const statusMessages: Record<TaskStatus, string> = {
-    pending: "Task is waiting to start...",
     created: "Task has been created...",
     running: "Task is currently running...",
     finished: "Task completed successfully!",
@@ -24,7 +23,6 @@ export function TaskProgress({ taskStatus, taskSteps, progress }: TaskProgressPr
   };
 
   const statusColors: Record<TaskStatus, string> = {
-    pending: "bg-yellow-500",
     created: "bg-blue-500",
     running: "bg-blue-500",
     finished: "bg-green-500",

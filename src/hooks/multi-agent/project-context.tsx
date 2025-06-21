@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -66,7 +65,7 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
         id: data.id,
         title: data.title,
         description: data.description,
-        cover_image_url: data.cover_image_url,
+        cover_image_url: data.cover_image_url || '',
         final_video_url: data.final_video_url || null,
         main_product_image_url: data.main_product_image_url || null,
         project_assets: (data.project_assets as any) || [],

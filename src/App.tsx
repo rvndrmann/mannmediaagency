@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-do
 import { Toaster } from "sonner";
 import { VideoProjectPage } from "./pages/VideoProjectPage";
 import Index from "./pages/Index";
+import Explore from "./pages/Explore";
 import { MCPProvider } from "./contexts/MCPContext";
 import { CanvasMcpProvider } from "./contexts/CanvasMcpContext";
 import Canvas from "./pages/Canvas";
@@ -85,6 +86,7 @@ function App() {
           {/* Public routes */}
           <Route path="/custom-orders" element={<CustomOrders />} />
           <Route path="/plans" element={<Plans />} />
+          <Route path="/explore" element={<Explore />} />
           <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
           <Route path="/chat" element={<ChatPage />} />

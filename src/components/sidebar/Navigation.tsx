@@ -274,7 +274,7 @@ export const Navigation = () => {
   };
 
   // Define allowed item names for non-admins
-  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings", "Product Video"];
+  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings", "Product Video", "Explore"];
 
   // Construct mainNavigation based on user loading state and admin status
   const mainNavigation: NavigationItem[] = isUserLoading

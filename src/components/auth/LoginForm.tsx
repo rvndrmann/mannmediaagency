@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AlertCircle } from "lucide-react";
 import PhoneLoginForm from "./PhoneLoginForm";
+import { useAuth } from "@/hooks/use-auth";
 
 const LoginForm = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const { error } = useAuth();
 
   // Debug function to check session state
   const checkAuthState = async () => {
@@ -98,6 +100,13 @@ const LoginForm = () => {
   };
 
   return (
+    <>
+      {error && (
+        <div className="flex items-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+          <AlertCircle className="w-5 h-5 mr-2" />
+          <span className="block">{error.message || "Authentication error. Please try again later."}</span>
+        </div>
+      )}
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center px-4">
       <Card className="w-full max-w-md p-8 space-y-6 bg-gray-800/50 backdrop-blur-xl border-gray-700">
         <div className="text-center">
@@ -153,6 +162,7 @@ const LoginForm = () => {
         </div>
       </Card>
     </div>
+    </>
   );
 };
 

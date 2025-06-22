@@ -105,7 +105,7 @@ export function usePaginatedCanvasData({
       if (error) throw error;
       
       // Transform data to match CanvasScene interface
-      return data.map(scene => ({
+      const mappedScenes: CanvasScene[] = data.map(scene => ({
         id: scene.id,
         title: scene.title,
         script: scene.script || "",
@@ -139,17 +139,20 @@ export function usePaginatedCanvasData({
         updated_at: scene.updated_at,
         bria_v2_request_id: scene.bria_v2_request_id || null,
         custom_instruction: scene.custom_instruction || null,
-        pending_generation_id: scene.pending_generation_id || null,
-        image_guidance_settings: scene.image_guidance_settings || null,
         // Compatibility fields
         image: scene.image_url || "",
         video: scene.video_url || "",
         voiceOver: scene.voice_over_url || "",
         backgroundMusic: scene.background_music_url || "",
         productImage: scene.product_image_url || "",
-        voiceover_audio_url: scene.voiceover_audio_url || null,
-        voiceoverAudioUrl: scene.voiceover_audio_url || null
-      })) as CanvasScene[];
+        voiceover_audio_url: null,
+        voiceoverAudioUrl: null,
+        fal_tts_request_id: null,
+        is_template: false,
+        template_id: null
+      }));
+
+      return mappedScenes;
     } catch (err: any) {
       console.error("Error loading scenes:", err);
       setError(err.message || "Failed to load scenes");

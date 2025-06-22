@@ -1,3 +1,4 @@
+
 import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from '@/types/canvas';
 
 /**
@@ -18,7 +19,6 @@ export function normalizeProject(project: any): CanvasProject {
     created_at: project.created_at || project.createdAt || new Date().toISOString(),
     updatedAt: project.updatedAt || project.updated_at || new Date().toISOString(),
     updated_at: project.updated_at || project.updatedAt || new Date().toISOString(),
-    cover_image_url: project.cover_image_url || '',
     project_assets: project.project_assets || [],
     scenes: (project.canvas_scenes || []).map(scene => normalizeScene(scene))
   };
@@ -62,7 +62,6 @@ export function normalizeScene(scene: any): CanvasScene {
     updated_at: scene.updated_at || scene.updatedAt || new Date().toISOString(),
     bria_v2_request_id: scene.bria_v2_request_id || null,
     custom_instruction: scene.custom_instruction || null,
-    image_guidance_settings: scene.image_guidance_settings || null,
     // Add compatibility fields for old references
     image: scene.image || scene.imageUrl || scene.image_url || '',
     video: scene.video || scene.videoUrl || scene.video_url || '',
@@ -71,7 +70,11 @@ export function normalizeScene(scene: any): CanvasScene {
     productImage: scene.productImage || scene.productImageUrl || scene.product_image_url || '',
     // Add normalization for voiceover audio URL
     voiceover_audio_url: scene.voiceover_audio_url || scene.voiceoverAudioUrl || null,
-    voiceoverAudioUrl: scene.voiceoverAudioUrl || scene.voiceover_audio_url || null
+    voiceoverAudioUrl: scene.voiceoverAudioUrl || scene.voiceover_audio_url || null,
+    // Add missing required properties with defaults
+    fal_tts_request_id: scene.fal_tts_request_id || null,
+    is_template: scene.is_template || false,
+    template_id: scene.template_id || null
   };
 }
 

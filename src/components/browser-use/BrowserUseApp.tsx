@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -146,26 +147,8 @@ export function BrowserUseApp() {
       }
     }
     
+    // Fix: Remove the environment argument as startTask doesn't expect it anymore
     startTask();
-  };
-
-  const handlePauseTask = () => {
-    pauseTask();
-  };
-
-  const handleResumeTask = () => {
-    resumeTask();
-  };
-
-  const handleStopTask = () => {
-    stopTask();
-  };
-
-  const handleRestartTask = () => {
-    if (!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1) {
-      return;
-    }
-    restartTask();
   };
 
   return (
@@ -332,7 +315,7 @@ export function BrowserUseApp() {
 
                 {taskStatus === 'running' && (
                   <Button
-                    onClick={handlePauseTask}
+                    onClick={pauseTask}
                     disabled={taskStatus !== 'running'}
                     variant="outline"
                     className="flex items-center gap-2"
@@ -344,7 +327,7 @@ export function BrowserUseApp() {
 
                 {taskStatus === 'paused' && (
                   <Button
-                    onClick={handleResumeTask}
+                    onClick={resumeTask}
                     disabled={taskStatus !== 'paused'}
                     variant="outline"
                     className="flex items-center gap-2"
@@ -356,7 +339,7 @@ export function BrowserUseApp() {
 
                 {(taskStatus === 'running' || taskStatus === 'paused') && (
                   <Button
-                    onClick={handleStopTask}
+                    onClick={stopTask}
                     disabled={taskStatus !== 'running' && taskStatus !== 'paused'}
                     variant="destructive"
                     className="flex items-center gap-2"
@@ -368,7 +351,7 @@ export function BrowserUseApp() {
 
                 {(taskStatus === 'completed' || taskStatus === 'stopped' || taskStatus === 'failed' || taskStatus === 'expired') && (
                   <Button
-                    onClick={handleRestartTask}
+                    onClick={restartTask}
                     disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
                     variant="outline"
                     className="flex items-center gap-2"
@@ -448,3 +431,4 @@ export function BrowserUseApp() {
     </div>
   );
 }
+

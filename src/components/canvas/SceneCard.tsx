@@ -1,7 +1,7 @@
 
 import { CanvasScene } from "@/types/canvas";
 import { cn } from "@/lib/utils";
-import { FileText, MoreVertical, Trash2, Edit } from "lucide-react";
+import { FileText, MoreVertical, Trash2, Edit } from "lucide-react"; // Removed Mic icon
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,7 +9,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-
 export interface SceneCardProps {
   scene: CanvasScene;
   isSelected: boolean;
@@ -18,11 +17,17 @@ export interface SceneCardProps {
 }
 
 export function SceneCard({ scene, isSelected, onSelect, onDelete }: SceneCardProps) {
+  // Supabase client is imported directly now, no hook needed here
+  
+  // --- Voiceover Generation Logic Removed ---
+
   // Format a short preview of the content
   const getContentPreview = (content?: string) => {
     if (!content) return "No content";
     return content.length > 40 ? content.substring(0, 40) + "..." : content;
   };
+
+  // Audio player removed, handled in SceneDetailPanel now
   
   return (
     <div 
@@ -36,20 +41,22 @@ export function SceneCard({ scene, isSelected, onSelect, onDelete }: SceneCardPr
     >
       <div className="flex items-center gap-2 mb-1">
         <FileText className="h-4 w-4 shrink-0" />
-        <span className="font-medium truncate">{scene.title || `Scene ${scene.scene_order || scene.sceneOrder || ''}`}</span>
+        <span className="font-medium truncate">{scene.title || `Scene ${scene.order || ''}`}</span>
       </div>
+
+      {/* Audio player removed */}
       
       <p className="text-xs opacity-80 truncate">
-        {getContentPreview(scene.voice_over_text || scene.voiceOverText || scene.script)}
+        {getContentPreview(scene.voiceOverText || scene.script)}
       </p>
       
       <div className="flex justify-between items-center mt-2 text-xs">
         <span className={cn(
           "px-1.5 py-0.5 rounded-sm text-xs",
-          (scene.image_prompt || scene.imagePrompt) ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : 
+          scene.imagePrompt ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : 
                              "bg-gray-100 text-gray-800 dark:bg-gray-800/30 dark:text-gray-400"
         )}>
-          {(scene.image_prompt || scene.imagePrompt) ? "Has image prompt" : "No image prompt"}
+          {scene.imagePrompt ? "Has image prompt" : "No image prompt"}
         </span>
       </div>
       
@@ -85,6 +92,7 @@ export function SceneCard({ scene, isSelected, onSelect, onDelete }: SceneCardPr
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </DropdownMenuItem>
+            {/* Generate Voiceover option removed */}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

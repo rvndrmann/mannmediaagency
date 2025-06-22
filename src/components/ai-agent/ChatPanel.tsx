@@ -72,7 +72,7 @@ export const ChatPanel = ({
   return (
     <div className="flex flex-col h-full relative">
       <div className="absolute top-0 right-0 p-2 bg-white/5 backdrop-blur-lg rounded-bl-lg z-10 flex items-center space-x-2">
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-white/80">
           Credits: {userCredits?.credits_remaining.toFixed(2) || 0}
         </span>
         <TooltipProvider>
@@ -112,13 +112,12 @@ export const ChatPanel = ({
         </ScrollArea>
       </div>
 
-      <div className={`sticky bottom-0 left-0 right-0 w-full bg-white/95 backdrop-blur-xl border-t border-gray-200 p-4 ${isMobile ? "z-60 mb-12" : "z-10"}`}>
+      <div className={`sticky bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-white/10 p-4 ${isMobile ? "z-60 mb-12" : "z-10"}`}>
         <ChatInput
           input={input}
           isLoading={isLoading}
           onInputChange={onInputChange}
           onSubmit={onSubmit}
-          userRole="user"
         />
       </div>
     </div>

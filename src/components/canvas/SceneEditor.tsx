@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { toast } from "sonner";
@@ -19,10 +20,10 @@ interface SceneEditorProps {
 export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   const [title, setTitle] = useState(scene?.title || "");
   const [script, setScript] = useState(scene?.script || "");
-  const [voiceOverText, setVoiceOverText] = useState(scene?.voice_over_text || scene?.voiceOverText || "");
+  const [voiceOverText, setVoiceOverText] = useState(scene?.voiceOverText || "");
   const [description, setDescription] = useState(scene?.description || "");
-  const [imagePrompt, setImagePrompt] = useState(scene?.image_prompt || scene?.imagePrompt || "");
-  const [customInstruction, setCustomInstruction] = useState("");
+  const [imagePrompt, setImagePrompt] = useState(scene?.imagePrompt || "");
+  const [customInstruction, setCustomInstruction] = useState(""); // State for custom instruction
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,9 +56,9 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
         if (scene) {
           setTitle(scene.title || "");
           setScript(scene.script || "");
-          setVoiceOverText(scene.voice_over_text || scene.voiceOverText || "");
+          setVoiceOverText(scene.voiceOverText || "");
           setDescription(scene.description || "");
-          setImagePrompt(scene.image_prompt || scene.imagePrompt || "");
+          setImagePrompt(scene.imagePrompt || "");
         }
       } catch (error) {
         console.error("Error loading scene data:", error);
@@ -68,7 +69,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     };
     
     loadSceneData();
-  }, [scene?.id]);
+  }, [scene?.id]); // Depend on scene ID, not the whole object
   
   useEffect(() => {
     setIsGenerating(isProcessing);
@@ -196,7 +197,7 @@ Format the prompt to get the best results from an AI image generator.`;
   const handleGenerateVideo = async () => {
     if (!scene) return;
     
-    if (!scene.image_url && !scene.imageUrl) {
+    if (!scene.imageUrl) {
       toast.error("Please generate a scene image first");
       return;
     }
@@ -264,7 +265,7 @@ Format the prompt to get the best results from an AI image generator.`;
         </Alert>
       )}
       
-      <div className="space-y-8">
+      <div className="space-y-8"> {/* Increased vertical spacing */}
         <SceneContentForm
           label="Scene Script"
           value={script}
@@ -338,8 +339,8 @@ Format the prompt to get the best results from an AI image generator.`;
         
         <SceneControls
           sceneId={scene.id}
-          imagePrompt={imagePrompt}
-          hasImage={!!(scene.image_url || scene.imageUrl)}
+          imagePrompt={imagePrompt} // Make sure this is passed properly
+          hasImage={!!scene.imageUrl}
           isProcessing={isProcessing}
           activeAgent={activeAgent}
           onGenerateImage={handleGenerateImage}

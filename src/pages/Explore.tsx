@@ -151,6 +151,27 @@ const Explore = () => {
     enabled: !!session,
   });
 
+  const { data: publicStories, isLoading: storiesLoading } = useQuery({
+    queryKey: ["publicStories"],
+    queryFn: async () => {
+      const { data: stories, error: storiesError } = await supabase
+        .from("stories")
+        .select(`
+          *,
+          profiles (id, username, avatar_url)
+        `)
+        .eq('visibility', 'public') // Assuming a 'visibility' column exists
+        .order('created_at', { ascending: false });
+
+      if (storiesError) {
+        console.error('Error fetching public stories:', storiesError);
+        throw storiesError;
+      }
+      return stories || [];
+    },
+    enabled: !!session,
+  });
+
   if (!session) return null;
 
   return (
@@ -201,14 +222,16 @@ const Explore = () => {
                   <TabsTrigger value="product-shots">Product Shot V2</TabsTrigger>
                   <TabsTrigger value="images">Product Shot V1</TabsTrigger>
                   <TabsTrigger value="videos">Videos</TabsTrigger>
+                  <TabsTrigger value="stories">Stories</TabsTrigger>
                 </TabsList>
               </Tabs>
 
               <ExploreGrid
                 images={publicImages}
                 videos={publicVideos}
+                stories={publicStories}
                 productShots={productShots}
-                isLoading={imagesLoading || videosLoading || productShotsLoading}
+                isLoading={imagesLoading || videosLoading || productShotsLoading || storiesLoading}
                 contentType={contentType}
                 searchQuery={searchQuery}
               />

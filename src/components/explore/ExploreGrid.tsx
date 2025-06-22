@@ -8,15 +8,17 @@ import { Badge } from "@/components/ui/badge";
 interface ExploreGridProps {
   images?: any[];
   videos?: any[];
+  stories?: any[];
   productShots?: any[];
   isLoading: boolean;
-  contentType: "all" | "images" | "videos" | "product-shots";
+  contentType: "all" | "images" | "videos" | "product-shots" | "stories";
   searchQuery: string;
 }
 
 export const ExploreGrid = ({
   images = [],
   videos = [],
+  stories = [],
   productShots = [],
   isLoading,
   contentType,
@@ -33,26 +35,33 @@ export const ExploreGrid = ({
     const validImages = images?.filter(img => img.result_url && filterBySearch(img)) || [];
     const validVideos = videos?.filter(vid => vid.result_url && filterBySearch(vid)) || [];
     const validProductShots = productShots?.filter(shot => shot.result_url && filterBySearch(shot)) || [];
+    const validStories = stories?.filter(story => filterBySearch(story)) || [];
 
     switch (contentType) {
       case "all":
-        // First add videos, then add images and product shots
-        return [...validVideos, ...validImages, ...validProductShots]
+        // Add stories, then videos, then images and product shots
+        return [...validStories, ...validVideos, ...validImages, ...validProductShots]
           .sort((a, b) => {
-            // If one is a video and one is not, prioritize videos
-            const aIsVideo = 'source_image_url' in a && !('scene_description' in a);
-            const bIsVideo = 'source_image_url' in b && !('scene_description' in b);
+            // Prioritize stories, then videos, then others
+            const aIsStory = 'story' in a && !('source_image_url' in a) && !('scene_description' in a);
+            const bIsStory = 'story' in b && !('source_image_url' in b) && !('scene_description' in b);
+            const aIsVideo = 'source_image_url' in a && !('scene_description' in a) && !aIsStory;
+            const bIsVideo = 'source_image_url' in b && !('scene_description' in b) && !bIsStory;
+
+            if (aIsStory && !bIsStory) return -1;
+            if (!aIsStory && bIsStory) return 1;
+            if (aIsVideo && !bIsVideo) return -1;
+            if (!aIsVideo && bIsVideo) return 1;
             
-            if (aIsVideo && !bIsVideo) return -1; // a is video, b is not, so a comes first
-            if (!aIsVideo && bIsVideo) return 1; // b is video, a is not, so b comes first
-            
-            // If both are the same type, sort by date
+            // If both are the same type or neither are prioritized, sort by date
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           });
       case "images":
         return validImages;
       case "videos":
         return validVideos;
+      case "stories":
+        return validStories;
       case "product-shots":
         return validProductShots;
       default:
@@ -113,7 +122,22 @@ export const ExploreGrid = ({
   return (
     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1 sm:gap-3 mt-4 sm:mt-6 w-full overflow-hidden px-1">
       {content.map((item: any) => {
-        if ('source_image_url' in item && 'scene_description' in item) {
+        if ('story' in item && !('source_image_url' in item) && !('scene_description' in item)) { // Check if it's a story
+          // Assuming StoryCard component exists and accepts a story prop
+          // You might need to create or import StoryCard if it doesn't exist
+          // For now, using a placeholder rendering
+          return (
+            <div key={item["stories id"]} className="space-y-1 sm:space-y-2 w-full">
+              <Card className="p-4">
+                <h3 className="font-medium">Story #{item["stories id"]}</h3>
+                <p className="text-sm text-muted-foreground truncate">{item.story}</p>
+                <div className="text-[7px] sm:text-xs text-muted-foreground truncate mt-1">
+                  by {item.profiles?.username || 'Anonymous'}
+                </div>
+              </Card>
+            </div>
+          );
+        } else if ('source_image_url' in item && 'scene_description' in item) {
           const isV2 = contentType === "product-shots" ? true : 
                       contentType === "images" ? false :
                       isV2Image(item);

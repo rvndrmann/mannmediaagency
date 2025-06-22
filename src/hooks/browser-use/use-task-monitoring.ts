@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { socket } from '@/socket';
+import socket from '@/socket';
 import { toast } from 'sonner';
 import type { TaskStatus, TaskStep, BrowserTaskState } from './types';
 

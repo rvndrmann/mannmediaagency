@@ -104,7 +104,7 @@ export function usePaginatedCanvasData({
         
       if (error) throw error;
       
-      // Transform data
+      // Transform data to match CanvasScene interface
       return data.map(scene => ({
         id: scene.id,
         title: scene.title,
@@ -117,11 +117,38 @@ export function usePaginatedCanvasData({
         voiceOverUrl: scene.voice_over_url || "",
         backgroundMusicUrl: scene.background_music_url || "",
         voiceOverText: scene.voice_over_text || "",
-        order: scene.scene_order,
+        sceneOrder: scene.scene_order,
         projectId: scene.project_id,
         createdAt: scene.created_at,
         updatedAt: scene.updated_at,
-        duration: scene.duration
+        duration: scene.duration,
+        // Add all required CanvasScene properties
+        project_id: scene.project_id,
+        image_prompt: scene.image_prompt || "",
+        image_url: scene.image_url || "",
+        product_image_url: scene.product_image_url || "",
+        voice_over_url: scene.voice_over_url || "",
+        background_music_url: scene.background_music_url || "",
+        voice_over_text: scene.voice_over_text || "",
+        sceneImageV1Url: scene.scene_image_v1_url || "",
+        scene_image_v1_url: scene.scene_image_v1_url || "",
+        sceneImageV2Url: scene.scene_image_v2_url || "",
+        scene_image_v2_url: scene.scene_image_v2_url || "",
+        scene_order: scene.scene_order,
+        created_at: scene.created_at,
+        updated_at: scene.updated_at,
+        bria_v2_request_id: scene.bria_v2_request_id || null,
+        custom_instruction: scene.custom_instruction || null,
+        pending_generation_id: scene.pending_generation_id || null,
+        image_guidance_settings: scene.image_guidance_settings || null,
+        // Compatibility fields
+        image: scene.image_url || "",
+        video: scene.video_url || "",
+        voiceOver: scene.voice_over_url || "",
+        backgroundMusic: scene.background_music_url || "",
+        productImage: scene.product_image_url || "",
+        voiceover_audio_url: scene.voiceover_audio_url || null,
+        voiceoverAudioUrl: scene.voiceover_audio_url || null
       })) as CanvasScene[];
     } catch (err: any) {
       console.error("Error loading scenes:", err);

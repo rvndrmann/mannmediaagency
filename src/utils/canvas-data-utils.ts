@@ -62,7 +62,6 @@ export function normalizeScene(scene: any): CanvasScene {
     updated_at: scene.updated_at || scene.updatedAt || new Date().toISOString(),
     bria_v2_request_id: scene.bria_v2_request_id || null,
     custom_instruction: scene.custom_instruction || null,
-    pending_generation_id: scene.pending_generation_id || null,
     image_guidance_settings: scene.image_guidance_settings || null,
     // Add compatibility fields for old references
     image: scene.image || scene.imageUrl || scene.image_url || '',

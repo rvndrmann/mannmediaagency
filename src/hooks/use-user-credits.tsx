@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 export interface UserCredits {
   user_id: string;
   credits_remaining: number;
-  credits?: number;
 }
 
 export function useUserCredits() {
@@ -20,12 +19,7 @@ export function useUserCredits() {
         .maybeSingle();
 
       if (error) throw error;
-      
-      // Return data with credits property for backward compatibility
-      return data ? {
-        ...data,
-        credits: data.credits_remaining
-      } as UserCredits : null;
+      return data as UserCredits;
     },
   });
 }

@@ -1,74 +1,71 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { UserCredits } from './types';
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { UserCredits } from "./types";
 
-export const useUserData = (userId?: string) => {
-  const [userCredits, setUserCredits] = useState<UserCredits | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchUserCredits = async () => {
-    if (!userId) {
-      setUserCredits(null);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('user_credits')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error) throw error;
-
-      // Map the data to match UserCredits interface
-      const mappedCredits: UserCredits = {
-        credits_remaining: data.credits_remaining,
-        credits_used: 0, // Default value as this field doesn't exist in DB
-        last_updated: data.updated_at
-      };
-
-      setUserCredits(mappedCredits);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching user credits:', err);
-      setError('Failed to load user credits');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const refetchCredits = async () => {
-    if (!userId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('user_credits')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error) throw error;
-
-      const mappedCredits: UserCredits = {
-        credits_remaining: data.credits_remaining,
-        credits_used: 0,
-        last_updated: data.updated_at
-      };
-
-      setUserCredits(mappedCredits);
-    } catch (err) {
-      console.error('Error refetching user credits:', err);
-    }
-  };
-
+export function useUserData(
+  setUserCredits: (credits: UserCredits | null) => void,
+  setError: (error: string | null) => void
+) {
   useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          setUserCredits(null);
+          return;
+        }
+        
+        const { data, error } = await supabase
+          .from('user_credits')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (error && !error.message.includes('does not exist')) {
+          console.error("Error fetching user credits:", error);
+          throw error;
+        }
+        
+        if (data) {
+          setUserCredits(data as UserCredits);
+        } else {
+          // Create new user credits record if not exists
+          const { data: newCredits, error: insertError } = await supabase
+            .from('user_credits')
+            .insert({
+              user_id: user.id,
+              credits_remaining: 10 // Default free credits
+            })
+            .select()
+            .single();
+          
+          if (insertError) {
+            console.error("Error creating user credits:", insertError);
+            throw insertError;
+          }
+          
+          if (newCredits) {
+            setUserCredits(newCredits as UserCredits);
+          }
+        }
+      } catch (error) {
+        console.error("Error in useUserData:", error);
+        setError(error instanceof Error ? error.message : "Failed to fetch user data");
+        setUserCredits(null);
+      }
+    };
+    
     fetchUserCredits();
-  }, [userId]);
-
-  return { userCredits, loading, error, refetchCredits };
-};
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      fetchUserCredits();
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setUserCredits, setError]);
+}

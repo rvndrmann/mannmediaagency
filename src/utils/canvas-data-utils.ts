@@ -13,14 +13,13 @@ export function normalizeProject(project: any): CanvasProject {
     user_id: project.user_id || project.userId || '',
     fullScript: project.fullScript || project.full_script || '',
     full_script: project.full_script || project.fullScript || '',
-    final_video_url: project.final_video_url || null,
-    main_product_image_url: project.main_product_image_url || null,
     createdAt: project.createdAt || project.created_at || new Date().toISOString(),
     created_at: project.created_at || project.createdAt || new Date().toISOString(),
     updatedAt: project.updatedAt || project.updated_at || new Date().toISOString(),
     updated_at: project.updated_at || project.updatedAt || new Date().toISOString(),
-    project_assets: project.project_assets || [],
-    scenes: (project.canvas_scenes || []).map(scene => normalizeScene(scene))
+    cover_image_url: project.cover_image_url || '',
+    project_assets: project.project_assets || [], // Add project_assets field
+    scenes: (project.canvas_scenes || []).map(scene => normalizeScene(scene)) // Normalize fetched scenes
   };
 }
 
@@ -49,19 +48,18 @@ export function normalizeScene(scene: any): CanvasScene {
     voice_over_text: scene.voice_over_text || scene.voiceOverText || '',
     backgroundMusicUrl: scene.backgroundMusicUrl || scene.background_music_url || '',
     background_music_url: scene.background_music_url || scene.backgroundMusicUrl || '',
-    sceneImageV1Url: scene.sceneImageV1Url || scene.scene_image_v1_url || '',
-    scene_image_v1_url: scene.scene_image_v1_url || scene.sceneImageV1Url || '',
-    sceneImageV2Url: scene.sceneImageV2Url || scene.scene_image_v2_url || '',
-    scene_image_v2_url: scene.scene_image_v2_url || scene.sceneImageV2Url || '',
-    sceneOrder: scene.sceneOrder || scene.scene_order || 0,
-    scene_order: scene.scene_order || scene.sceneOrder || 0,
+    sceneImageV1Url: scene.sceneImageV1Url || scene.scene_image_v1_url || '', // Add V1 normalization
+    scene_image_v1_url: scene.scene_image_v1_url || scene.sceneImageV1Url || '', // Add V1 normalization (snake_case)
+    sceneImageV2Url: scene.sceneImageV2Url || scene.scene_image_v2_url || '', // Add V2 normalization
+    scene_image_v2_url: scene.scene_image_v2_url || scene.sceneImageV2Url || '', // Add V2 normalization (snake_case)
+    sceneOrder: scene.sceneOrder || scene.scene_order || scene.order || 0,
+    scene_order: scene.scene_order || scene.sceneOrder || scene.order || 0,
+    order: scene.order || scene.sceneOrder || scene.scene_order || 0,
     duration: scene.duration || 0,
     createdAt: scene.createdAt || scene.created_at || new Date().toISOString(),
     created_at: scene.created_at || scene.createdAt || new Date().toISOString(),
     updatedAt: scene.updatedAt || scene.updated_at || new Date().toISOString(),
     updated_at: scene.updated_at || scene.updatedAt || new Date().toISOString(),
-    bria_v2_request_id: scene.bria_v2_request_id || null,
-    custom_instruction: scene.custom_instruction || null,
     // Add compatibility fields for old references
     image: scene.image || scene.imageUrl || scene.image_url || '',
     video: scene.video || scene.videoUrl || scene.video_url || '',
@@ -70,11 +68,7 @@ export function normalizeScene(scene: any): CanvasScene {
     productImage: scene.productImage || scene.productImageUrl || scene.product_image_url || '',
     // Add normalization for voiceover audio URL
     voiceover_audio_url: scene.voiceover_audio_url || scene.voiceoverAudioUrl || null,
-    voiceoverAudioUrl: scene.voiceoverAudioUrl || scene.voiceover_audio_url || null,
-    // Add missing required properties with defaults
-    fal_tts_request_id: scene.fal_tts_request_id || null,
-    is_template: scene.is_template || false,
-    template_id: scene.template_id || null
+    voiceoverAudioUrl: scene.voiceoverAudioUrl || scene.voiceover_audio_url || null
   };
 }
 

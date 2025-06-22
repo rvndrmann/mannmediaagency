@@ -8,28 +8,27 @@ import { ProfileSection } from "./sidebar/ProfileSection";
 import { Navigation } from "./sidebar/Navigation";
 
 export const Sidebar = () => {
-  const { signOut } = useAuth();
-  
+  const { signOut } = useAuth(); // Call useAuth at the top level
   return (
-    <SidebarComponent className="bg-white border-r border-gray-200 shadow-sm">
-      <SidebarHeader className="bg-white border-b border-gray-200">
+    <SidebarComponent>
+      <SidebarHeader>
         <div className="flex items-center gap-2 px-4 py-2">
-          <div className="text-xl font-bold text-gray-900">Create Amazing Videos</div>
+          <div className="text-xl font-bold text-white">Create Amazing Videos</div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="bg-white">
+      <SidebarContent>
         <div className="space-y-4 px-4">
           <ProfileSection />
           <Navigation />
         </div>
       </SidebarContent>
-      <SidebarFooter className="bg-white border-t border-gray-200">
+      <SidebarFooter>
         <div className="px-4 py-2">
           <Button
             variant="ghost"
-            className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
             onClick={async () => {
-              await signOut();
+              await signOut(); // Use the signOut function obtained from the hook
             }}
           >
             <LogOut className="mr-2 h-4 w-4" /> Sign out

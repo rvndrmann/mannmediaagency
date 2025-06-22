@@ -1,4 +1,3 @@
-
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -119,12 +118,12 @@ export const Dashboard = () => {
   });
 
   return (
-    <div className="flex-1 p-4 md:p-8 bg-white min-h-screen">
+    <div className="flex-1 p-4 md:p-8">
       <AnnouncementBanner />
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
-          <SidebarTrigger className="md:hidden text-gray-900" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h1>
+          <SidebarTrigger className="md:hidden" />
+          <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
         </div>
       </div>
 
@@ -136,12 +135,12 @@ export const Dashboard = () => {
       />
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)} className="mt-6">
-        <TabsList className="bg-gray-100 border border-gray-200">
-          <TabsTrigger value="stories" className="text-gray-700 data-[state=active]:text-gray-900 data-[state=active]:bg-white">Stories</TabsTrigger>
-          <TabsTrigger value="images" className="text-gray-700 data-[state=active]:text-gray-900 data-[state=active]:bg-white">Images</TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="stories">Stories</TabsTrigger>
+          <TabsTrigger value="images">Images</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="stories" className="bg-white">
+        <TabsContent value="stories">
           <ContentGrid
             stories={stories}
             isLoading={isLoadingStories}
@@ -151,7 +150,7 @@ export const Dashboard = () => {
           />
         </TabsContent>
 
-        <TabsContent value="images" className="bg-white">
+        <TabsContent value="images">
           <ContentGrid
             images={images}
             isLoading={isLoadingImages}
@@ -160,6 +159,7 @@ export const Dashboard = () => {
             type="images"
           />
         </TabsContent>
+
       </Tabs>
     </div>
   );

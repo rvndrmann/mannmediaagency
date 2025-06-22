@@ -1230,6 +1230,66 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_order_forms: {
+        Row: {
+          access_code: string | null
+          created_at: string
+          description: string | null
+          fields: Json
+          id: string
+          is_active: boolean
+          require_phone: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_code?: string | null
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean
+          require_phone?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_code?: string | null
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean
+          require_phone?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      custom_order_guests: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          phone_number: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone_number: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone_number?: string
+        }
+        Relationships: []
+      }
       custom_order_images: {
         Row: {
           created_at: string
@@ -1258,6 +1318,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      custom_order_links: {
+        Row: {
+          access_code: string
+          created_at: string
+          created_by: string | null
+          credits_amount: number
+          custom_rate: number
+          description: string | null
+          expiry_date: string | null
+          id: string
+          is_active: boolean
+          require_phone: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_code: string
+          created_at?: string
+          created_by?: string | null
+          credits_amount?: number
+          custom_rate: number
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          require_phone?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_code?: string
+          created_at?: string
+          created_by?: string | null
+          credits_amount?: number
+          custom_rate?: number
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          require_phone?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       custom_order_media: {
         Row: {
@@ -1343,7 +1448,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "custom_orders_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "custom_order_guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_orders_order_link_id_fkey"
+            columns: ["order_link_id"]
+            isOneToOne: false
+            referencedRelation: "custom_order_links"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       default_product_images: {
         Row: {
@@ -1437,6 +1557,38 @@ export type Database = {
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_submissions: {
+        Row: {
+          created_at: string
+          form_id: string
+          id: string
+          phone_number: string | null
+          submission_data: Json
+        }
+        Insert: {
+          created_at?: string
+          form_id: string
+          id?: string
+          phone_number?: string | null
+          submission_data: Json
+        }
+        Update: {
+          created_at?: string
+          form_id?: string
+          id?: string
+          phone_number?: string | null
+          submission_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_submissions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "custom_order_forms"
             referencedColumns: ["id"]
           },
         ]
@@ -1868,6 +2020,13 @@ export type Database = {
           webhook_received_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_transactions_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "custom_order_guests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payment_transactions_related_order_id_fkey"
             columns: ["related_order_id"]
@@ -2912,6 +3071,59 @@ export type Database = {
         }
         Relationships: []
       }
+      video_metadata: {
+        Row: {
+          additional_context: string | null
+          created_at: string
+          custom_title_twist: string | null
+          id: string
+          instagram_hashtags: string | null
+          keywords: string | null
+          metadata_regeneration_count: number | null
+          seo_description: string | null
+          seo_title: string | null
+          updated_at: string
+          video_context: string | null
+          video_job_id: string
+        }
+        Insert: {
+          additional_context?: string | null
+          created_at?: string
+          custom_title_twist?: string | null
+          id?: string
+          instagram_hashtags?: string | null
+          keywords?: string | null
+          metadata_regeneration_count?: number | null
+          seo_description?: string | null
+          seo_title?: string | null
+          updated_at?: string
+          video_context?: string | null
+          video_job_id: string
+        }
+        Update: {
+          additional_context?: string | null
+          created_at?: string
+          custom_title_twist?: string | null
+          id?: string
+          instagram_hashtags?: string | null
+          keywords?: string | null
+          metadata_regeneration_count?: number | null
+          seo_description?: string | null
+          seo_title?: string | null
+          updated_at?: string
+          video_context?: string | null
+          video_job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_metadata_video_job_id_fkey"
+            columns: ["video_job_id"]
+            isOneToOne: true
+            referencedRelation: "video_generation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_projects: {
         Row: {
           created_at: string | null
@@ -2994,6 +3206,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      video_templates: {
+        Row: {
+          aspect_ratio: string
+          created_at: string
+          credits_cost: number
+          description: string | null
+          duration: string
+          id: string
+          is_active: boolean
+          name: string
+          prompt_template: string
+          thumbnail_url: string
+          updated_at: string
+        }
+        Insert: {
+          aspect_ratio?: string
+          created_at?: string
+          credits_cost?: number
+          description?: string | null
+          duration?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          prompt_template: string
+          thumbnail_url: string
+          updated_at?: string
+        }
+        Update: {
+          aspect_ratio?: string
+          created_at?: string
+          credits_cost?: number
+          description?: string | null
+          duration?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          prompt_template?: string
+          thumbnail_url?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       work_assignments: {
         Row: {
@@ -3306,6 +3560,22 @@ export type Database = {
         Returns: {
           id: string
           name: string
+        }[]
+      }
+      get_video_templates: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          aspect_ratio: string
+          created_at: string
+          credits_cost: number
+          description: string | null
+          duration: string
+          id: string
+          is_active: boolean
+          name: string
+          prompt_template: string
+          thumbnail_url: string
+          updated_at: string
         }[]
       }
       increment_user_credits: {

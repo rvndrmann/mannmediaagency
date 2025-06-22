@@ -1,201 +1,338 @@
-
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { CanvasProject, CanvasScene, SceneData, SceneUpdateType } from '@/types/canvas';
 import { supabase } from '@/integrations/supabase/client';
-import { CanvasProject, CanvasScene } from '@/types/canvas';
 import { toast } from 'sonner';
+import { useCanvas } from '@/hooks/use-canvas';
 
-export interface UseCanvasProjectsReturn {
-  projects: CanvasProject[];
-  createProject: (title: string, description?: string) => Promise<CanvasProject>;
-  updateProject: (id: string, updates: Partial<CanvasProject>) => Promise<CanvasProject>;
-  deleteProject: (id: string) => Promise<void>;
-  isLoading: boolean;
-  
-  // Additional properties needed by Canvas.tsx
-  project: CanvasProject | null;
-  scenes: CanvasScene[];
-  selectedScene: CanvasScene | null;
-  selectedSceneId: string | null;
-  setSelectedSceneId: (id: string | null) => void;
-  createScene: (projectId: string, data: any) => Promise<CanvasScene>;
-  updateScene: (sceneId: string, type: string, value: string) => Promise<void>;
-  deleteScene: (sceneId: string) => Promise<void>;
-  loading: boolean;
-  projectId: string | null;
-  fetchProject: (id: string) => Promise<void>;
-}
-
-export const useCanvasProjects = (): UseCanvasProjectsReturn => {
-  const [projects, setProjects] = useState<CanvasProject[]>([]);
-  const [project, setProject] = useState<CanvasProject | null>(null);
-  const [scenes, setScenes] = useState<CanvasScene[]>([]);
-  const [selectedScene, setSelectedScene] = useState<CanvasScene | null>(null);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+export function useCanvasProjects() {
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<CanvasProject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchProjects = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('canvas_projects')
-        .select('*')
-        .order('created_at', { ascending: false });
+  // Alias loading as isLoading for compatibility with ProjectSelector
+  const isLoading = loading;
 
-      if (error) throw error;
-
-      const mappedProjects: CanvasProject[] = data.map(item => ({
-        id: item.id,
-        title: item.title,
-        description: item.description || '',
-        userId: item.user_id,
-        user_id: item.user_id,
-        fullScript: item.full_script || '',
-        full_script: item.full_script || '',
-        final_video_url: item.final_video_url,
-        main_product_image_url: item.main_product_image_url,
-        project_assets: Array.isArray(item.project_assets) ? item.project_assets : [],
-        createdAt: item.created_at,
-        created_at: item.created_at,
-        updatedAt: item.updated_at,
-        updated_at: item.updated_at,
-        scenes: []
-      }));
-
-      setProjects(mappedProjects);
-    } catch (error: any) {
-      console.error('Error fetching projects:', error);
-      toast.error('Failed to fetch projects');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const createProject = async (title: string, description = ''): Promise<CanvasProject> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('No authenticated user');
-
-    const { data, error } = await supabase
-      .from('canvas_projects')
-      .insert([{
-        title,
-        description,
-        user_id: user.id,
-        full_script: ''
-      }])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    const newProject: CanvasProject = {
-      id: data.id,
-      title: data.title,
-      description: data.description || '',
-      userId: data.user_id,
-      user_id: data.user_id,
-      fullScript: data.full_script || '',
-      full_script: data.full_script || '',
-      final_video_url: data.final_video_url,
-      main_product_image_url: data.main_product_image_url,
-      project_assets: [],
-      createdAt: data.created_at,
-      created_at: data.created_at,
-      updatedAt: data.updated_at,
-      updated_at: data.updated_at,
-      scenes: []
-    };
-
-    setProjects(prev => [newProject, ...prev]);
-    return newProject;
-  };
-
-  const updateProject = async (id: string, updates: Partial<CanvasProject>): Promise<CanvasProject> => {
-    const { data, error } = await supabase
-      .from('canvas_projects')
-      .update({
-        title: updates.title,
-        description: updates.description,
-        full_script: updates.full_script || updates.fullScript
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    const updatedProject: CanvasProject = {
-      id: data.id,
-      title: data.title,
-      description: data.description || '',
-      userId: data.user_id,
-      user_id: data.user_id,
-      fullScript: data.full_script || '',
-      full_script: data.full_script || '',
-      final_video_url: data.final_video_url,
-      main_product_image_url: data.main_product_image_url,
-      project_assets: [],
-      createdAt: data.created_at,
-      created_at: data.created_at,
-      updatedAt: data.updated_at,
-      updated_at: data.updated_at,
-      scenes: []
-    };
-
-    setProjects(prev => prev.map(p => p.id === id ? updatedProject : p));
-    return updatedProject;
-  };
-
-  const deleteProject = async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('canvas_projects')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-    setProjects(prev => prev.filter(p => p.id !== id));
-  };
-
-  const fetchProject = async (id: string): Promise<void> => {
-    // Implementation for fetching a single project
-    setProjectId(id);
-  };
-
-  const createScene = async (projectId: string, data: any): Promise<CanvasScene> => {
-    // Implementation for creating a scene
-    throw new Error('Not implemented');
-  };
-
-  const updateScene = async (sceneId: string, type: string, value: string): Promise<void> => {
-    // Implementation for updating a scene
-    throw new Error('Not implemented');
-  };
-
-  const deleteScene = async (sceneId: string): Promise<void> => {
-    // Implementation for deleting a scene
-    throw new Error('Not implemented');
-  };
-
-  useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
-
-  return {
-    projects,
-    createProject,
-    updateProject,
-    deleteProject,
-    isLoading,
+  // Use the canvas hook for the selected project
+  const {
     project,
     scenes,
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,
+    createProject,
+    addScene: createScene,
+    updateScene,
+    deleteScene: deleteSceneFromCanvas, // Destructure and rename
+    divideScriptToScenes,
+    saveFullScript,
+    updateProjectTitle,
+    fetchProject
+  } = useCanvas(projectId);
+
+  // Fetch all projects for the current user
+  const fetchProjects = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Check if we have a confirmed auth in localStorage
+      const authConfirmed = localStorage.getItem('auth_confirmed') === 'true';
+      const userEmail = localStorage.getItem('user_email');
+      const authTimestamp = localStorage.getItem('auth_timestamp');
+      
+      console.log('Canvas projects auth check from localStorage:', {
+        authConfirmed,
+        userEmail,
+        authTimestamp: authTimestamp ? new Date(authTimestamp).toLocaleString() : null
+      });
+      
+      // First try to get session (more reliable than getUser)
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Session error in useCanvasProjects:", sessionError);
+        // Continue anyway to try getUser as fallback
+      }
+      
+      let currentUser = sessionData?.session?.user;
+      
+      // If no session, try getUser as fallback
+      if (!currentUser) {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        console.log('Canvas projects auth check from getUser:', {
+          hasUser: !!userData?.user,
+          userError: userError ? userError.message : null
+        });
+        
+        if (userError) {
+          console.error("Error fetching user in useCanvasProjects:", userError);
+          
+          // If we have auth confirmation in localStorage but API calls are failing,
+          // continue but with an error message
+          if (!authConfirmed) {
+            setError("Authentication error");
+            setProjects([]);
+            return;
+          }
+          
+          // If we have auth confirmation, we'll try to continue with userId from localStorage
+          console.warn("Continuing with limited functionality due to auth API errors");
+        }
+        
+        currentUser = userData?.user;
+      }
+      
+      // If we still don't have a user, check if we're in development mode to load sample data
+      if (!currentUser) {
+        // For development: optionally load mock data if in development
+        const isDevMode = process.env.NODE_ENV === 'development';
+        
+        if (isDevMode && localStorage.getItem('use_mock_data') === 'true') {
+          console.log("Loading mock project data for development");
+          setProjects(getMockProjects());
+          return;
+        }
+        
+        console.warn("No authenticated user found in useCanvasProjects");
+        setProjects([]);
+        return;
+      }
+      
+      // We have a user, fetch their projects
+      console.log("Fetching projects for user:", currentUser.id);
+      
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error("Database error fetching projects:", error);
+        throw error;
+      }
+      
+      console.log(`Found ${data?.length || 0} projects for user ${currentUser.id}`);
+      
+      // Properly normalize the data from snake_case to camelCase
+      const normalizedProjects = (data || []).map((p: any): CanvasProject => ({
+        id: p.id,
+        title: p.title,
+        description: p.description || '',
+        userId: p.user_id || p.userId || '',
+        user_id: p.user_id || p.userId || '',
+        fullScript: p.full_script || p.fullScript || '',
+        full_script: p.full_script || p.fullScript || '',
+        createdAt: p.created_at || p.createdAt || new Date().toISOString(),
+        created_at: p.created_at || p.createdAt || new Date().toISOString(),
+        updatedAt: p.updated_at || p.updatedAt || new Date().toISOString(),
+        updated_at: p.updated_at || p.updatedAt || new Date().toISOString(),
+        cover_image_url: p.cover_image_url || '',
+        scenes: p.scenes || []
+      }));
+      
+      setProjects(normalizedProjects);
+    } catch (err) {
+      console.error("Error fetching projects:", err);
+      setError("Failed to load projects");
+      toast.error("Failed to load projects");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Mock projects for development/testing purposes
+  const getMockProjects = (): CanvasProject[] => {
+    return [
+      {
+        id: "mock-1",
+        title: "Sample Project 1",
+        description: "This is a sample project for testing",
+        userId: "mock-user",
+        user_id: "mock-user",
+        fullScript: "This is a sample script for Project 1",
+        full_script: "This is a sample script for Project 1",
+        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        cover_image_url: "",
+        scenes: []
+      },
+      {
+        id: "mock-2",
+        title: "Sample Project 2",
+        description: "Another sample project for testing",
+        userId: "mock-user",
+        user_id: "mock-user",
+        fullScript: "This is a sample script for Project 2",
+        full_script: "This is a sample script for Project 2",
+        createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        updatedAt: new Date(Date.now() - 86400000).toISOString(),
+        updated_at: new Date(Date.now() - 86400000).toISOString(),
+        cover_image_url: "",
+        scenes: []
+      }
+    ];
+  };
+
+  // Delete a project
+  const deleteProject = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      // Delete the project
+      const { error } = await supabase
+        .from('canvas_projects')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setProjects(prev => prev.filter(p => p.id !== id));
+      
+      // If this was the current project, clear it
+      if (projectId === id) {
+        setProjectId(null);
+      }
+      
+      return true;
+    } catch (err) {
+      console.error("Error deleting project:", err);
+      toast.error("Failed to delete project");
+      return false;
+    }
+  }, [projectId]);
+
+  // Update a project
+  const updateProject = useCallback(async (id: string, data: Partial<CanvasProject>): Promise<any> => {
+    try {
+      // Prepare the update data for the database (handle potential snake_case)
+      const dbData: any = { ...data };
+      if (data.main_product_image_url !== undefined) {
+        dbData.main_product_image_url = data.main_product_image_url;
+      }
+      // Add other potential mappings if needed
+
+      const { data: updatedProject, error } = await supabase
+        .from('canvas_projects')
+        .update(dbData) // Use dbData
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // --- BEGIN AUTO-POPULATE SCENES ---
+      let sceneUpdatePromise = Promise.resolve(); // Initialize with a resolved promise
+      const newMainImageUrl = data.main_product_image_url;
+      if (newMainImageUrl !== undefined) {
+        console.log(`[useCanvasProjects] Main image updated for project ${id} to ${newMainImageUrl}. Auto-populating scenes...`);
+        // Assign the async operation to the promise variable
+        sceneUpdatePromise = (async () => {
+          try {
+            console.log(`[useCanvasProjects] Attempting to update canvas_scenes for project_id ${id}...`);
+            const { data: sceneUpdateData, error: sceneUpdateError } = await supabase
+              .from('canvas_scenes')
+              .update({ product_image_url: newMainImageUrl })
+              .eq('project_id', id)
+              .select('id');
+
+            if (sceneUpdateError) {
+              console.error(`[useCanvasProjects] Error auto-populating scene images for project ${id}:`, sceneUpdateError);
+              toast.error(`Failed to update scene images: ${sceneUpdateError.message}`);
+            } else {
+              console.log(`[useCanvasProjects] Successfully updated product_image_url for ${sceneUpdateData?.length || 0} scenes in project ${id}.`);
+            }
+          } catch (sceneUpdateErr) {
+             console.error(`[useCanvasProjects] Exception during scene auto-population for project ${id}:`, sceneUpdateErr);
+             toast.error("An exception occurred while updating scene images.");
+          }
+        })(); // Immediately invoke the async IIFE
+      }
+      // --- END AUTO-POPULATE SCENES ---
+
+      // Update local projects list state immediately (UI might show stale scenes briefly)
+      setProjects(prev => prev.map(p => {
+        if (p.id === id) {
+          return { ...p, ...data };
+        }
+        return p;
+      }));
+
+      // Wait for the scene update to complete *before* refreshing the useCanvas state
+      await sceneUpdatePromise;
+
+      // Update the project state within the useCanvas hook if this is the currently selected project
+      if (projectId === id && fetchProject) {
+         console.log(`[useCanvasProjects] Scene update awaited. Fetching project ${id} to refresh useCanvas state...`);
+         await fetchProject(); // Await the fetch as well
+         console.log(`[useCanvasProjects] fetchProject completed for ${id}.`);
+      }
+
+
+      return updatedProject;
+    } catch (err) {
+      console.error("Error updating project:", err);
+      toast.error("Failed to update project");
+      throw err;
+    }
+  }, [projectId, fetchProject]); // Added projectId and fetchProject dependencies
+
+  // Load projects when the component mounts
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  // Select a project
+  const selectProject = useCallback((id: string) => {
+    setProjectId(id);
+  }, []);
+
+  const deleteScene = useCallback(async (sceneId: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('canvas_scenes')
+        .delete()
+        .eq('id', sceneId);
+
+      if (error) {
+        console.error("Error deleting scene:", error);
+        toast.error("Failed to delete scene");
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error("Error deleting scene:", err);
+      toast.error("Failed to delete scene");
+      return false;
+    }
+  }, []);
+
+  return {
+    projectId,
+    project,
+    projects,
+    scenes,
+    selectedScene,
+    selectedSceneId,
+    setSelectedSceneId,
+    loading,
+    isLoading, // Alias for ProjectSelector
+    error,
+    fetchProjects,
+    selectProject,
+    createProject,
+    updateProject,
+    deleteProject,
     createScene,
     updateScene,
-    deleteScene,
-    loading: isLoading,
-    projectId,
+    deleteScene: deleteSceneFromCanvas, // Return the renamed function as deleteScene
+    divideScriptToScenes,
+    saveFullScript,
+    updateProjectTitle,
     fetchProject
   };
-};
+}

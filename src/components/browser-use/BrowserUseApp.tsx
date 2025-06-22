@@ -9,9 +9,6 @@ import { BrowserTaskHistory } from "./BrowserTaskHistory";
 import { BrowserView } from "./BrowserView";
 import { TaskTemplateSelector } from "./TaskTemplateSelector";
 import { ScheduledTasksList } from "./ScheduledTasksList";
-import { useUserCredits } from "@/hooks/use-user-credits";
-import { useAuth } from "@/hooks/use-auth";
-import { BrowserConfig } from "@/hooks/browser-use/types";
 import { 
   Bot, 
   History, 
@@ -44,55 +41,36 @@ import {
 } from "@/components/ui/tooltip";
 import { useLocation } from "react-router-dom";
 
-const getDefaultBrowserConfig = (): BrowserConfig => {
-  return {
-    headless: false,
-    disableSecurity: false,
-    useOwnBrowser: false,
-    chromePath: "",
-    persistentSession: true,
-    resolution: "1920x1080",
-    theme: "Ocean",
-    darkMode: false,
-    sensitiveData: [],
-    contextConfig: {
-      minWaitPageLoadTime: 0.5,
-      waitForNetworkIdlePageLoadTime: 5.0,
-      maxWaitPageLoadTime: 15.0,
-      highlightElements: true,
-      viewportExpansion: 500
-    }
-  };
-};
-
 export function BrowserUseApp() {
   const location = useLocation();
-  const { user } = useAuth();
-  const { data: userCredits } = useUserCredits();
   const [activeTab, setActiveTab] = useState("task");
   const [showTemplatesPanel, setShowTemplatesPanel] = useState(true);
-  const [taskInput, setTaskInput] = useState("");
-  const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(getDefaultBrowserConfig());
-  const [environment, setEnvironment] = useState<'browser' | 'desktop'>('browser');
-  const [currentUrl, setCurrentUrl] = useState("");
-  const [screenshot, setScreenshot] = useState<string | null>(null);
   
-  // use the hook and destructure relevant state fields
-  const browserUseTask = useBrowserUseTask();
   const {
-    isLoading,
+    taskInput,
+    setTaskInput,
+    isProcessing,
+    startTask,
+    pauseTask,
+    resumeTask,
+    stopTask,
+    restartTask,
+    progress,
     taskStatus,
+    currentUrl,
+    setCurrentUrl,
+    screenshot,
+    captureScreenshot,
+    userCredits,
+    error,
+    browserConfig,
+    setBrowserConfig,
     liveUrl,
     connectionStatus,
-    progress,
-    error,
     taskOutput,
-  } = browserUseTask;
-
-  const captureScreenshot = () => {
-    // Placeholder function
-    console.log("Capture screenshot functionality not implemented");
-  };
+    environment,
+    setEnvironment
+  } = useBrowserUseTask();
 
   useEffect(() => {
     if (location.state && location.state.executeScheduledTask) {
@@ -108,7 +86,8 @@ export function BrowserUseApp() {
       
       setTimeout(() => {
         if (scheduledTaskInput && userCredits && userCredits.credits_remaining > 0) {
-          handleStartTask();
+          // Fix: Remove the environment argument as startTask doesn't expect it anymore
+          startTask();
           toast.info("Executing scheduled task automatically");
         }
       }, 500);
@@ -117,7 +96,7 @@ export function BrowserUseApp() {
     }
   }, [location.state, userCredits]);
 
-  const handleTemplateSelection = (template: any) => {
+  const handleTemplateSelection = (template) => {
     console.log("Template selection in BrowserUseApp:", template);
     
     if (template) {
@@ -158,7 +137,7 @@ export function BrowserUseApp() {
     return "Default Cloud";
   };
 
-  const handleStartTask = async () => {
+  const handleStartTask = () => {
     if (!isConfigValid()) {
       if (environment === "desktop") {
         toast.warning("Desktop mode requires a connection method. Please configure it in Settings tab.");
@@ -167,59 +146,26 @@ export function BrowserUseApp() {
       }
     }
     
-    if (!user?.id || !taskInput.trim()) {
-      toast.error("Please enter a task and ensure you're logged in");
+    startTask();
+  };
+
+  const handlePauseTask = () => {
+    pauseTask();
+  };
+
+  const handleResumeTask = () => {
+    resumeTask();
+  };
+
+  const handleStopTask = () => {
+    stopTask();
+  };
+
+  const handleRestartTask = () => {
+    if (!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1) {
       return;
     }
-    
-    try {
-      await browserUseTask.submitTask(taskInput, user.id);
-    } catch (error) {
-      console.error('Error starting task:', error);
-      toast.error('Failed to start task');
-    }
-  };
-
-  const handlePauseTask = async () => {
-    if (!browserUseTask.currentTaskId) return;
-    try {
-      await browserUseTask.pauseTask();
-    } catch (error) {
-      console.error('Error pausing task:', error);
-      toast.error('Failed to pause task');
-    }
-  };
-
-  const handleResumeTask = async () => {
-    if (!browserUseTask.currentTaskId) return;
-    try {
-      await browserUseTask.resumeTask();
-    } catch (error) {
-      console.error('Error resuming task:', error);
-      toast.error('Failed to resume task');
-    }
-  };
-
-  const handleStopTask = async () => {
-    if (!browserUseTask.currentTaskId) return;
-    try {
-      await browserUseTask.stopTask();
-    } catch (error) {
-      console.error('Error stopping task:', error);
-      toast.error('Failed to stop task');
-    }
-  };
-
-  const handleRestartTask = async () => {
-    if (!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1 || !user?.id) {
-      return;
-    }
-    try {
-      await browserUseTask.submitTask(taskInput, user.id);
-    } catch (error) {
-      console.error('Error restarting task:', error);
-      toast.error('Failed to restart task');
-    }
+    restartTask();
   };
 
   return (
@@ -360,7 +306,7 @@ export function BrowserUseApp() {
                     onChange={(e) => setTaskInput(e.target.value)}
                     className="flex-1 min-h-[120px] p-2 border rounded-md"
                     placeholder="Describe what you want the browser to do..."
-                    disabled={isLoading}
+                    disabled={isProcessing}
                   />
                 </div>
                 
@@ -377,7 +323,7 @@ export function BrowserUseApp() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={handleStartTask}
-                  disabled={isLoading || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
+                  disabled={isProcessing || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
                   className="flex items-center gap-2"
                 >
                   <Play className="h-4 w-4" />
@@ -420,7 +366,7 @@ export function BrowserUseApp() {
                   </Button>
                 )}
 
-                {(taskStatus === 'finished' || taskStatus === 'stopped' || taskStatus === 'failed') && (
+                {(taskStatus === 'completed' || taskStatus === 'stopped' || taskStatus === 'failed' || taskStatus === 'expired') && (
                   <Button
                     onClick={handleRestartTask}
                     disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
@@ -450,7 +396,7 @@ export function BrowserUseApp() {
               taskStatus={taskStatus}
               progress={progress}
               error={error}
-              isProcessing={isLoading}
+              isProcessing={isProcessing}
               taskOutput={taskOutput}
               environment={environment}
             />
@@ -493,7 +439,7 @@ export function BrowserUseApp() {
           <BrowserConfigPanel
             config={browserConfig}
             setConfig={setBrowserConfig}
-            disabled={browserUseTask.isLoading}
+            disabled={isProcessing}
             environment={environment}
             setEnvironment={setEnvironment}
           />

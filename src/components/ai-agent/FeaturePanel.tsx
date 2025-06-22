@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
 import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
+import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
@@ -113,13 +114,11 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
               </div>
               <div className="space-y-6">
                 {productShotV2.generatedImages.length > 0 && (
-                  <div className="grid gap-4">
-                    {productShotV2.generatedImages.map((image, index) => (
-                      <div key={index} className="border rounded-lg p-4">
-                        <img src={image.url} alt="Generated" className="w-full rounded" />
-                      </div>
-                    ))}
-                  </div>
+                  <GeneratedImagesPanel
+                    images={productShotV2.generatedImages}
+                    isGenerating={productShotV2.isGenerating}
+                    onRetry={productShotV2.onRetryImageCheck}
+                  />
                 )}
               </div>
             </div>

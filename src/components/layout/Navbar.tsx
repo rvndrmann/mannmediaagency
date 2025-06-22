@@ -1,247 +1,106 @@
 
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useUser } from '@/hooks/use-user';
+import { Home, Settings, Image, Video, Bot, HelpCircle, LogOut } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
-import { 
-  User as UserIcon, 
-  LogOut, 
-  Settings, 
-  CreditCard,
-  Palette,
-  Video,
-  Menu,
-  X,
-  Layout
-} from "lucide-react";
-import { useUserCredits } from "@/hooks/use-user-credits";
-import { toast } from "sonner";
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 export const Navbar = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
-  const { data: creditsData, refetch } = useUserCredits();
+  const { user } = useUser();
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-    });
+  const navItems = [
+    { path: '/', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
+    { path: '/product-shot', label: 'Product Shot', icon: <Image className="h-5 w-5" /> },
+    { path: '/image-to-video', label: 'Image to Video', icon: <Video className="h-5 w-5" /> },
+    { path: '/video-creator', label: 'Video Creator', icon: <Video className="h-5 w-5" /> },
+    { path: '/ai-agent', label: 'AI Agent', icon: <Bot className="h-5 w-5" /> },
+    { path: '/help', label: 'Help', icon: <HelpCircle className="h-5 w-5" /> },
+    { path: '/settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
+  ];
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-      if (event === 'SIGNED_OUT') {
-        navigate('/');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  // Refetch credits when user changes
-  useEffect(() => {
-    if (user) {
-      refetch();
-    }
-  }, [user, refetch]);
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Error signing out");
-    } else {
-      toast.success("Signed out successfully");
-      navigate('/');
-    }
-  };
-
-  const getUserDisplayName = () => {
-    if (!user) return "Guest";
-    return user.user_metadata?.full_name || user.email?.split('@')[0] || "User";
-  };
-
-  const getUserAvatar = () => {
-    return user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
+  const isActive = (path: string) => {
+    return location.pathname === path;
   };
 
   return (
-    <nav className="bg-white/95 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
-              <Palette className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold text-gray-900">AI Studio</span>
-            </Link>
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-4">
-            {user && (
-              <>
-                <Link to="/canvas">
-                  <Button variant="ghost" size="sm">
-                    <Layout className="h-4 w-4 mr-2" />
-                    Canvas
-                  </Button>
-                </Link>
-              </>
-            )}
-
-            {user ? (
-              <div className="flex items-center space-x-3">
-                {creditsData && (
-                  <Badge variant="outline" className="bg-white">
-                    {creditsData.credits_remaining.toFixed(2)} Credits
-                  </Badge>
-                )}
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center space-x-2">
-                      {getUserAvatar() ? (
-                        <img 
-                          src={getUserAvatar()!} 
-                          alt="Profile" 
-                          className="w-5 h-5 rounded-full"
-                        />
-                      ) : (
-                        <UserIcon className="h-4 w-4" />
-                      )}
-                      <span className="hidden lg:inline">{getUserDisplayName()}</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-                      <Settings className="h-4 w-4 mr-2" />
-                      Dashboard
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/pricing')}>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Billing
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <Link to="/login">
-                  <Button variant="ghost" size="sm">Sign In</Button>
-                </Link>
-                <Link to="/register">
-                  <Button size="sm">Get Started</Button>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-          </div>
+    <div className="border-b border-gray-700 bg-gray-800">
+      <div className="flex h-16 items-center px-4">
+        <div className="flex items-center">
+          <Link to="/" className="text-white font-bold text-xl mr-6">
+            VideoGen AI
+          </Link>
         </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-200">
-            <div className="space-y-2">
-              {user && (
-                <>
-                  <Link to="/canvas" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                      <Layout className="h-4 w-4 mr-2" />
-                      Canvas
-                    </Button>
-                  </Link>
-                </>
-              )}
-              
-              {user ? (
-                <div className="pt-2 border-t border-gray-200">
-                  <div className="px-3 py-2">
-                    <div className="flex items-center space-x-2 mb-2">
-                      {getUserAvatar() ? (
-                        <img 
-                          src={getUserAvatar()!} 
-                          alt="Profile" 
-                          className="w-6 h-6 rounded-full"
-                        />
-                      ) : (
-                        <UserIcon className="h-5 w-5" />
-                      )}
-                      <span className="font-medium">{getUserDisplayName()}</span>
-                    </div>
-                    {creditsData && (
-                      <Badge variant="outline" className="bg-white">
-                        {creditsData.credits_remaining.toFixed(2)} Credits
-                      </Badge>
-                    )}
+        
+        <nav className="hidden md:flex flex-1 mx-6 space-x-1">
+          {navItems.map((item) => (
+            <Link 
+              key={item.path} 
+              to={item.path} 
+              className={`px-3 py-2 rounded-md flex items-center space-x-2 ${
+                isActive(item.path) 
+                  ? 'bg-gray-700 text-white' 
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+        
+        <div className="ml-auto flex items-center space-x-4">
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatar_url || ''} alt={user.email || 'User'} />
+                    <AvatarFallback>{user.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user.email}</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      navigate('/dashboard');
-                      setIsMenuOpen(false);
-                    }}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/plans">Subscription</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start p-0" 
+                    onClick={() => {}}
                   >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Dashboard
+                    <LogOut className="mr-2 h-4 w-4" /> Log out
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      handleLogout();
-                      setIsMenuOpen(false);
-                    }}
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-2 pt-2 border-t border-gray-200">
-                  <Link to="/login" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link to="/register" onClick={() => setIsMenuOpen(false)}>
-                    <Button size="sm" className="w-full">
-                      Get Started
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button asChild variant="default">
+              <Link to="/auth/login">Log in</Link>
+            </Button>
+          )}
+        </div>
       </div>
-    </nav>
+    </div>
   );
 };

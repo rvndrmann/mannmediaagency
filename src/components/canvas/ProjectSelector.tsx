@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { PlusCircle, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { CanvasProject, ProjectAsset } from '@/types/canvas.d';
+import { CanvasProject } from '@/types/canvas.d';
 
 interface ProjectSelectorProps {
   onBack: () => void;
@@ -45,32 +45,7 @@ export function ProjectSelector({ onBack, onSelectProject, onCreateProject }: Pr
       
       if (error) throw error;
       
-      // Transform the data to match CanvasProject interface
-      const transformedProjects = (data || []).map((project: any): CanvasProject => ({
-        id: project.id,
-        title: project.title,
-        description: project.description,
-        final_video_url: project.final_video_url,
-        full_script: project.full_script,
-        main_product_image_url: project.main_product_image_url,
-        project_assets: Array.isArray(project.project_assets) 
-          ? project.project_assets as ProjectAsset[]
-          : project.project_assets 
-            ? JSON.parse(project.project_assets as string) as ProjectAsset[]
-            : [] as ProjectAsset[],
-        user_id: project.user_id,
-        created_at: project.created_at,
-        updated_at: project.updated_at,
-        cover_image_url: project.cover_image_url,
-        scenes: project.scenes || [],
-        // Compatibility aliases
-        userId: project.user_id,
-        createdAt: project.created_at,
-        updatedAt: project.updated_at,
-        fullScript: project.full_script
-      }));
-      
-      setProjects(transformedProjects);
+      setProjects(data || []);
     } catch (error) {
       console.error('Error fetching projects:', error);
       toast.error('Failed to load projects');

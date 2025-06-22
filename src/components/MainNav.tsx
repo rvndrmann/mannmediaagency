@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useLocation, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Globe } from "lucide-react";
 import { Menu, X } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 
@@ -9,14 +10,23 @@ export function MainNav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const { isAdmin, isLoading: isUserLoading } = useUser();
-  
   const links = [
+    {
+      name: "Browser Worker AI",
+      href: "/browser-use",
+      active: location.pathname === "/browser-use",
+      icon: <Globe className="w-4 h-4 mr-2" />,
+    },
     {
       name: "Dashboard",
       href: "/",
       active: location.pathname === "/" || location.pathname === "/dashboard",
     },
-  ];
+  ].filter(link => {
+    if (link.href === "/" || link.href === "/dashboard") return true;
+    if (link.href === "/browser-use") return isAdmin;
+    return true;
+  });
 
   return (
     <nav className="flex items-center justify-between w-full py-4 px-6 md:px-0">
@@ -39,6 +49,7 @@ export function MainNav() {
               link.active ? "text-foreground" : "text-foreground/60"
             )}
           >
+            {link.icon}
             {link.name}
           </Link>
         ))}

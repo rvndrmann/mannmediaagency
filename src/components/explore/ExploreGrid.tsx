@@ -61,6 +61,15 @@ export const ExploreGrid = ({
           <Card className="p-4">
             <h3 className="font-medium">Story #{item["stories id"]}</h3>
             <p className="text-sm text-muted-foreground truncate">{item.story}</p>
+            {item.final_video_with_music && (
+              <video
+                src={item.final_video_with_music}
+                controls
+                style={{ width: "100%", marginTop: "0.5rem" }}
+              >
+                Your browser does not support the video tag.
+              </video>
+            )}
             <div className="text-[7px] sm:text-xs text-muted-foreground truncate mt-1">
               by {item.profiles?.username || "Anonymous"}
             </div>

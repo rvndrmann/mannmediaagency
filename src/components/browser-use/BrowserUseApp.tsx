@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -87,7 +86,6 @@ export function BrowserUseApp() {
       
       setTimeout(() => {
         if (scheduledTaskInput && userCredits && userCredits.credits_remaining > 0) {
-          // Fix: Remove the environment argument as startTask doesn't expect it anymore
           startTask();
           toast.info("Executing scheduled task automatically");
         }
@@ -147,7 +145,6 @@ export function BrowserUseApp() {
       }
     }
     
-    // Fix: Remove the environment argument as startTask doesn't expect it anymore
     startTask();
   };
 
@@ -315,7 +312,7 @@ export function BrowserUseApp() {
 
                 {taskStatus === 'running' && (
                   <Button
-                    onClick={pauseTask}
+                    onClick={() => pauseTask()}
                     disabled={taskStatus !== 'running'}
                     variant="outline"
                     className="flex items-center gap-2"
@@ -327,7 +324,7 @@ export function BrowserUseApp() {
 
                 {taskStatus === 'paused' && (
                   <Button
-                    onClick={resumeTask}
+                    onClick={() => resumeTask()}
                     disabled={taskStatus !== 'paused'}
                     variant="outline"
                     className="flex items-center gap-2"
@@ -339,7 +336,7 @@ export function BrowserUseApp() {
 
                 {(taskStatus === 'running' || taskStatus === 'paused') && (
                   <Button
-                    onClick={stopTask}
+                    onClick={() => stopTask()}
                     disabled={taskStatus !== 'running' && taskStatus !== 'paused'}
                     variant="destructive"
                     className="flex items-center gap-2"
@@ -351,7 +348,7 @@ export function BrowserUseApp() {
 
                 {(taskStatus === 'completed' || taskStatus === 'stopped' || taskStatus === 'failed' || taskStatus === 'expired') && (
                   <Button
-                    onClick={restartTask}
+                    onClick={() => restartTask()}
                     disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
                     variant="outline"
                     className="flex items-center gap-2"
@@ -431,4 +428,3 @@ export function BrowserUseApp() {
     </div>
   );
 }
-

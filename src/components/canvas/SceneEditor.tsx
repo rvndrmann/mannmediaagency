@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { toast } from "sonner";
@@ -12,9 +11,16 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+// Define a more flexible update function type
+type UpdateSceneFunction = (
+  sceneId: string, 
+  type: string, 
+  value: string
+) => Promise<void>;
+
 interface SceneEditorProps {
   scene: CanvasScene;
-  onUpdate: (sceneId: string, type: 'script' | 'image_prompt' | 'description' | 'voice_over_text' | 'image' | 'video', value: string) => Promise<void>;
+  onUpdate: UpdateSceneFunction;
 }
 
 export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
@@ -40,7 +46,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     generateSceneImage,
     generateSceneVideo
   } = useCanvasAgent({
-    projectId: scene?.projectId || "",
+    projectId: scene?.project_id || "",
     sceneId: scene?.id || "",
     updateScene: onUpdate
   });
@@ -75,7 +81,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     setIsGenerating(isProcessing);
   }, [isProcessing]);
   
-  const handleSave = async (field: 'script' | 'voice_over_text' | 'description' | 'image_prompt') => {
+  const handleSave = async (field: string) => {
     if (!scene) return;
     
     setIsSaving(true);

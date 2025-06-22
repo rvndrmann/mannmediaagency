@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ interface SceneTableProps {
   scenes: CanvasScene[];
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string) => void;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: string, value: string) => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
 }
 
@@ -27,17 +26,17 @@ export function SceneTable({
   updateScene,
   deleteScene
 }: SceneTableProps) {
-  const [editingField, setEditingField] = useState<{sceneId: string, field: 'script' | 'imagePrompt' | 'description'} | null>(null);
+  const [editingField, setEditingField] = useState<{sceneId: string, field: string} | null>(null);
   const [editedContent, setEditedContent] = useState("");
-  const [uploadingMedia, setUploadingMedia] = useState<{sceneId: string, type: 'image' | 'video' | 'productImage' | 'voiceOver' | 'backgroundMusic'} | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState<{sceneId: string, type: string} | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [deletingScene, setDeletingScene] = useState<string | null>(null);
-  const [playingAudio, setPlayingAudio] = useState<{sceneId: string, type: 'voiceOver' | 'backgroundMusic'} | null>(null);
+  const [playingAudio, setPlayingAudio] = useState<{sceneId: string, type: string} | null>(null);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   
-  const handleStartEditing = (sceneId: string, field: 'script' | 'imagePrompt' | 'description', content: string = "") => {
+  const handleStartEditing = (sceneId: string, field: string, content: string = "") => {
     setEditingField({ sceneId, field });
     setEditedContent(content);
   };
@@ -47,7 +46,7 @@ export function SceneTable({
     
     try {
       await updateScene(editingField.sceneId, editingField.field, editedContent);
-      toast.success(`Scene ${editingField.field === 'script' ? 'script' : editingField.field === 'description' ? 'description' : 'image prompt'} updated`);
+      toast.success(`Scene ${editingField.field} updated`);
       setEditingField(null);
     } catch (error) {
       toast.error(`Failed to update: ${error}`);
@@ -58,20 +57,20 @@ export function SceneTable({
     setEditingField(null);
   };
   
-  const handleGenerateWithAI = (sceneId: string, field: 'script' | 'imagePrompt' | 'description' | 'image' | 'video') => {
+  const handleGenerateWithAI = (sceneId: string, field: string) => {
     toast.info(`Generating ${field} with AI...`);
     // This would be implemented with actual AI generation
   };
 
-  const handleAddMedia = async (sceneId: string, type: 'image' | 'video' | 'productImage' | 'voiceOver' | 'backgroundMusic') => {
+  const handleAddMedia = async (sceneId: string, type: string) => {
     const input = document.createElement('input');
     input.type = 'file';
     
-    if (type === 'image' || type === 'productImage') {
+    if (type === 'image' || type === 'product_image') {
       input.accept = 'image/*';
     } else if (type === 'video') {
       input.accept = 'video/*';
-    } else if (type === 'voiceOver' || type === 'backgroundMusic') {
+    } else if (type === 'voice_over' || type === 'background_music') {
       input.accept = 'audio/mp3,audio/*';
     }
     
@@ -86,7 +85,7 @@ export function SceneTable({
       setUploadingMedia({ sceneId, type });
       
       try {
-        if (type === 'voiceOver') {
+        if (type === 'voice_over') {
           const bucketName = 'voice-over';
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
@@ -105,7 +104,7 @@ export function SceneTable({
             .getPublicUrl(fileName);
           
           await updateScene(sceneId, type, publicUrl);
-        } else if (type === 'backgroundMusic') {
+        } else if (type === 'background_music') {
           const bucketName = 'background-music';
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
@@ -165,11 +164,11 @@ export function SceneTable({
     input.click();
   };
 
-  const handleRemoveMedia = (sceneId: string, type: 'image' | 'video' | 'productImage' | 'voiceOver' | 'backgroundMusic') => {
+  const handleRemoveMedia = (sceneId: string, type: string) => {
     updateScene(sceneId, type, '')
       .then(() => {
         toast.success(`${type} removed`);
-        if ((type === 'voiceOver' || type === 'backgroundMusic') && 
+        if ((type === 'voice_over' || type === 'background_music') && 
             playingAudio?.sceneId === sceneId && 
             playingAudio?.type === type) {
           if (audioRef.current) {
@@ -189,7 +188,7 @@ export function SceneTable({
       .catch(error => toast.error(`Failed to remove ${type}: ${error}`));
   };
   
-  const handlePlayAudio = (sceneId: string, type: 'voiceOver' | 'backgroundMusic', url: string) => {
+  const handlePlayAudio = (sceneId: string, type: string, url: string) => {
     if (playingAudio?.sceneId === sceneId && playingAudio?.type === type) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -252,12 +251,12 @@ export function SceneTable({
     }
   };
   
-  const renderField = (scene: CanvasScene, field: 'script' | 'imagePrompt' | 'description') => {
+  const renderField = (scene: CanvasScene, field: string) => {
     const content = field === 'script' 
       ? scene.script 
       : field === 'description' 
         ? scene.description 
-        : scene.imagePrompt;
+        : scene.image_prompt;
     
     if (editingField && editingField.sceneId === scene.id && editingField.field === field) {
       return (
@@ -266,13 +265,13 @@ export function SceneTable({
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
             className="min-h-[100px] text-sm"
-            placeholder={`Enter ${field === 'script' ? 'script' : field === 'description' ? 'description' : 'image prompt'}...`}
+            placeholder={`Enter ${field}...`}
           />
           <div className="flex space-x-2">
             <Button size="sm" onClick={handleSave}>
               <Save className="h-4 w-4 mr-1" /> Save
             </Button>
-            <Button size="sm" variant="outline" onClick={handleCancel}>
+            <Button size="sm" variant="outline" onClick={() => setEditingField(null)}>
               Cancel
             </Button>
           </div>
@@ -298,7 +297,7 @@ export function SceneTable({
             variant="ghost" 
             size="icon" 
             className="h-7 w-7"
-            onClick={() => handleGenerateWithAI(scene.id, field)}
+            onClick={() => toast.info(`Generating ${field} with AI...`)}
           >
             <Wand2 className="h-4 w-4" />
           </Button>
@@ -307,14 +306,14 @@ export function SceneTable({
     );
   };
   
-  const renderMedia = (scene: CanvasScene, type: 'image' | 'video' | 'productImage') => {
+  const renderMedia = (scene: CanvasScene, type: string) => {
     let url;
     if (type === 'image') {
-      url = scene.imageUrl;
+      url = scene.image_url;
     } else if (type === 'video') {
-      url = scene.videoUrl;
-    } else if (type === 'productImage') {
-      url = scene.productImageUrl;
+      url = scene.video_url;
+    } else if (type === 'product_image') {
+      url = scene.product_image_url;
     }
     
     const isUploading = uploadingMedia && uploadingMedia.sceneId === scene.id && uploadingMedia.type === type;
@@ -330,17 +329,17 @@ export function SceneTable({
                 variant="ghost" 
                 size="sm" 
                 className="text-xs"
-                onClick={() => handleAddMedia(scene.id, type)}
+                onClick={() => toast.info(`Adding ${type}...`)}
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Add {type === 'image' ? 'Image' : type === 'productImage' ? 'Product Image' : 'Video'}
+                Add {type === 'image' ? 'Image' : type === 'product_image' ? 'Product Image' : 'Video'}
               </Button>
-              {type !== 'productImage' && (
+              {type !== 'product_image' && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   className="text-xs"
-                  onClick={() => handleGenerateWithAI(scene.id, type === 'image' ? 'image' : 'video')}
+                  onClick={() => toast.info(`Generating ${type}...`)}
                 >
                   <Wand2 className="h-4 w-4 mr-1" />
                   Generate
@@ -352,12 +351,12 @@ export function SceneTable({
       );
     }
     
-    if (type === 'image' || type === 'productImage') {
+    if (type === 'image' || type === 'product_image') {
       return (
         <div className="relative group">
           <img 
             src={url} 
-            alt={`${type === 'productImage' ? 'Product' : 'Scene'} ${scene.title}`} 
+            alt={`${type === 'product_image' ? 'Product' : 'Scene'} ${scene.title}`} 
             className="h-[100px] object-cover rounded" 
           />
           <div className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/30 rounded">
@@ -421,10 +420,10 @@ export function SceneTable({
     );
   };
 
-  const renderAudio = (scene: CanvasScene, type: 'voiceOver' | 'backgroundMusic') => {
-    const url = type === 'voiceOver' ? scene.voiceOverUrl : scene.backgroundMusicUrl;
-    const icon = type === 'voiceOver' ? <Mic className="h-4 w-4 mr-1" /> : <Music className="h-4 w-4 mr-1" />;
-    const title = type === 'voiceOver' ? 'Voice-Over' : 'Background Music';
+  const renderAudio = (scene: CanvasScene, type: string) => {
+    const url = type === 'voice_over' ? scene.voice_over_url : scene.background_music_url;
+    const icon = type === 'voice_over' ? <Mic className="h-4 w-4 mr-1" /> : <Music className="h-4 w-4 mr-1" />;
+    const title = type === 'voice_over' ? 'Voice-Over' : 'Background Music';
     const isUploading = uploadingMedia && uploadingMedia.sceneId === scene.id && uploadingMedia.type === type;
     const isPlaying = playingAudio?.sceneId === scene.id && playingAudio?.type === type;
     
@@ -438,7 +437,7 @@ export function SceneTable({
               variant="ghost"
               size="sm"
               className="text-xs flex items-center"
-              onClick={() => handleAddMedia(scene.id, type)}
+              onClick={() => toast.info(`Adding ${type}...`)}
             >
               <Upload className="h-4 w-4 mr-1" />
               Add {title}
@@ -507,22 +506,32 @@ export function SceneTable({
               className={selectedSceneId === scene.id ? "bg-primary/10" : ""}
               onClick={() => setSelectedSceneId(scene.id)}
             >
-              <TableCell className="font-medium">{scene.title}</TableCell>
+              <TableCell className="font-medium">
+                <div className="space-y-1">
+                  <div className="font-semibold">{scene.title || `Scene ${scene.scene_order}`}</div>
+                  <div className="text-xs text-muted-foreground">Order: {scene.scene_order}</div>
+                </div>
+              </TableCell>
               <TableCell>{renderField(scene, 'script')}</TableCell>
               <TableCell>{renderField(scene, 'description')}</TableCell>
-              <TableCell>{renderField(scene, 'imagePrompt')}</TableCell>
+              <TableCell>{renderField(scene, 'image_prompt')}</TableCell>
               <TableCell>{renderMedia(scene, 'image')}</TableCell>
               <TableCell>{renderMedia(scene, 'video')}</TableCell>
-              <TableCell>{renderMedia(scene, 'productImage')}</TableCell>
-              <TableCell>{renderAudio(scene, 'voiceOver')}</TableCell>
-              <TableCell>{renderAudio(scene, 'backgroundMusic')}</TableCell>
+              <TableCell>{renderMedia(scene, 'product_image')}</TableCell>
+              <TableCell>{renderAudio(scene, 'voice_over')}</TableCell>
+              <TableCell>{renderAudio(scene, 'background_music')}</TableCell>
               <TableCell>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-destructive"
-                  onClick={(e) => handleDeleteScene(scene.id, e)}
-                  disabled={deletingScene === scene.id || scenes.length <= 1}
+                  className="h-8 w-8 hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm('Are you sure you want to delete this scene?')) {
+                      deleteScene(scene.id);
+                    }
+                  }}
+                  disabled={deletingScene === scene.id}
                 >
                   {deletingScene === scene.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

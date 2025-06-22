@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { CanvasProject } from "@/types/canvas";
+import { CanvasProject, ProjectAsset } from "@/types/canvas";
 import { toast } from "sonner";
 
 interface ProjectHistoryProps {
@@ -61,7 +61,23 @@ export function ProjectHistory({ onProjectSelect, selectedProjectId }: ProjectHi
 
       if (error) throw error;
 
-      setProjects(data || []);
+      // Transform the data to match CanvasProject type
+      const transformedProjects: CanvasProject[] = (data || []).map(project => ({
+        id: project.id,
+        title: project.title,
+        description: project.description,
+        user_id: project.user_id,
+        created_at: project.created_at,
+        updated_at: project.updated_at,
+        full_script: project.full_script,
+        final_video_url: project.final_video_url,
+        main_product_image_url: project.main_product_image_url,
+        project_assets: Array.isArray(project.project_assets) 
+          ? project.project_assets as ProjectAsset[]
+          : []
+      }));
+
+      setProjects(transformedProjects);
     } catch (error) {
       console.error('Error fetching projects:', error);
       toast.error('Failed to load projects');

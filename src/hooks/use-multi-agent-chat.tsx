@@ -746,3 +746,5 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     // currentThreadId, // REMOVED: No longer managed here
   };
 }
+
+export type AgentType = 'content' | 'visual' | 'video' | 'script' | 'general';

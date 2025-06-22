@@ -1,5 +1,5 @@
 
-import { Compass, ScrollText, Settings, Package, Globe, Camera, ImagePlus, Film } from "lucide-react";
+import { Compass, ScrollText, Settings, Package, Layout } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -7,14 +7,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   {
-    label: "Browser",
-    icon: Globe,
-    href: "/browser-use"
-  },
-  {
     label: "Dashboard",
     icon: ScrollText,
     href: "/"
+  },
+  {
+    label: "Canvas",
+    icon: Layout,
+    href: "/canvas"
   },
   {
     label: "Orders",
@@ -27,26 +27,10 @@ const navItems = [
     href: "/explore"
   },
   {
-    label: "Shot V1",
-    icon: Camera,
-    href: "/product-shoot"
-  },
-  {
-    label: "Shot V2",
-    icon: ImagePlus,
-    href: "/product-shoot-v2"
-  },
-  {
-    label: "Img to Video",
-    icon: Film,
-    href: "/image-to-video"
-  },
-  {
     label: "Settings",
     icon: Settings,
     href: "/profile"
   }
-  // Multi-Agent Chat and Product Video items removed
 ];
 
 export const BottomNav = () => {

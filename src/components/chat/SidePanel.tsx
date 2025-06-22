@@ -5,20 +5,20 @@ import { ChatMessage } from "./ChatMessage";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Check } from "lucide-react";
 
+import { useUser } from "@/hooks/use-user"; // Import useUser hook
 interface SidePanelProps {
   messages: Message[];
   input: string;
   isLoading: boolean;
   userCredits: { credits_remaining: number } | null;
   onInputChange: (value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent, userRole: 'user' | 'admin') => void; // Modified onSubmit prop
   onBack: () => void;
   useAssistantsApi?: boolean;
   setUseAssistantsApi?: (value: boolean) => void;
   useMcp?: boolean;
   setUseMcp?: (value: boolean) => void;
-}
-
+}; // Add semicolon here
 export function SidePanel({
   messages,
   input,
@@ -32,6 +32,33 @@ export function SidePanel({
   useMcp = false,
   setUseMcp = () => {}
 }: SidePanelProps) {
+  const { user, isAdmin, isLoading: isUserLoading } = useUser(); // Use the hook
+  const userRole = isAdmin ? 'admin' : 'user'; // Determine user role
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    // Implement message sending logic here
+    // Determine the recipient based on userRole
+    const recipient = userRole === 'admin' ? 'admin' : 'admin'; // Replace 'admin' with the actual admin user ID or identifier
+
+    // Prepare the message object
+    const message = {
+      role: userRole,
+      content: input.trim(),
+      // Add other message properties like senderId, recipientId, etc.
+    };
+
+    // Send the message to the recipient (e.g., using Supabase)
+    console.log('Sending message:', message, 'to', recipient);
+    // Placeholder: Replace with actual message sending logic (e.g., Supabase)
+    // Example: await sendMessageToSupabase(message, recipient);
+
+    // Clear the input field after sending the message
+    onInputChange('');
+  };
+
   return (
     <div className="h-full flex flex-col bg-[#1A1F29] relative">
       <div className="absolute top-2 right-3 text-xs text-white/60 bg-[#262B38] px-2 py-1 rounded-md z-20">
@@ -77,11 +104,12 @@ export function SidePanel({
           input={input}
           isLoading={isLoading}
           onInputChange={onInputChange}
-          onSubmit={onSubmit}
+          onSubmit={handleSendMessage} // Pass userRole to onSubmit
           useAssistantsApi={useAssistantsApi}
           setUseAssistantsApi={setUseAssistantsApi}
           useMcp={useMcp}
           setUseMcp={setUseMcp}
+          userRole={userRole} // Pass userRole to ChatInput
         />
       </div>
     </div>

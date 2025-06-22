@@ -29,7 +29,7 @@ export function TaskInputWithPreview({
     let processed = value;
     
     sensitiveData.forEach(item => {
-      const placeholder = `{${item.key}}`;
+      const placeholder = `{${item.name}}`;
       const redactedValue = item.value.length > 0 ? "●".repeat(Math.min(8, item.value.length)) : "(empty)";
       const regex = new RegExp(placeholder, 'g');
       processed = processed.replace(regex, redactedValue);
@@ -42,12 +42,12 @@ export function TaskInputWithPreview({
     if (sensitiveData.length === 0) return value;
     
     let result = value;
-    const placeholders = sensitiveData.map(item => ({ key: item.key, placeholder: `{${item.key}}` }));
+    const placeholders = sensitiveData.map(item => ({ name: item.name, placeholder: `{${item.name}}` }));
     
     // Sort by length descending to avoid partial replacements
     placeholders.sort((a, b) => b.placeholder.length - a.placeholder.length);
     
-    for (const { key, placeholder } of placeholders) {
+    for (const { name, placeholder } of placeholders) {
       const highlightedText = `<span class="bg-amber-100 text-amber-800 rounded px-1">${placeholder}</span>`;
       result = result.split(placeholder).join(highlightedText);
     }
@@ -107,7 +107,7 @@ export function TaskInputWithPreview({
               <div className="flex flex-wrap gap-1">
                 {sensitiveData.map((item, index) => (
                   <code key={index} className="bg-amber-100 border border-amber-200 px-1 rounded text-amber-800 font-medium">
-                    {"{" + item.key + "}"}
+                    {"{" + item.name + "}"}
                   </code>
                 ))}
               </div>

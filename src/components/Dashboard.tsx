@@ -1,3 +1,4 @@
+
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,13 +11,13 @@ import { FilterBar } from "./dashboard/FilterBar";
 import { AnnouncementBanner } from "./announcements/AnnouncementBanner";
 import { UserOrdersList } from "./custom-orders/UserOrdersList";
 
-type ContentType = "all" | "stories" | "images" | "videos" | "orders";
+type ContentType = "stories" | "images";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<ContentType>("all");
+  const [activeTab, setActiveTab] = useState<ContentType>("stories");
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
@@ -118,12 +119,12 @@ export const Dashboard = () => {
   });
 
   return (
-    <div className="flex-1 p-4 md:p-8">
+    <div className="flex-1 p-4 md:p-8 bg-white min-h-screen">
       <AnnouncementBanner />
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
-          <SidebarTrigger className="md:hidden" />
-          <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
+          <SidebarTrigger className="md:hidden text-gray-900" />
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h1>
         </div>
       </div>
 
@@ -135,27 +136,12 @@ export const Dashboard = () => {
       />
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)} className="mt-6">
-        <TabsList>
-          <TabsTrigger value="all">All Content</TabsTrigger>
-          <TabsTrigger value="stories">Stories</TabsTrigger>
-          <TabsTrigger value="images">Images</TabsTrigger>
-          <TabsTrigger value="videos">Videos</TabsTrigger>
-          <TabsTrigger value="orders">Custom Orders</TabsTrigger>
+        <TabsList className="bg-gray-100 border border-gray-200">
+          <TabsTrigger value="stories" className="text-gray-700 data-[state=active]:text-gray-900 data-[state=active]:bg-white">Stories</TabsTrigger>
+          <TabsTrigger value="images" className="text-gray-700 data-[state=active]:text-gray-900 data-[state=active]:bg-white">Images</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all">
-          <ContentGrid
-            stories={stories}
-            images={images}
-            videos={videos}
-            isLoading={isLoadingStories || isLoadingImages || isLoadingVideos}
-            searchQuery={searchQuery}
-            dateRange={dateRange}
-            type="all"
-          />
-        </TabsContent>
-
-        <TabsContent value="stories">
+        <TabsContent value="stories" className="bg-white">
           <ContentGrid
             stories={stories}
             isLoading={isLoadingStories}
@@ -165,7 +151,7 @@ export const Dashboard = () => {
           />
         </TabsContent>
 
-        <TabsContent value="images">
+        <TabsContent value="images" className="bg-white">
           <ContentGrid
             images={images}
             isLoading={isLoadingImages}
@@ -173,20 +159,6 @@ export const Dashboard = () => {
             dateRange={dateRange}
             type="images"
           />
-        </TabsContent>
-
-        <TabsContent value="videos">
-          <ContentGrid
-            videos={videos}
-            isLoading={isLoadingVideos}
-            searchQuery={searchQuery}
-            dateRange={dateRange}
-            type="videos"
-          />
-        </TabsContent>
-
-        <TabsContent value="orders">
-          <UserOrdersList userId={session?.user?.id} />
         </TabsContent>
       </Tabs>
     </div>

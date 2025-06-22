@@ -764,6 +764,7 @@ export type Database = {
           fullScript: string | null
           id: string
           main_product_image_url: string | null
+          project_assets: Json | null
           title: string
           updated_at: string
           user_id: string
@@ -776,6 +777,7 @@ export type Database = {
           fullScript?: string | null
           id?: string
           main_product_image_url?: string | null
+          project_assets?: Json | null
           title: string
           updated_at?: string
           user_id: string
@@ -788,6 +790,7 @@ export type Database = {
           fullScript?: string | null
           id?: string
           main_product_image_url?: string | null
+          project_assets?: Json | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -803,8 +806,10 @@ export type Database = {
           description: string | null
           duration: number | null
           id: string
+          image_guidance_settings: Json | null
           image_prompt: string | null
           image_url: string | null
+          pending_generation_id: string | null
           product_image_url: string | null
           project_id: string
           scene_image_v1_url: string | null
@@ -825,8 +830,10 @@ export type Database = {
           description?: string | null
           duration?: number | null
           id?: string
+          image_guidance_settings?: Json | null
           image_prompt?: string | null
           image_url?: string | null
+          pending_generation_id?: string | null
           product_image_url?: string | null
           project_id: string
           scene_image_v1_url?: string | null
@@ -847,8 +854,10 @@ export type Database = {
           description?: string | null
           duration?: number | null
           id?: string
+          image_guidance_settings?: Json | null
           image_prompt?: string | null
           image_url?: string | null
+          pending_generation_id?: string | null
           product_image_url?: string | null
           project_id?: string
           scene_image_v1_url?: string | null
@@ -1221,66 +1230,6 @@ export type Database = {
         }
         Relationships: []
       }
-      custom_order_forms: {
-        Row: {
-          access_code: string | null
-          created_at: string
-          description: string | null
-          fields: Json
-          id: string
-          is_active: boolean
-          require_phone: boolean
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          access_code?: string | null
-          created_at?: string
-          description?: string | null
-          fields?: Json
-          id?: string
-          is_active?: boolean
-          require_phone?: boolean
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          access_code?: string | null
-          created_at?: string
-          description?: string | null
-          fields?: Json
-          id?: string
-          is_active?: boolean
-          require_phone?: boolean
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      custom_order_guests: {
-        Row: {
-          created_at: string
-          email: string | null
-          id: string
-          name: string | null
-          phone_number: string
-        }
-        Insert: {
-          created_at?: string
-          email?: string | null
-          id?: string
-          name?: string | null
-          phone_number: string
-        }
-        Update: {
-          created_at?: string
-          email?: string | null
-          id?: string
-          name?: string | null
-          phone_number?: string
-        }
-        Relationships: []
-      }
       custom_order_images: {
         Row: {
           created_at: string
@@ -1309,51 +1258,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      custom_order_links: {
-        Row: {
-          access_code: string
-          created_at: string
-          created_by: string | null
-          credits_amount: number
-          custom_rate: number
-          description: string | null
-          expiry_date: string | null
-          id: string
-          is_active: boolean
-          require_phone: boolean
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          access_code: string
-          created_at?: string
-          created_by?: string | null
-          credits_amount?: number
-          custom_rate: number
-          description?: string | null
-          expiry_date?: string | null
-          id?: string
-          is_active?: boolean
-          require_phone?: boolean
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          access_code?: string
-          created_at?: string
-          created_by?: string | null
-          credits_amount?: number
-          custom_rate?: number
-          description?: string | null
-          expiry_date?: string | null
-          id?: string
-          is_active?: boolean
-          require_phone?: boolean
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       custom_order_media: {
         Row: {
@@ -1439,22 +1343,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "custom_orders_guest_id_fkey"
-            columns: ["guest_id"]
-            isOneToOne: false
-            referencedRelation: "custom_order_guests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "custom_orders_order_link_id_fkey"
-            columns: ["order_link_id"]
-            isOneToOne: false
-            referencedRelation: "custom_order_links"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       default_product_images: {
         Row: {
@@ -1548,38 +1437,6 @@ export type Database = {
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "payment_transactions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      form_submissions: {
-        Row: {
-          created_at: string
-          form_id: string
-          id: string
-          phone_number: string | null
-          submission_data: Json
-        }
-        Insert: {
-          created_at?: string
-          form_id: string
-          id?: string
-          phone_number?: string | null
-          submission_data: Json
-        }
-        Update: {
-          created_at?: string
-          form_id?: string
-          id?: string
-          phone_number?: string | null
-          submission_data?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "form_submissions_form_id_fkey"
-            columns: ["form_id"]
-            isOneToOne: false
-            referencedRelation: "custom_order_forms"
             referencedColumns: ["id"]
           },
         ]
@@ -2012,13 +1869,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "payment_transactions_guest_id_fkey"
-            columns: ["guest_id"]
-            isOneToOne: false
-            referencedRelation: "custom_order_guests"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "payment_transactions_related_order_id_fkey"
             columns: ["related_order_id"]
             isOneToOne: false
@@ -2262,6 +2112,35 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      project_threads: {
+        Row: {
+          created_at: string
+          openai_thread_id: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          openai_thread_id: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          openai_thread_id?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_threads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "canvas_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       research_material_tags: {
         Row: {
@@ -3033,59 +2912,6 @@ export type Database = {
         }
         Relationships: []
       }
-      video_metadata: {
-        Row: {
-          additional_context: string | null
-          created_at: string
-          custom_title_twist: string | null
-          id: string
-          instagram_hashtags: string | null
-          keywords: string | null
-          metadata_regeneration_count: number | null
-          seo_description: string | null
-          seo_title: string | null
-          updated_at: string
-          video_context: string | null
-          video_job_id: string
-        }
-        Insert: {
-          additional_context?: string | null
-          created_at?: string
-          custom_title_twist?: string | null
-          id?: string
-          instagram_hashtags?: string | null
-          keywords?: string | null
-          metadata_regeneration_count?: number | null
-          seo_description?: string | null
-          seo_title?: string | null
-          updated_at?: string
-          video_context?: string | null
-          video_job_id: string
-        }
-        Update: {
-          additional_context?: string | null
-          created_at?: string
-          custom_title_twist?: string | null
-          id?: string
-          instagram_hashtags?: string | null
-          keywords?: string | null
-          metadata_regeneration_count?: number | null
-          seo_description?: string | null
-          seo_title?: string | null
-          updated_at?: string
-          video_context?: string | null
-          video_job_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "video_metadata_video_job_id_fkey"
-            columns: ["video_job_id"]
-            isOneToOne: true
-            referencedRelation: "video_generation_jobs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       video_projects: {
         Row: {
           created_at: string | null
@@ -3168,48 +2994,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      video_templates: {
-        Row: {
-          aspect_ratio: string
-          created_at: string
-          credits_cost: number
-          description: string | null
-          duration: string
-          id: string
-          is_active: boolean
-          name: string
-          prompt_template: string
-          thumbnail_url: string
-          updated_at: string
-        }
-        Insert: {
-          aspect_ratio?: string
-          created_at?: string
-          credits_cost?: number
-          description?: string | null
-          duration?: string
-          id?: string
-          is_active?: boolean
-          name: string
-          prompt_template: string
-          thumbnail_url: string
-          updated_at?: string
-        }
-        Update: {
-          aspect_ratio?: string
-          created_at?: string
-          credits_cost?: number
-          description?: string | null
-          duration?: string
-          id?: string
-          is_active?: boolean
-          name?: string
-          prompt_template?: string
-          thumbnail_url?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       work_assignments: {
         Row: {
@@ -3347,16 +3131,11 @@ export type Database = {
     }
     Functions: {
       add_admin_user: {
-        Args: {
-          admin_user_id: string
-        }
+        Args: { admin_user_id: string }
         Returns: undefined
       }
       add_custom_order_image: {
-        Args: {
-          order_id_param: string
-          image_url_param: string
-        }
+        Args: { order_id_param: string; image_url_param: string }
         Returns: {
           created_at: string
           id: string
@@ -3381,6 +3160,10 @@ export type Database = {
           original_filename: string | null
           thumbnail_url: string | null
         }
+      }
+      admin_get_project_with_scenes: {
+        Args: { p_project_id: string }
+        Returns: Json
       }
       admin_send_message: {
         Args: {
@@ -3408,10 +3191,7 @@ export type Database = {
         Returns: undefined
       }
       create_custom_order: {
-        Args: {
-          remark_text: string
-          credits_amount: number
-        }
+        Args: { remark_text: string; credits_amount: number }
         Returns: {
           admin_notes: string | null
           created_at: string
@@ -3437,11 +3217,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      decrement_user_credits: {
+        Args: { user_id_param: string; amount: number }
+        Returns: boolean
+      }
       deduct_credits: {
-        Args: {
-          user_id: string
-          credits_to_deduct: number
-        }
+        Args: { user_id: string; credits_to_deduct: number }
         Returns: undefined
       }
       deliver_custom_order: {
@@ -3466,10 +3247,17 @@ export type Database = {
         Returns: unknown[]
       }
       get_agent_trace_analytics: {
-        Args: {
-          user_id_param: string
-        }
+        Args: { user_id_param: string }
         Returns: Json
+      }
+      get_all_canvas_projects_with_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          project_id: string
+          project_name: string
+          created_at: string
+          user_email: string
+        }[]
       }
       get_chat_users: {
         Args: Record<PropertyKey, never>
@@ -3482,10 +3270,7 @@ export type Database = {
         }[]
       }
       get_conversation_trace: {
-        Args: {
-          conversation_id: string
-          user_id_param: string
-        }
+        Args: { conversation_id: string; user_id_param: string }
         Returns: Json
       }
       get_pending_custom_orders_count: {
@@ -3493,27 +3278,19 @@ export type Database = {
         Returns: number
       }
       get_table_count: {
-        Args: {
-          table_name: string
-        }
+        Args: { table_name: string }
         Returns: number
       }
       get_unread_messages_count: {
-        Args: {
-          user_id: string
-        }
+        Args: { user_id: string }
         Returns: number
       }
       get_user_conversations: {
-        Args: {
-          user_id_param: string
-        }
+        Args: { user_id_param: string }
         Returns: Json
       }
       get_user_messages: {
-        Args: {
-          p_user_id: string
-        }
+        Args: { p_user_id: string }
         Returns: {
           content: string
           created_at: string
@@ -3525,52 +3302,34 @@ export type Database = {
         }[]
       }
       get_user_projects: {
-        Args: {
-          p_user_id: string
-        }
+        Args: { p_user_id: string }
         Returns: {
           id: string
           name: string
         }[]
       }
-      get_video_templates: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          aspect_ratio: string
-          created_at: string
-          credits_cost: number
-          description: string | null
-          duration: string
-          id: string
-          is_active: boolean
-          name: string
-          prompt_template: string
-          thumbnail_url: string
-          updated_at: string
-        }[]
+      increment_user_credits: {
+        Args: { user_id_param: string; amount: number }
+        Returns: boolean
+      }
+      is_admin: {
+        Args: { user_id: string }
+        Returns: boolean
       }
       remove_admin_user: {
-        Args: {
-          admin_user_id: string
-        }
+        Args: { admin_user_id: string }
         Returns: undefined
       }
       safely_decrease_chat_credits: {
-        Args: {
-          credit_amount: number
-        }
+        Args: { credit_amount: number }
         Returns: boolean
       }
       safely_decrease_credits: {
-        Args: {
-          amount: number
-        }
+        Args: { amount: number }
         Returns: boolean
       }
       safely_decrease_decimal_credits: {
-        Args: {
-          amount: number
-        }
+        Args: { amount: number }
         Returns: boolean
       }
       setup_video_creator_storage: {
@@ -3578,9 +3337,7 @@ export type Database = {
         Returns: undefined
       }
       start_order_orchestration: {
-        Args: {
-          order_id_param: string
-        }
+        Args: { order_id_param: string }
         Returns: string
       }
       update_custom_order_status: {
@@ -3592,11 +3349,7 @@ export type Database = {
         Returns: undefined
       }
       update_video_generation_status: {
-        Args: {
-          p_request_id: string
-          p_status: string
-          p_result_url?: string
-        }
+        Args: { p_request_id: string; p_status: string; p_result_url?: string }
         Returns: undefined
       }
       user_is_admin: {
@@ -3652,27 +3405,29 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -3680,20 +3435,22 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -3701,20 +3458,22 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -3722,21 +3481,23 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof Database
@@ -3745,6 +3506,58 @@ export type CompositeTypes<
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      agent_icon_type: [
+        "Bot",
+        "PenLine",
+        "Image",
+        "Wrench",
+        "Code",
+        "FileText",
+        "Zap",
+        "Brain",
+        "Lightbulb",
+        "Music",
+      ],
+      image_generation_status_new: ["in_queue", "completed", "failed"],
+      product_ad_status: [
+        "draft",
+        "script_generated",
+        "shots_generated",
+        "video_generated",
+        "completed",
+        "failed",
+      ],
+      task_status: ["Pending Task", "On Revision", "Done Task Approved"],
+      user_role: ["user", "worker", "admin"],
+      video_generation_status: [
+        "pending",
+        "in_queue",
+        "processing",
+        "completed",
+        "failed",
+      ],
+      video_generation_status_new: [
+        "in_queue",
+        "processing",
+        "completed",
+        "failed",
+      ],
+      workflow_stage: [
+        "script_generation",
+        "scene_splitting",
+        "image_generation",
+        "scene_description",
+        "video_generation",
+        "final_assembly",
+      ],
+      workflow_status: ["in_progress", "completed", "failed"],
+    },
+  },
+} as const

@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
@@ -48,7 +47,6 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
     if (useMcp && projectId) {
       reconnectToMcp().catch(error => {
         console.error("Failed to establish MCP connection:", error);
-        // Don't show an error toast because error state is handled by MCPContext
       });
     }
   }, [useMcp, projectId, reconnectToMcp]);
@@ -103,7 +101,7 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
           toast.success("Description generated for scene");
           break;
         case 'generate_image_prompt':
-          await generateImagePrompt(sceneId, command.content || "");
+          await generateImagePrompt(sceneId, command.content || "", "", "");
           toast.success("Image prompt generated for scene");
           break;
         case 'generate_scene_image':
@@ -136,9 +134,9 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
   if (isInitializing) {
     return (
       <div className="flex flex-col h-full overflow-hidden border-r">
-        <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-          <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
+        <div className="p-2 border-b flex justify-between items-center bg-background">
+          <h3 className="font-medium text-sm">Canvas Assistant</h3>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -154,13 +152,13 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
   if (initError) {
     return (
       <div className="flex flex-col h-full overflow-hidden border-r">
-        <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-          <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
+        <div className="p-2 border-b flex justify-between items-center bg-background">
+          <h3 className="font-medium text-sm">Canvas Assistant</h3>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex-1 flex items-center justify-center p-4 text-center text-red-500">
+        <div className="flex-1 flex items-center justify-center p-4 text-center text-destructive">
           <div>
             <p>{initError}</p>
             <Button 
@@ -179,9 +177,9 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
   if (!projectId) {
     return (
       <div className="flex flex-col h-full overflow-hidden border-r">
-        <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-          <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
+        <div className="p-2 border-b flex justify-between items-center bg-background">
+          <h3 className="font-medium text-sm">Canvas Assistant</h3>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -232,7 +230,7 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
       console.error("Error rendering MultiAgentChat:", error);
       return (
         <div className="p-4 flex items-center justify-center h-full">
-          <div className="text-center text-red-500">
+          <div className="text-center text-destructive">
             <p>Error loading chat interface</p>
             <Button 
               variant="outline" 
@@ -249,9 +247,9 @@ export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasC
   
   return (
     <div className="flex flex-col h-full overflow-hidden border-r">
-      <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-        <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
+      <div className="p-2 border-b flex justify-between items-center bg-background">
+        <h3 className="font-medium text-sm">Canvas Assistant</h3>
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
           <X className="h-4 w-4" />
         </Button>
       </div>

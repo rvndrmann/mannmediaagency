@@ -1,21 +1,13 @@
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import type { Database } from '@/types/supabase'; // Use generated types
 
-// Read Supabase credentials from Vite environment variables
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Use the actual Supabase project URL and anon key from the project configuration
+const SUPABASE_URL = 'https://avdwgvjhufslhqrrmxgo.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZHdndmpodWZzbGhxcnJteGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5ODM4NTAsImV4cCI6MjA1MzU1OTg1MH0.wzh0gNTwGWgw-vDwxHcSdBZdiOdbABCXfQV_NuHvqzY';
 
-// Basic check to ensure variables are loaded
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error("Supabase URL or Anon Key is missing. Make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file and Netlify build environment.");
-  // Optionally throw an error here if the app cannot function without them
-  // throw new Error("Supabase URL and Anon Key must be provided.");
-}
 // Create a function to initialize the Supabase client
 const createSupabaseClient = () => {
-  // Note: Removed logic that cleared localStorage.removeItem('supabase.auth.token')
-  // as it might interfere with the PKCE flow.
   return createClient<Database>(
     SUPABASE_URL,
     SUPABASE_ANON_KEY,

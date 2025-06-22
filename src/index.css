@@ -7,58 +7,100 @@
 
 @layer base {
   :root {
-    --background: 223 28% 13%;
-    --foreground: 0 0% 100%;
-    --card: 222 25% 16%;
-    --card-foreground: 0 0% 100%;
-    --popover: 223 28% 13%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 262 58% 75%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 222 24% 20%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 222 24% 20%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 222 24% 20%;
-    --accent-foreground: 0 0% 100%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 59 89% 47%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 100%;
-    --input: 222 24% 20%;
-    --ring: 262 58% 75%;
-    --radius: 0.75rem;
+    --border: 0 0% 89%;
+    --input: 0 0% 89%;
+    --ring: 59 89% 47%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 59 89% 47%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89%;
+    --input: 0 0% 89%;
+    --ring: 59 89% 47%;
   }
 
   /* Custom styles for larger Sonner toasts */
   [data-sonner-toast] {
-    padding: 1rem !important; /* Increase padding */
-    min-width: 400px !important; /* Ensure a minimum width */
+    padding: 1rem !important;
+    min-width: 400px !important;
   }
 
   [data-sonner-toast] [data-title] {
-     font-size: 1.1rem !important; /* Increase title font size */
+     font-size: 1.1rem !important;
   }
 
   [data-sonner-toast] [data-description] {
-     font-size: 0.95rem !important; /* Increase description font size */
+     font-size: 0.95rem !important;
   }
 
   [data-sonner-toast] [data-close-button] {
-      transform: scale(1.2); /* Make close button slightly larger */
+      transform: scale(1.2);
   }
 
   * {
-    @apply border-border/10;
+    @apply border-border;
     scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+    background: white !important;
+    color: #1f2937 !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+
+  /* ElevenLabs-style clean white theme */
+  .elevenlabs-theme {
+    @apply bg-white text-gray-900;
+  }
+
+  .chat-container {
+    @apply bg-white text-gray-900;
+  }
+
+  .chat-message {
+    @apply bg-gray-50 border-gray-200;
+  }
+
+  .chat-input {
+    @apply bg-white border-gray-300 text-gray-900 placeholder:text-gray-500;
   }
 
   .glass-card {
-    @apply bg-[#222222]/60 backdrop-blur-xl border border-white/10 shadow-lg;
+    @apply bg-white/95 backdrop-blur-sm border border-gray-200 shadow-sm;
   }
 
   .animate-in {
@@ -70,18 +112,120 @@
   }
 
   .timeline-marker {
-    @apply absolute top-0 w-px h-full bg-white/20;
+    @apply absolute top-0 w-px h-full bg-gray-200;
   }
 
   .timeline-marker::after {
     content: attr(data-time);
-    @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-white/60;
+    @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-gray-500;
+  }
+
+  /* Force white theme everywhere - ElevenLabs style */
+  html, body, #root {
+    background-color: white !important;
+    color: #1f2937 !important;
+  }
+
+  /* Override any dark mode attempts */
+  .dark, [data-theme="dark"] {
+    background-color: white !important;
+    color: #1f2937 !important;
+  }
+
+  /* Ensure all components use white background */
+  div, section, main, aside, nav, header, footer {
+    background-color: inherit;
+  }
+
+  /* High contrast text for better visibility */
+  h1, h2, h3, h4, h5, h6 {
+    color: #111827 !important;
+    font-weight: 600;
+  }
+
+  p, span, label {
+    color: #374151 !important;
+  }
+
+  /* Button and interactive element improvements */
+  button {
+    color: inherit !important;
+  }
+
+  input, textarea, select {
+    color: #111827 !important;
+    background-color: white !important;
+    border-color: #d1d5db !important;
+  }
+
+  /* Sidebar and navigation styling */
+  .sidebar {
+    background-color: #f9fafb !important;
+    border-color: #e5e7eb !important;
+  }
+
+  /* Card and panel styling */
+  .card, .panel {
+    background-color: white !important;
+    border-color: #e5e7eb !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
   }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* ElevenLabs theme utilities */
+  .bg-chat {
+    @apply bg-white;
+  }
+
+  .bg-chat-message {
+    @apply bg-gray-50;
+  }
+
+  .text-chat {
+    @apply text-gray-900;
+  }
+
+  .text-chat-muted {
+    @apply text-gray-600;
+  }
+
+  .border-chat {
+    @apply border-gray-200;
+  }
+
+  /* Force white backgrounds */
+  .bg-background {
+    background-color: white !important;
+  }
+
+  .bg-card {
+    background-color: white !important;
+  }
+
+  .bg-secondary {
+    background-color: #f8f9fa !important;
+  }
+
+  .bg-muted {
+    background-color: #f8f9fa !important;
+  }
+
+  /* Text visibility improvements */
+  .text-foreground {
+    color: #111827 !important;
+  }
+
+  .text-muted-foreground {
+    color: #6b7280 !important;
+  }
+
+  .text-secondary-foreground {
+    color: #374151 !important;
   }
 }
 

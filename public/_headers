@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.gpteng.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://via.placeholder.com https://*.supabase.co https://fal.media production-cdn.whalesync.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://queue.fal.run; media-src 'self' https://*.supabase.co production-cdn.whalesync.com https://production-cdn.whalesyncusercontent.com;

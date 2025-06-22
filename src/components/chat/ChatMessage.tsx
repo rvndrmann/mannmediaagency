@@ -74,6 +74,10 @@ export function ChatMessage({
     (typeof message.content === 'string' ? message.content : JSON.stringify(message.content))
     : '';
 
+  // Check for custom order ID in the message content
+  const orderIdMatch = safeContent.match(/#order-(\d+)/);
+  const orderId = orderIdMatch ? orderIdMatch[1] : null;
+
   return (
     <div className={`flex items-start gap-3 ${compact ? 'mb-2' : 'mb-4'} ${isAdminUpdate ? 'bg-blue-50 dark:bg-blue-900/30 p-2 rounded-md' : ''} ${isUser ? 'flex-row-reverse' : ''}`}>
       <Avatar className={`${compact ? 'h-8 w-8' : 'h-10 w-10'} mt-1 rounded-full`}>
@@ -116,6 +120,11 @@ export function ChatMessage({
           {/* Message Content */}
           <div className={`prose dark:prose-invert prose-sm max-w-none break-words ${isAdminUpdate ? 'text-blue-800 dark:text-blue-200' : ''}`}>
             {safeContent}
+            {orderId && (
+              <p>
+                Order: <Link to={`/custom-orders/${orderId}`} className="text-blue-500 hover:underline">#{orderId}</Link>
+              </p>
+            )}
           </div>
           {/* Timestamp */}
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">{getTimeDisplay()}</p>

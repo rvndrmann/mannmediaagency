@@ -1,275 +1,147 @@
 
-import { useState, useCallback, useEffect } from "react";
-import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, BrowserUseError, DesktopApplication } from "./types";
-import { useTaskOperations } from "./use-task-operations";
-import { useScreenshot } from "./use-screenshot";
-import { useTaskMonitoring } from "./use-task-monitoring";
-import { useUserData } from "./use-user-data";
+import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
-  // Basic settings
-  persistentSession: false,
-  useOwnBrowser: false,
-  resolution: "1920x1080",
-  theme: "Ocean",
-  darkMode: false,
-  
-  // Core settings
-  headless: false,
-  disableSecurity: true,
-  chromePath: "",
-  chromeUserData: "",
-  extraChromiumArgs: [],
-  
-  // Connection methods
-  wssUrl: "",
-  cdpUrl: "",
-  browserInstancePath: "",
-  
-  // Desktop automation settings
-  desktopApps: [],
-  taskTemplates: [],
-  desktopTimeout: 30,
-  streamDesktop: false,
-  
-  // Context configuration
-  contextConfig: {
-    // Default page load settings
-    minWaitPageLoadTime: 0.5,
-    waitForNetworkIdlePageLoadTime: 5.0,
-    maxWaitPageLoadTime: 15.0,
-    
-    // Default display settings
-    browserWindowSize: { width: 1280, height: 1100 },
-    highlightElements: true,
-    viewportExpansion: 500,
-    
-    // Optional settings
-    userAgent: "",
-    locale: "",
-    allowedDomains: []
-  }
-};
+export interface BrowserUseTaskResult {
+  isLoading: boolean;
+  taskStatus: 'created' | 'running' | 'finished' | 'stopped' | 'paused' | 'failed' | null;
+  liveUrl: string | null;
+  connectionStatus: 'connected' | 'disconnected' | 'connecting';
+  progress: number;
+  error: string | null;
+  taskOutput: string | null;
+  currentTaskId: string | null;
+  submitTask: (taskInput: string, userId: string) => Promise<void>;
+  pauseTask: () => Promise<void>;
+  resumeTask: () => Promise<void>;
+  stopTask: () => Promise<void>;
+}
 
-// Validate browser config to ensure all required fields are present
-const validateConfig = (config: BrowserConfig): BrowserConfig => {
-  const validConfig = { ...DEFAULT_BROWSER_CONFIG };
-  
-  // Copy over user settings, using defaults for missing values
-  Object.keys(config).forEach(key => {
-    const typedKey = key as keyof BrowserConfig;
-    if (typedKey in DEFAULT_BROWSER_CONFIG) {
-      // Type assertion to handle the assignment
-      (validConfig[typedKey] as unknown) = config[typedKey];
-    }
-  });
-  
-  // Ensure contextConfig exists and has required fields
-  if (!validConfig.contextConfig) {
-    validConfig.contextConfig = { ...DEFAULT_BROWSER_CONFIG.contextConfig };
-  } else {
-    validConfig.contextConfig = {
-      ...DEFAULT_BROWSER_CONFIG.contextConfig,
-      ...validConfig.contextConfig
-    };
-  }
-  
-  // Set browser window size from resolution if it exists
-  if (validConfig.resolution) {
-    const parts = validConfig.resolution.split('x');
-    if (parts.length >= 2) {
-      const width = parseInt(parts[0]);
-      const height = parseInt(parts[1]);
-      
-      if (!isNaN(width) && !isNaN(height)) {
-        validConfig.contextConfig.browserWindowSize = {
-          width,
-          height
-        };
-      }
-    }
-  }
-  
-  // Ensure desktop apps array exists
-  if (!validConfig.desktopApps) {
-    validConfig.desktopApps = [];
-  }
-  
-  // Ensure task templates array exists
-  if (!validConfig.taskTemplates) {
-    validConfig.taskTemplates = [];
-  }
-  
-  // Clean up empty string values for connection methods
-  if (validConfig.wssUrl === "") validConfig.wssUrl = undefined;
-  if (validConfig.cdpUrl === "") validConfig.cdpUrl = undefined;
-  if (validConfig.browserInstancePath === "") validConfig.browserInstancePath = undefined;
-  
-  return validConfig;
-};
-
-export function useBrowserUseTask() {
-  const [taskInput, setTaskInput] = useState("");
-  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [taskSteps, setTaskSteps] = useState<TaskStep[]>([]);
-  const [taskOutput, setTaskOutput] = useState<string | null>(null);
-  const [taskStatus, setTaskStatus] = useState<TaskStatus>('idle');
-  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
-  const [screenshot, setScreenshot] = useState<string | null>(null);
-  const [userCredits, setUserCredits] = useState<UserCredits | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(DEFAULT_BROWSER_CONFIG);
+export const useBrowserUseTask = (): BrowserUseTaskResult => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [taskStatus, setTaskStatus] = useState<'created' | 'running' | 'finished' | 'stopped' | 'paused' | 'failed' | null>(null);
   const [liveUrl, setLiveUrl] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<BrowserTaskState["connectionStatus"]>("disconnected");
-  const [environment, setEnvironment] = useState<'browser' | 'desktop'>('browser');
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [taskOutput, setTaskOutput] = useState<string | null>(null);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
 
-  // Try to load saved browser config from localStorage
-  useEffect(() => {
+  const submitTask = useCallback(async (taskInput: string, userId: string) => {
     try {
-      const savedConfig = localStorage.getItem('browserUseConfig');
-      if (savedConfig) {
-        const parsedConfig = JSON.parse(savedConfig);
-        setBrowserConfig(validateConfig(parsedConfig));
+      setIsLoading(true);
+      setError(null);
+      
+      const { data, error } = await supabase.functions.invoke('browser-use-submit-task', {
+        body: { task: taskInput, userId }
+      });
+
+      if (error) throw error;
+      
+      if (data?.taskId) {
+        setCurrentTaskId(data.taskId);
+        setTaskStatus('created');
+        setLiveUrl(data.liveUrl || null);
+        toast.success('Task submitted successfully');
       }
     } catch (err) {
-      console.error("Error loading saved browser config:", err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  // Save browser config to localStorage when it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('browserUseConfig', JSON.stringify(browserConfig));
-    } catch (err) {
-      console.error("Error saving browser config:", err);
-    }
-  }, [browserConfig]);
-
-  // Update connection status based on task status
-  useEffect(() => {
+  const pauseTask = useCallback(async () => {
     if (!currentTaskId) {
-      setConnectionStatus("disconnected");
+      toast.error('No active task to pause');
       return;
     }
-    
-    if (isProcessing && ['pending', 'created'].includes(taskStatus)) {
-      setConnectionStatus("connecting");
-      return;
-    }
-    
-    if (isProcessing && taskStatus === 'running') {
-      setConnectionStatus("connected");
-      return;
-    }
-    
-    if (['failed', 'stopped'].includes(taskStatus)) {
-      setConnectionStatus("error");
-      return;
-    }
-    
-    if (taskStatus === 'completed') {
-      setConnectionStatus("disconnected");
-      return;
-    }
-  }, [currentTaskId, isProcessing, taskStatus]);
 
-  // Safely update browser config
-  const updateBrowserConfig = useCallback((newConfig: BrowserConfig) => {
-    setBrowserConfig(validateConfig(newConfig));
-  }, []);
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.functions.invoke('browser-use-pause-task', {
+        body: { taskId: currentTaskId }
+      });
 
-  const state: BrowserTaskState = {
-    taskInput,
-    currentTaskId,
-    isProcessing,
-    progress,
-    taskSteps,
-    taskOutput,
+      if (error) throw error;
+      
+      setTaskStatus('paused');
+      toast.success('Task paused');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to pause task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentTaskId]);
+
+  const resumeTask = useCallback(async () => {
+    if (!currentTaskId) {
+      toast.error('No task to resume');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.functions.invoke('browser-use-resume-task', {
+        body: { taskId: currentTaskId }
+      });
+
+      if (error) throw error;
+      
+      setTaskStatus('running');
+      toast.success('Task resumed');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to resume task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentTaskId]);
+
+  const stopTask = useCallback(async () => {
+    if (!currentTaskId) {
+      toast.error('No task to stop');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.functions.invoke('browser-use-stop-task', {
+        body: { taskId: currentTaskId }
+      });
+
+      if (error) throw error;
+      
+      setTaskStatus('stopped');
+      setCurrentTaskId(null);
+      toast.success('Task stopped');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to stop task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentTaskId]);
+
+  return {
+    isLoading,
     taskStatus,
-    currentUrl,
-    error,
-    browserConfig,
     liveUrl,
     connectionStatus,
-    environment
-  };
-
-  const stateSetters = {
-    setTaskInput,
-    setCurrentTaskId,
-    setIsProcessing,
-    setProgress,
-    setTaskSteps,
-    setTaskOutput,
-    setTaskStatus,
-    setCurrentUrl,
-    setUserCredits,
-    setError,
-    setBrowserConfig: updateBrowserConfig,
-    setLiveUrl,
-    setConnectionStatus,
-    setEnvironment
-  };
-
-  // Use the refactored hooks
-  const { startTask, pauseTask, resumeTask, stopTask, restartTask } = useTaskOperations(
-    state,
-    stateSetters
-  );
-
-  // Use the screenshot hook
-  const { captureScreenshot } = useScreenshot(
-    currentUrl,
-    setScreenshot,
-    setError
-  );
-
-  // Set up task monitoring
-  useTaskMonitoring(
-    state,
-    {
-      setProgress,
-      setTaskStatus,
-      setCurrentUrl,
-      setTaskSteps,
-      setTaskOutput,
-      setIsProcessing,
-      setLiveUrl,
-      setError,
-      setConnectionStatus
-    }
-  );
-
-  // Fetch user data
-  useUserData(setUserCredits, setError);
-  
-  return {
-    taskInput,
-    setTaskInput,
+    progress,
+    error,
+    taskOutput,
     currentTaskId,
-    isProcessing,
-    startTask,
+    submitTask,
     pauseTask,
     resumeTask,
     stopTask,
-    restartTask,
-    progress,
-    taskSteps,
-    taskOutput,
-    taskStatus,
-    currentUrl,
-    setCurrentUrl,
-    screenshot,
-    captureScreenshot,
-    userCredits,
-    error,
-    browserConfig,
-    setBrowserConfig: updateBrowserConfig,
-    liveUrl,
-    connectionStatus,
-    environment,
-    setEnvironment
   };
-}
+};

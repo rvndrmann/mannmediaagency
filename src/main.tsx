@@ -1,15 +1,14 @@
 
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Toaster } from '@/components/ui/toaster'
-import { ChatSessionProvider } from '@/contexts/ChatSessionContext'
-import { BrowserRouter } from 'react-router-dom'
-import { ProjectProvider } from '@/hooks/multi-agent/project-context'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { Toaster } from "@/components/ui/sonner";
+import App from "./App";
+import "./index.css";
 
-// Create a client for React Query with proper error handling and retry configuration
+// Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -17,28 +16,25 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000, // 5 minutes
     },
-    mutations: {
-      retry: 0,
-    }
   },
 });
 
-// Get root element and create root
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Failed to find the root element");
 
-// Create root and render app
-createRoot(rootElement).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <ChatSessionProvider>
-          <ProjectProvider>
-            <App />
-          </ProjectProvider>
-          <Toaster />
-        </ChatSessionProvider>
-      </QueryClientProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+const root = createRoot(rootElement);
+
+root.render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <App />
+        <Toaster />
+        <ReactQueryDevtools 
+          initialIsOpen={false} 
+          buttonPosition="bottom-right"
+        />
+      </BrowserRouter>
+    </QueryClientProvider>
+  </StrictMode>
 );

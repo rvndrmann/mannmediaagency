@@ -1,309 +1,308 @@
+import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import type { BrowserTask, BrowserConfig, TaskStatus, TaskStep, BrowserTaskState } from './types';
 
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query"; // Import useQueryClient
-import { supabase } from "@/integrations/supabase/client";
-import { BrowserTaskState } from "./types";
-import { useUser } from "@/hooks/use-user";
-import { useUserCredits } from "@/hooks/use-user-credits"; // Import useUserCredits
-import { toast } from "sonner";
-import { useTaskHistory } from "./use-task-history";
-
-const BROWSER_TASK_CREDIT_COST = 1; // Define cost constant
-
-export function useTaskOperations(
-  state: BrowserTaskState,
-  setters: any
-) {
-  const { user } = useUser();
-  const { data: userCreditsData } = useUserCredits(); // Get user credits data
-  const queryClient = useQueryClient(); // Get query client instance
-  const { saveTaskToHistory, updateTaskHistory, getTaskHistoryByBrowserTaskId } = useTaskHistory();
-  const [isStoppingTask, setIsStoppingTask] = useState(false);
-  const [isPausingTask, setIsPausingTask] = useState(false);
-  const [isResumingTask, setIsResumingTask] = useState(false);
-  const [isRestarting, setIsRestarting] = useState(false);
-
-  const startTask = async () => {
-    if (!user?.id) {
-      toast.error("You must be logged in to use this feature");
-      return;
-    }
-
-    if (!state.taskInput.trim()) {
-      toast.error("Please provide a task description");
-      return;
-    }
-
-    // --- Frontend Pre-emptive Credit Check ---
-    if (userCreditsData && userCreditsData.credits_remaining < BROWSER_TASK_CREDIT_COST) {
-      toast.error("Insufficient credits to start this task.");
-      return;
-    }
-    // --- End Frontend Check ---
-
-    try {
-      setters.setIsProcessing(true);
-      setters.setError(null);
-      setters.setTaskOutput(null);
-      setters.setTaskSteps([]);
-      setters.setProgress(0);
-      setters.setLiveUrl(null);
-      setters.setConnectionStatus("connecting");
-      
-      const requestData = {
-        task: state.taskInput,
-        environment: state.environment,
-        browser_config: state.browserConfig,
-        userId: user.id // Pass userId to the backend function
-      };
-
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: requestData
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      toast.success(`${state.environment.charAt(0).toUpperCase() + state.environment.slice(1)} task started`);
-      
-      setters.setCurrentTaskId(data.taskId);
-      setters.setTaskStatus("running");
-      
-      if (data.liveUrl) {
-        setters.setLiveUrl(data.liveUrl);
-      }
-      
-      // Create a history record for this task
-      const historyRecord = await saveTaskToHistory({
-        task_input: state.taskInput,
-        status: "running",
-        user_id: user.id,
-        browser_task_id: data.taskId,
-        environment: state.environment
-      });
-      
-      console.log("Created history record:", historyRecord);
-  // Invalidate credits on successful start to reflect deduction
-  queryClient.invalidateQueries({ queryKey: ['userCredits'] });
-
-} catch (error) {
-  console.error("Error starting task:", error);
-  // Use the error message from the backend if available
-  let errorMessage = "Failed to start task";
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  } else if (typeof error === 'object' && error !== null && 'error_description' in error) {
-     // Handle Supabase function invocation errors which might have error_description
-     errorMessage = (error as any).error_description || errorMessage;
-  } else if (typeof error === 'object' && error !== null && 'message' in error) {
-     // Handle other potential error object structures
-     errorMessage = (error as any).message || errorMessage;
-  }
-  
-  toast.error(`Failed to start task: ${errorMessage}`);
-  setters.setIsProcessing(false);
-  setters.setConnectionStatus("error");
-  setters.setError(errorMessage);
-  
-  // Invalidate credits on failure as well, in case of refunds or backend errors
-  queryClient.invalidateQueries({ queryKey: ['userCredits'] });
+export interface UseTaskOperationsResult {
+  currentTask: BrowserTask | null;
+  taskState: BrowserTaskState;
+  isProcessing: boolean;
+  error: string | null;
+  startNewTask: (taskInput: string, config: BrowserConfig) => Promise<void>;
+  getTaskStatus: (taskId: string) => Promise<void>;
+  pauseTask: (taskId: string) => Promise<void>;
+  resumeTask: (taskId: string) => Promise<void>;
+  stopTask: (taskId: string) => Promise<void>;
+  captureScreenshot: (taskId: string) => Promise<void>;
+  restartTask: (taskId: string, taskInput: string, config: BrowserConfig) => Promise<void>;
+  resetState: () => void;
+  setIsProcessing: (processing: boolean) => void;
 }
-    }
-  };
 
-  const stopTask = async () => {
-    if (!state.currentTaskId) {
-      toast.error("No active task to stop");
-      return;
-    }
+export const useTaskOperations = (): UseTaskOperationsResult => {
+  const [currentTask, setCurrentTask] = useState<BrowserTask | null>(null);
+  const [taskState, setTaskState] = useState<BrowserTaskState>({
+    taskId: '',
+    status: 'created',
+    progress: 0,
+    steps: [],
+    connectionStatus: 'disconnected',
+  });
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  const startNewTask = useCallback(async (
+    taskInput: string,
+    config: BrowserConfig
+  ) => {
     try {
-      setIsStoppingTask(true);
+      setIsProcessing(true);
+      setError(null);
       
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: {
-          action: "stop",
-          taskId: state.currentTaskId
-        }
+      const response = await fetch('/api/browser-automation/submit-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ taskInput, config }),
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to submit task');
       }
 
-      toast.success("Task stopped");
-      setters.setTaskStatus("stopped");
-      setters.setIsProcessing(false);
-      setters.setConnectionStatus("disconnected");
+      const result = await response.json();
       
-      // Update history record
-      const historyRecord = getTaskHistoryByBrowserTaskId(state.currentTaskId);
-      if (historyRecord) {
-        await updateTaskHistory(historyRecord.id, {
-          status: "stopped",
-          completed_at: new Date().toISOString()
-        });
-      }
-    } catch (error) {
-      console.error("Error stopping task:", error);
-      toast.error("Failed to stop task");
+      setCurrentTask({
+        ...result,
+        status: 'created' as TaskStatus, // Use 'created' instead of 'pending'
+      });
+      
+      setTaskState({
+        taskId: result.id,
+        status: 'created',
+        progress: 0,
+        steps: [],
+        connectionStatus: 'connecting',
+      });
+      
+      toast.success('Browser automation task submitted successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit task';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setIsStoppingTask(false);
+      setIsProcessing(false);
     }
-  };
+  }, []);
 
-  const pauseTask = async () => {
-    if (!state.currentTaskId) {
-      toast.error("No active task to pause");
-      return;
-    }
-
+  const getTaskStatus = useCallback(async (taskId: string) => {
     try {
-      setIsPausingTask(true);
-      
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: {
-          action: "pause",
-          taskId: state.currentTaskId
-        }
+      setError(null);
+      const response = await fetch(`/api/browser-automation/task-status?taskId=${taskId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to get task status');
       }
 
-      toast.success("Task paused");
-      setters.setTaskStatus("paused");
+      const result = await response.json();
       
-      // Update history record
-      const historyRecord = getTaskHistoryByBrowserTaskId(state.currentTaskId);
-      if (historyRecord) {
-        await updateTaskHistory(historyRecord.id, { status: "paused" });
-      }
-    } catch (error) {
-      console.error("Error pausing task:", error);
-      toast.error("Failed to pause task");
-    } finally {
-      setIsPausingTask(false);
+      setCurrentTask(prevTask => prevTask ? { ...prevTask, ...result } : result);
+      
+      setTaskState(prev => ({
+        ...prev,
+        status: result.status as TaskStatus,
+        progress: result.progress || prev.progress,
+        steps: result.steps || prev.steps,
+      }));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to get task status';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
-  };
+  }, []);
 
-  const resumeTask = async () => {
-    if (!state.currentTaskId) {
-      toast.error("No paused task to resume");
-      return;
-    }
-
+  const pauseTask = useCallback(async (taskId: string) => {
     try {
-      setIsResumingTask(true);
+      setIsProcessing(true);
+      setError(null);
       
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: {
-          action: "resume",
-          taskId: state.currentTaskId
-        }
+      const response = await fetch('/api/browser-automation/pause-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ taskId }),
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to pause task');
       }
-
-      toast.success("Task resumed");
-      setters.setTaskStatus("running");
-      setters.setIsProcessing(true);
-      setters.setConnectionStatus("connected");
       
-      // Update history record
-      const historyRecord = getTaskHistoryByBrowserTaskId(state.currentTaskId);
-      if (historyRecord) {
-        await updateTaskHistory(historyRecord.id, { status: "running" });
-      }
-    } catch (error) {
-      console.error("Error resuming task:", error);
-      toast.error("Failed to resume task");
+      setTaskState(prev => ({
+        ...prev,
+        status: 'paused',
+      }));
+      
+      toast.success('Task paused successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to pause task';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setIsResumingTask(false);
+      setIsProcessing(false);
     }
-  };
+  }, []);
 
-  const restartTask = async () => {
-    if (!user?.id) {
-      toast.error("You must be logged in to use this feature");
-      return;
-    }
-
+  const resumeTask = useCallback(async (taskId: string) => {
     try {
-      setIsRestarting(true);
-      setters.setIsProcessing(true);
-      setters.setError(null);
-      setters.setTaskOutput(null);
-      setters.setTaskSteps([]);
-      setters.setProgress(0);
-      setters.setLiveUrl(null);
-      setters.setCurrentTaskId(null);
-      setters.setConnectionStatus("connecting");
+      setIsProcessing(true);
+      setError(null);
       
-      const requestData = {
-        task: state.taskInput,
-        environment: state.environment,
-        browser_config: state.browserConfig
-      };
-
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: requestData
+      const response = await fetch('/api/browser-automation/resume-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ taskId }),
       });
 
-      if (error) {
-        throw error;
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      toast.success(`Task restarted`);
-      
-      setters.setCurrentTaskId(data.taskId);
-      setters.setTaskStatus("running");
-      
-      if (data.liveUrl) {
-        setters.setLiveUrl(data.liveUrl);
+      if (!response.ok) {
+        throw new Error('Failed to resume task');
       }
       
-      // Create new history record for restarted task
-      await saveTaskToHistory({
-        task_input: state.taskInput,
-        status: "running",
-        user_id: user.id,
-        browser_task_id: data.taskId,
-        environment: state.environment
-      });
-
-    } catch (error) {
-      console.error("Error restarting task:", error);
-      toast.error(`Failed to restart task: ${error instanceof Error ? error.message : "Unknown error"}`);
-      setters.setIsProcessing(false);
-      setters.setConnectionStatus("error");
-      setters.setError(error instanceof Error ? error.message : "Unknown error");
+      setTaskState(prev => ({
+        ...prev,
+        status: 'running',
+      }));
+      
+      toast.success('Task resumed successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to resume task';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setIsRestarting(false);
+      setIsProcessing(false);
     }
-  };
+  }, []);
+
+  const stopTask = useCallback(async (taskId: string) => {
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      const response = await fetch('/api/browser-automation/stop-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ taskId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to stop task');
+      }
+      
+      setTaskState(prev => ({
+        ...prev,
+        status: 'stopped',
+      }));
+      
+      toast.success('Task stopped successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to stop task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  const captureScreenshot = useCallback(async (taskId: string) => {
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      const response = await fetch('/api/browser-automation/capture-screenshot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ taskId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to capture screenshot');
+      }
+      
+      const result = await response.json();
+      
+      setCurrentTask(prevTask => prevTask ? { ...prevTask, screenshot_url: result.screenshot_url } : { ...result, screenshot_url: result.screenshot_url });
+      
+      toast.success('Screenshot captured successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to capture screenshot';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  const restartTask = useCallback(async (taskId: string, taskInput: string, config: BrowserConfig) => {
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      const response = await fetch('/api/browser-automation/restart-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ taskId, taskInput, config }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to restart task');
+      }
+      
+      const result = await response.json();
+      
+      setCurrentTask({
+        ...result,
+        status: 'created' as TaskStatus,
+      });
+      
+      setTaskState({
+        taskId: result.id,
+        status: 'created',
+        progress: 0,
+        steps: [],
+        connectionStatus: 'connecting',
+      });
+      
+      toast.success('Task restarted successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to restart task';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  const resetState = useCallback(() => {
+    setCurrentTask(null);
+    setTaskState({
+      taskId: '',
+      status: 'created',
+      progress: 0,
+      steps: [],
+      connectionStatus: 'disconnected',
+    });
+    setIsProcessing(false);
+    setError(null);
+  }, []);
 
   return {
-    startTask,
-    stopTask,
+    currentTask,
+    taskState,
+    isProcessing,
+    error,
+    startNewTask,
+    getTaskStatus,
     pauseTask,
     resumeTask,
+    stopTask,
+    captureScreenshot,
     restartTask,
-    isStoppingTask,
-    isPausingTask,
-    isResumingTask,
-    isRestarting
+    resetState,
+    setIsProcessing,
   };
-}
+};

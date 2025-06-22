@@ -29,7 +29,7 @@ export function ImageUploader({
               <img
                 src={previewUrl}
                 alt="Preview"
-                className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                className="absolute inset-0 w-full h-auto max-w-full object-cover rounded-lg"
               />
               <Button
                 variant="ghost"

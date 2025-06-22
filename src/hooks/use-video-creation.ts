@@ -38,7 +38,6 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
         throw new Error("No authenticated user found");
       }
@@ -54,18 +53,21 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
       const storyData = {
         source: source.trim(),
         ready_to_go: readyToGo,
-        background_music: backgroundMusicUrl,
         story_type_id: story_type_id,
         user_id: user.id,
-      };
+      } as any;
 
-      // If a product photo URL is provided, set the "PRODUCT IMAGE" column to 1
-      // This indicates that a product image is associated with this story
-      if (productPhotoUrl) {
-        storyData["PRODUCT IMAGE"] = 1;
+      // Only add background_music if a URL exists
+      if (backgroundMusicUrl) {
+        storyData.background_music = backgroundMusicUrl;
       }
 
-      // Insert the story with the product image flag
+      // If a product photo URL is provided, store it in the "PRODUCT IMAGE" column
+      if (productPhotoUrl) {
+        storyData["PRODUCT IMAGE"] = productPhotoUrl;
+      }
+
+      // Insert the story data
       const { data: newStory, error } = await supabase
         .from("stories")
         .insert([storyData])
@@ -73,28 +75,6 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
         .single();
 
       if (error) throw error;
-
-      // If we have a product photo URL and a new story was created successfully,
-      // update any relevant metadata or linked tables
-      if (productPhotoUrl && newStory) {
-        const storyId = newStory["stories id"];
-
-        // You might want to store the actual URL in a separate table or metadata
-        // Here we'll create an entry in story_metadata if it doesn't exist already
-        const { error: metadataError } = await supabase
-          .from("story_metadata")
-          .upsert({
-            story_id: storyId,
-            additional_context: `Product photo URL: ${productPhotoUrl}`,
-          }, {
-            onConflict: "story_id"
-          });
-
-        if (metadataError) {
-          console.error("Error saving product photo metadata:", metadataError);
-          // Continue anyway as this is not critical
-        }
-      }
 
       toast({
         title: "Success",
@@ -105,7 +85,7 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
       console.error("Error creating video:", error);
       toast({
         title: "Error",
-        description: "Failed to create video. Please try again.",
+        description: `Failed to create video: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
         variant: "destructive",
       });
     } finally {

@@ -1,7 +1,6 @@
 
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Toaster } from "sonner";
-import MultiAgentChat from "./pages/MultiAgentChat";
 import { VideoProjectPage } from "./pages/VideoProjectPage";
 import Index from "./pages/Index";
 import { MCPProvider } from "./contexts/MCPContext";
@@ -60,20 +59,6 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Wrapper component to handle projectId extraction for MultiAgentChat route
-const MultiAgentChatPageWrapper = () => {
-  const { projectId } = useParams<{ projectId: string }>();
-
-  if (!projectId) {
-    console.warn("Attempted to access multi-agent chat without a project ID.");
-    return <Navigate to="/canvas" replace />;
-  }
-
-  return (
-    <CanvasMcpProvider projectId={projectId}>
-      <MultiAgentChat />
-    </CanvasMcpProvider>
-  );
-};
 
 function App() {
   return (
@@ -85,7 +70,6 @@ function App() {
           <Route path="/dashboard" element={<Navigate to="/" replace />} />
           
           {/* Admin routes */}
-          <Route path="/multi-agent-chat/:projectId" element={<AdminRoute><MultiAgentChatPageWrapper /></AdminRoute>} />
           <Route path="/canvas" element={<AdminRoute><Canvas /></AdminRoute>} />
           <Route path="/canvas/:projectId" element={<AdminRoute><Canvas /></AdminRoute>} />
           <Route path="/product-shoot" element={<AdminRoute><ProductShot /></AdminRoute>} />

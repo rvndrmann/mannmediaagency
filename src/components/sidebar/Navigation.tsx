@@ -166,15 +166,6 @@ export const Navigation = () => {
       icon: Layout,
       current: location.pathname === "/canvas",
     },
-    {
-      name: "Multi-Agent Chat",
-      subtext: "AI Collaboration",
-      // Link to latest project if available, otherwise base path
-      to: latestProjectId ? `/multi-agent-chat/${latestProjectId}` : "/multi-agent-chat",
-      icon: MessageSquare,
-      // Highlight if the path starts with /multi-agent-chat
-      current: location.pathname.startsWith("/multi-agent-chat"),
-    },
     // Removed Trace Analytics from baseNavigation
     // Removed Browser Worker AI from baseNavigation
     {

@@ -1,264 +1,294 @@
 
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
-import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
-import { useChatSession } from "@/contexts/ChatSessionContext";
-import { Message } from "@/types/message";
-import { useEffect, useState } from "react";
-import { useProjectContext } from "@/hooks/multi-agent/project-context";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChatMessage } from "@/components/chat/ChatMessage";
-import { useCanvasAgent } from "@/hooks/use-canvas-agent";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Send, 
+  Bot, 
+  User, 
+  Loader2, 
+  Sparkles,
+  MessageSquare,
+  Trash2,
+  RefreshCw
+} from "lucide-react";
 import { toast } from "sonner";
-import { useMCPContext } from "@/contexts/MCPContext";
+import { supabase } from "@/integrations/supabase/client";
+import { CompactAgentSelector } from "./CompactAgentSelector";
 
-interface CanvasChatProps {
-  projectId?: string;
-  sceneId?: string;
-  onClose: () => void;
-  updateScene?: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string) => Promise<void>;
+// Define types locally
+export type AgentType = 'content' | 'visual' | 'video' | 'script' | 'general';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  agent?: AgentType;
 }
 
-export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasChatProps) {
-  const { getOrCreateChatSession, sessions } = useChatSession();
-  const { setActiveProject } = useProjectContext();
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const { useMcp, reconnectToMcp } = useMCPContext();
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [initError, setInitError] = useState<string | null>(null);
-  
-  const { 
-    messages, 
-    addUserMessage, 
-    addAgentMessage,
-    generateSceneDescription,
-    generateImagePrompt,
-    generateSceneScript,
-    generateSceneImage,
-    generateSceneVideo,
-    isLoading
-  } = useCanvasAgent({
-    projectId,
-    sceneId,
-    updateScene
-  });
-  
-  // Ensure MCP is connected if needed
-  useEffect(() => {
-    if (useMcp && projectId) {
-      reconnectToMcp().catch(error => {
-        console.error("Failed to establish MCP connection:", error);
-        // Don't show an error toast because error state is handled by MCPContext
-      });
-    }
-  }, [useMcp, projectId, reconnectToMcp]);
-  
-  // Set active project in project context to ensure shared state
-  useEffect(() => {
-    if (projectId) {
-      setActiveProject(projectId);
-    }
-  }, [projectId, setActiveProject]);
-  
-  // Get or create chat session for this project
-  useEffect(() => {
-    setIsInitializing(true);
-    setInitError(null);
-    
-    if (projectId) {
-      try {
-        const id = getOrCreateChatSession(projectId, [
-          {
-            id: "welcome",
-            role: "system",
-            content: `Welcome to Canvas Assistant. I'm here to help with your video project #${projectId}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
-            createdAt: new Date().toISOString(),
-          }
-        ]);
-        setSessionId(id);
-        setIsInitializing(false);
-      } catch (error) {
-        console.error("Error creating chat session:", error);
-        setInitError("Failed to initialize chat session. Please try again.");
-        setIsInitializing(false);
-        toast.error("Failed to initialize chat session");
-      }
-    } else {
-      setIsInitializing(false);
-    }
-  }, [projectId, getOrCreateChatSession]);
+interface CanvasChatProps {
+  projectId: string;
+  selectedSceneId?: string;
+}
 
-  // Handle canvas-specific agent commands
-  const handleAgentCommand = async (command: any) => {
-    if (!command || !sceneId) return;
-    
+export function CanvasChat({ projectId, selectedSceneId }: CanvasChatProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<AgentType>('general');
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    initializeChat();
+  }, [projectId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const initializeChat = async () => {
     try {
-      switch (command.action) {
-        case 'generate_script':
-          await generateSceneScript(sceneId, command.content || "");
-          toast.success("Script generated for scene");
-          break;
-        case 'generate_description':
-          await generateSceneDescription(sceneId, command.content || "");
-          toast.success("Description generated for scene");
-          break;
-        case 'generate_image_prompt':
-          await generateImagePrompt(sceneId, command.content || "");
-          toast.success("Image prompt generated for scene");
-          break;
-        case 'generate_scene_image':
-          await generateSceneImage(sceneId, command.content || "");
-          toast.success("Image generated for scene");
-          break;
-        case 'generate_voiceover':
-          if (updateScene) {
-            await updateScene(sceneId, 'voiceOverText', command.content || "");
-            toast.success("Voiceover text updated for scene");
-          }
-          break;
-        default:
-          console.log("Unknown canvas command:", command);
+      // Load existing chat messages for this project
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const chatMessages: ChatMessage[] = (data || []).map(msg => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        timestamp: new Date(msg.created_at),
+        agent: (msg.sender_name as AgentType) || 'general'
+      }));
+
+      setMessages(chatMessages);
+
+      // Initialize thread ID if not exists
+      if (!threadId && chatMessages.length === 0) {
+        const newThreadId = `canvas_${projectId}_${Date.now()}`;
+        setThreadId(newThreadId);
       }
     } catch (error) {
-      console.error("Error handling canvas command:", error);
-      toast.error("Failed to execute canvas command");
+      console.error('Error initializing chat:', error);
+      toast.error('Failed to load chat history');
     }
   };
 
-  const handleEditContent = (type: string, content: string, sceneId: string) => {
-    if (updateScene && sceneId) {
-      const updateType = type as 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video';
-      updateScene(sceneId, updateType, content);
-    }
-  };
-  
-  // Fallback UI if session ID is not available
-  if (isInitializing) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden border-r">
-        <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-          <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="animate-pulse text-center">
-            <p>Initializing Canvas Assistant...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (initError) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden border-r">
-        <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-          <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex-1 flex items-center justify-center p-4 text-center text-red-500">
-          <div>
-            <p>{initError}</p>
-            <Button 
-              variant="outline" 
-              className="mt-4"
-              onClick={() => window.location.reload()}
-            >
-              Refresh Page
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (!projectId) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden border-r">
-        <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-          <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex-1 flex items-center justify-center p-4 text-center text-muted-foreground">
-          <p>Please select a project to use the Canvas Assistant.</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Handle the case where MultiAgentChat component might throw an error
-  const renderChatContent = () => {
-    if (!sessionId) {
-      return (
-        <ScrollArea className="h-full">
-          <div className="p-4 space-y-4">
-            {messages.map((message) => (
-              <ChatMessage 
-                key={message.id} 
-                message={message}
-                onEditContent={handleEditContent}
-              />
-            ))}
-            
-            {messages.length === 0 && (
-              <div className="text-center text-muted-foreground p-8">
-                <p>No messages yet. Generate content to start a conversation.</p>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      );
-    }
-    
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: ChatMessage = {
+      id: `user_${Date.now()}`,
+      role: 'user',
+      content: input.trim(),
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+
     try {
-      return (
-        <MultiAgentChat 
-          projectId={projectId} 
-          onBack={onClose}
-          isEmbedded={true}
-          sessionId={sessionId}
-          compactMode={true}
-          sceneId={sceneId}
-          onAgentCommand={handleAgentCommand}
-        />
-      );
+      // Save user message to database
+      await supabase
+        .from('chat_messages')
+        .insert({
+          project_id: projectId,
+          role: 'user',
+          content: userMessage.content,
+          thread_id: threadId,
+        });
+
+      // Here you would typically call your AI service
+      // For now, we'll simulate a response
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const assistantMessage: ChatMessage = {
+        id: `assistant_${Date.now()}`,
+        role: 'assistant',
+        content: `I understand you want help with: "${userMessage.content}". As the ${selectedAgent} agent, I'm processing your request for project ${projectId}${selectedSceneId ? ` and scene ${selectedSceneId}` : ''}.`,
+        timestamp: new Date(),
+        agent: selectedAgent
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+
+      // Save assistant message to database
+      await supabase
+        .from('chat_messages')
+        .insert({
+          project_id: projectId,
+          role: 'assistant',
+          content: assistantMessage.content,
+          thread_id: threadId,
+          sender_name: selectedAgent,
+        });
+
     } catch (error) {
-      console.error("Error rendering MultiAgentChat:", error);
-      return (
-        <div className="p-4 flex items-center justify-center h-full">
-          <div className="text-center text-red-500">
-            <p>Error loading chat interface</p>
-            <Button 
-              variant="outline" 
-              className="mt-4"
-              onClick={onClose}
-            >
-              Close Chat
-            </Button>
-          </div>
-        </div>
-      );
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
+    } finally {
+      setIsLoading(false);
     }
   };
-  
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const clearChat = async () => {
+    if (!confirm('Are you sure you want to clear the chat history?')) return;
+
+    try {
+      await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('project_id', projectId);
+
+      setMessages([]);
+      toast.success('Chat history cleared');
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      toast.error('Failed to clear chat');
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full overflow-hidden border-r">
-      <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-        <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
-          <X className="h-4 w-4" />
-        </Button>
+    <Card className="h-full flex flex-col">
+      {/* Header */}
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            <h3 className="font-medium">AI Assistant</h3>
+            <Badge variant="outline">{messages.length} messages</Badge>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => initializeChat()}
+              disabled={isLoading}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearChat}
+              disabled={isLoading || messages.length === 0}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <CompactAgentSelector
+          selectedAgent={selectedAgent}
+          onAgentChange={setSelectedAgent}
+          isProcessing={isLoading}
+        />
       </div>
-      
-      <div className="flex-1 overflow-hidden">
-        {renderChatContent()}
+
+      {/* Messages */}
+      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+        <div className="space-y-4">
+          {messages.length === 0 ? (
+            <div className="text-center py-8">
+              <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">
+                Start a conversation with your AI assistant
+              </p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex gap-3 ${
+                  message.role === 'user' ? 'justify-end' : 'justify-start'
+                }`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.role === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {message.role === 'user' ? (
+                      <User className="h-4 w-4" />
+                    ) : (
+                      <Bot className="h-4 w-4" />
+                    )}
+                    <span className="text-xs font-medium">
+                      {message.role === 'user' ? 'You' : `${message.agent || 'AI'} Agent`}
+                    </span>
+                    <span className="text-xs opacity-70">
+                      {message.timestamp.toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                </div>
+              </div>
+            ))
+          )}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">AI is thinking...</span>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+
+      <Separator />
+
+      {/* Input */}
+      <div className="p-4">
+        <div className="flex gap-2">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder={`Ask the ${selectedAgent} agent anything...`}
+            className="min-h-[60px] max-h-[120px]"
+            disabled={isLoading}
+          />
+          <Button
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            className="self-end"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
-    </div>
+    </Card>
   );
 }

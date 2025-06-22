@@ -118,6 +118,7 @@ export const ChatPanel = ({
           isLoading={isLoading}
           onInputChange={onInputChange}
           onSubmit={onSubmit}
+          userRole="user"
         />
       </div>
     </div>

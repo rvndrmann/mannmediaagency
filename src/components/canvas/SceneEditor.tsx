@@ -9,21 +9,21 @@ import { useMCPContext } from "@/contexts/MCPContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label"; // Import Label
-import { Textarea } from "@/components/ui/textarea"; // Import Textarea
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface SceneEditorProps {
   scene: CanvasScene;
-  onUpdate: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string) => Promise<void>;
+  onUpdate: (sceneId: string, type: 'script' | 'image_prompt' | 'description' | 'voice_over_text' | 'image' | 'video', value: string) => Promise<void>;
 }
 
 export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   const [title, setTitle] = useState(scene?.title || "");
   const [script, setScript] = useState(scene?.script || "");
-  const [voiceOverText, setVoiceOverText] = useState(scene?.voiceOverText || "");
+  const [voiceOverText, setVoiceOverText] = useState(scene?.voice_over_text || "");
   const [description, setDescription] = useState(scene?.description || "");
-  const [imagePrompt, setImagePrompt] = useState(scene?.imagePrompt || "");
-  const [customInstruction, setCustomInstruction] = useState(""); // State for custom instruction
+  const [imagePrompt, setImagePrompt] = useState(scene?.image_prompt || "");
+  const [customInstruction, setCustomInstruction] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,9 +56,9 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
         if (scene) {
           setTitle(scene.title || "");
           setScript(scene.script || "");
-          setVoiceOverText(scene.voiceOverText || "");
+          setVoiceOverText(scene.voice_over_text || "");
           setDescription(scene.description || "");
-          setImagePrompt(scene.imagePrompt || "");
+          setImagePrompt(scene.image_prompt || "");
         }
       } catch (error) {
         console.error("Error loading scene data:", error);
@@ -69,13 +69,13 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     };
     
     loadSceneData();
-  }, [scene?.id]); // Depend on scene ID, not the whole object
+  }, [scene?.id]);
   
   useEffect(() => {
     setIsGenerating(isProcessing);
   }, [isProcessing]);
   
-  const handleSave = async (field: 'script' | 'voiceOverText' | 'description' | 'imagePrompt') => {
+  const handleSave = async (field: 'script' | 'voice_over_text' | 'description' | 'image_prompt') => {
     if (!scene) return;
     
     setIsSaving(true);
@@ -86,28 +86,28 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
         case 'script':
           value = script;
           break;
-        case 'voiceOverText':
+        case 'voice_over_text':
           value = voiceOverText;
           break;
         case 'description':
           value = description;
           break;
-        case 'imagePrompt':
+        case 'image_prompt':
           value = imagePrompt;
           break;
       }
       
       await onUpdate(scene.id, field, value);
-      toast.success(`Scene ${field} updated`);
+      toast.success(`Scene ${field.replace('_', ' ')} updated`);
     } catch (error) {
       console.error(`Error updating scene ${field}:`, error);
-      toast.error(`Failed to update scene ${field}`);
+      toast.error(`Failed to update scene ${field.replace('_', ' ')}`);
     } finally {
       setIsSaving(false);
     }
   };
   
-  const generateWithAI = useCallback(async (type: 'script' | 'description' | 'imagePrompt') => {
+  const generateWithAI = useCallback(async (type: 'script' | 'description' | 'image_prompt') => {
     if (!scene) return;
     
     if (isProcessing) {
@@ -122,7 +122,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
         context = `You need to create a script for a video scene.
 Scene Title: ${scene.title || ""}
 ${scene.description ? "Scene Description: " + scene.description : ""}
-${scene.voiceOverText ? "Voice Over Text: " + scene.voiceOverText : ""}
+${scene.voice_over_text ? "Voice Over Text: " + scene.voice_over_text : ""}
 
 Write a creative and engaging script that includes dialogue, action descriptions, and camera directions.
 Be specific about what characters say and do, and how the scene should be shot.`;
@@ -136,7 +136,7 @@ Be specific about what characters say and do, and how the scene should be shot.`
 Scene Title: ${scene.title || ""}
 Scene Script: ${script}
 Voice Over Text: ${voiceOverText}
-${scene.imageUrl ? "The scene already has an image that you should use as reference: " + scene.imageUrl : ""}
+${scene.image_url ? "The scene already has an image that you should use as reference: " + scene.image_url : ""}
 
 Describe how the camera should move, how subjects are positioned, lighting, mood, and transitions. 
 Be specific about camera angles, movements, and visual composition.`;
@@ -145,7 +145,7 @@ Be specific about camera angles, movements, and visual composition.`;
         setDescription(scene.description || "");
         toast.success("Scene description generated and saved");
         
-      } else if (type === 'imagePrompt') {
+      } else if (type === 'image_prompt') {
         context = `You need to create a detailed image prompt for this scene that will be used for AI image generation.
 Scene Title: ${scene.title || ""}
 Scene Script: ${script}
@@ -155,16 +155,12 @@ ${scene.description ? "Scene Description: " + scene.description : ""}
 Create a detailed image prompt that includes visual elements, style, lighting, mood, composition, and quality parameters.
 Format the prompt to get the best results from an AI image generator.`;
 
-        // Pass current state values for script, voiceOverText, and customInstruction
         await generateImagePrompt(scene.id, script, voiceOverText, customInstruction, context);
-        // Remove the immediate local state update below.
-        // The input field will update when the 'scene' prop changes.
-        // setImagePrompt(scene.imagePrompt || "");
         toast.success("Image prompt generated and saved");
       }
     } catch (error) {
       console.error(`Error generating ${type}:`, error);
-      toast.error(`Failed to generate ${type}`);
+      toast.error(`Failed to generate ${type.replace('_', ' ')}`);
     }
   }, [
     scene, 
@@ -174,7 +170,7 @@ Format the prompt to get the best results from an AI image generator.`;
     generateSceneScript,
     generateSceneDescription,
     generateImagePrompt,
-    customInstruction // Add customInstruction to dependency array
+    customInstruction
   ]);
   
   const handleGenerateImage = async () => {
@@ -197,7 +193,7 @@ Format the prompt to get the best results from an AI image generator.`;
   const handleGenerateVideo = async () => {
     if (!scene) return;
     
-    if (!scene.imageUrl) {
+    if (!scene.image_url) {
       toast.error("Please generate a scene image first");
       return;
     }
@@ -265,7 +261,7 @@ Format the prompt to get the best results from an AI image generator.`;
         </Alert>
       )}
       
-      <div className="space-y-8"> {/* Increased vertical spacing */}
+      <div className="space-y-8">
         <SceneContentForm
           label="Scene Script"
           value={script}
@@ -283,13 +279,13 @@ Format the prompt to get the best results from an AI image generator.`;
         <SceneContentForm
           label="Voice Over Text"
           value={voiceOverText}
-          fieldType="voiceOverText"
+          fieldType="voice_over_text"
           placeholder="Write the voice over text for this scene..."
           isSaving={isSaving}
           isGenerating={isGenerating}
           isProcessing={isProcessing}
           activeAgent={activeAgent}
-          onSave={() => handleSave('voiceOverText')}
+          onSave={() => handleSave('voice_over_text')}
           onChange={setVoiceOverText}
         />
         
@@ -305,24 +301,23 @@ Format the prompt to get the best results from an AI image generator.`;
           onSave={() => handleSave('description')}
           onChange={setDescription}
           onGenerateWithAI={() => generateWithAI('description')}
-          imagePreview={scene.imageUrl}
+          imagePreview={scene.image_url}
         />
         
         <SceneContentForm
           label="Image Prompt"
           value={imagePrompt}
-          fieldType="imagePrompt"
+          fieldType="image_prompt"
           placeholder="Write an image prompt for AI image generation..."
           isSaving={isSaving}
           isGenerating={isGenerating}
           isProcessing={isProcessing}
           activeAgent={activeAgent}
-          onSave={() => handleSave('imagePrompt')}
+          onSave={() => handleSave('image_prompt')}
           onChange={setImagePrompt}
-          onGenerateWithAI={() => generateWithAI('imagePrompt')}
+          onGenerateWithAI={() => generateWithAI('image_prompt')}
         />
 
-        {/* Add Custom Instruction Textarea */}
         <div className="space-y-2">
           <Label htmlFor="custom-instruction">Custom Instruction (Optional)</Label>
           <Textarea
@@ -339,8 +334,8 @@ Format the prompt to get the best results from an AI image generator.`;
         
         <SceneControls
           sceneId={scene.id}
-          imagePrompt={imagePrompt} // Make sure this is passed properly
-          hasImage={!!scene.imageUrl}
+          imagePrompt={imagePrompt}
+          hasImage={!!scene.image_url}
           isProcessing={isProcessing}
           activeAgent={activeAgent}
           onGenerateImage={handleGenerateImage}

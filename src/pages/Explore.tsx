@@ -49,8 +49,33 @@ const Explore = () => {
       }
       return stories || [];
     },
-    enabled: !!session,
   });
+
+  const { data: publicVideos, isLoading: videosLoading } = useQuery({
+    queryKey: ["publicVideos"],
+    queryFn: async () => {
+      const { data: videos, error: videosError } = await supabase
+        .from("video_generation_jobs")
+        .select(`
+          *,
+          video_metadata (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (videosError) {
+        console.error('Error fetching public videos:', videosError);
+        throw videosError;
+      }
+      return videos || [];
+    },
+  });
+
+  const allContent = [
+    ...(publicStories || []).map(item => ({ ...item, type: "story" })),
+    ...(publicVideos || []).map(item => ({ ...item, type: "video" })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const isLoading = storiesLoading || videosLoading;
 
   if (!session) return null;
 
@@ -100,12 +125,13 @@ const Explore = () => {
                 <TabsList className="w-full md:w-auto overflow-x-auto">
                   <TabsTrigger value="all">All Content</TabsTrigger>
                   <TabsTrigger value="stories">Stories</TabsTrigger>
+                  <TabsTrigger value="videos">Videos</TabsTrigger>
                 </TabsList>
               </Tabs>
 
               <ExploreGrid
-                stories={publicStories}
-                isLoading={storiesLoading}
+                contentItems={allContent}
+                isLoading={isLoading}
                 contentType={contentType}
                 searchQuery={searchQuery}
               />

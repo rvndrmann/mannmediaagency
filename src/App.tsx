@@ -1,5 +1,5 @@
 
-import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import Index from "./pages/Index";
 import { MCPProvider } from "./contexts/MCPContext";

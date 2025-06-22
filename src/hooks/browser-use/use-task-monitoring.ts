@@ -176,10 +176,9 @@ export const useTaskMonitoring = (taskId?: string) => {
     setConnectionStatus('disconnected');
   }, []);
 
-  const handleWebSocketError = useCallback((error: Event) => {
+  const handleWebSocketError = useCallback((error: Error) => {
     console.error('WebSocket error:', error);
     setConnectionStatus('disconnected');
-    // Remove the expired status since it's not in TaskStatus
     setTaskState(prev => ({
       ...prev,
       status: 'failed' as TaskStatus,

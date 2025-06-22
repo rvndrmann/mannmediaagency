@@ -68,7 +68,7 @@ export const ProjectContextProvider: React.FC<ProjectContextProviderProps> = ({
         cover_image_url: data.cover_image_url || '',
         final_video_url: data.final_video_url || null,
         main_product_image_url: data.main_product_image_url || null,
-        project_assets: Array.isArray(data.project_assets) ? data.project_assets : [],
+        project_assets: [],
         full_script: data.full_script,
         user_id: data.user_id,
         created_at: data.created_at,

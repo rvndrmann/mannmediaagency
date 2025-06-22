@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { toast } from "sonner";
@@ -285,7 +286,7 @@ Format the prompt to get the best results from an AI image generator.`;
         <SceneContentForm
           label="Voice Over Text"
           value={voiceOverText}
-          fieldType="voice_over_text"
+          fieldType="voiceOverText"
           placeholder="Write the voice over text for this scene..."
           isSaving={isSaving}
           isGenerating={isGenerating}
@@ -313,7 +314,7 @@ Format the prompt to get the best results from an AI image generator.`;
         <SceneContentForm
           label="Image Prompt"
           value={imagePrompt}
-          fieldType="image_prompt"
+          fieldType="imagePrompt"
           placeholder="Write an image prompt for AI image generation..."
           isSaving={isSaving}
           isGenerating={isGenerating}

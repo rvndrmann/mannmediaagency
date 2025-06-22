@@ -73,7 +73,7 @@ export function ProjectHistory({ onProjectSelect, selectedProjectId }: ProjectHi
         final_video_url: project.final_video_url,
         main_product_image_url: project.main_product_image_url,
         project_assets: Array.isArray(project.project_assets) 
-          ? project.project_assets as ProjectAsset[]
+          ? (project.project_assets as unknown as ProjectAsset[])
           : []
       }));
 

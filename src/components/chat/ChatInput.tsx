@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +9,7 @@ interface ChatInputProps {
   isLoading: boolean;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
-  userRole: 'user' | 'assistant';
+  userRole?: 'user' | 'assistant';
 }
 
 export const ChatInput = ({
@@ -16,7 +17,7 @@ export const ChatInput = ({
   isLoading,
   onInputChange,
   onSubmit,
-  userRole
+  userRole = 'user'
 }: ChatInputProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

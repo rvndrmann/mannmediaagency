@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasProject, CanvasScene, ProjectAsset } from "@/types/canvas";
@@ -76,7 +77,7 @@ export const useCanvasProjects = () => {
         final_video_url: project.final_video_url,
         main_product_image_url: project.main_product_image_url,
         project_assets: Array.isArray(project.project_assets) 
-          ? project.project_assets as ProjectAsset[]
+          ? (project.project_assets as unknown as ProjectAsset[])
           : []
       }));
 
@@ -91,9 +92,15 @@ export const useCanvasProjects = () => {
 
   const updateProject = async (projectId: string, updates: Partial<CanvasProject>) => {
     try {
+      // Convert project_assets to JSON if it exists
+      const updateData = { ...updates };
+      if (updateData.project_assets) {
+        updateData.project_assets = JSON.stringify(updateData.project_assets) as any;
+      }
+
       const { error } = await supabase
         .from('canvas_projects')
-        .update(updates)
+        .update(updateData)
         .eq('id', projectId);
 
       if (error) throw error;
@@ -148,7 +155,7 @@ export const useCanvasProjects = () => {
 
       const transformedScenes: CanvasScene[] = (data || []).map(scene => ({
         id: scene.id,
-        title: scene.title,
+        title: scene.title || '',
         script: scene.script || '',
         image_prompt: scene.image_prompt || '',
         description: scene.description || '',
@@ -162,7 +169,12 @@ export const useCanvasProjects = () => {
         project_id: scene.project_id,
         created_at: scene.created_at,
         updated_at: scene.updated_at,
-        duration: scene.duration
+        duration: scene.duration,
+        bria_v2_request_id: scene.bria_v2_request_id,
+        custom_instruction: scene.custom_instruction,
+        fal_tts_request_id: scene.fal_tts_request_id,
+        is_template: scene.is_template,
+        template_id: scene.template_id
       }));
 
       setScenes(transformedScenes);

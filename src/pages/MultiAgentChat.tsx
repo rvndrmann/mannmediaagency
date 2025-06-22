@@ -234,7 +234,7 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => {
   const handleEditSceneImagePrompt = useCallback((sceneId: string) => {
     const newPrompt = prompt(`Enter new image prompt for Scene ${sceneId}:`);
     if (newPrompt !== null) {
-      canvasAgent.updateSceneImage Prompt(sceneId, newPrompt)
+      canvasAgent.updateSceneImagePrompt(sceneId, newPrompt)
         .then(success => {
           if (success) toast.success(`Image prompt for scene ${sceneId} update requested.`);
         })
@@ -478,7 +478,7 @@ const MultiAgentChat: React.FC<MultiAgentChatProps> = ({ sceneId }) => {
           
             <div className="mt-2 text-[10px] text-gray-500 flex justify-between items-center">
               <div>
-                Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
+                Credits: {userCredits?.credits_remaining?.toFixed(2) || "0.00"} (0.07 per message)
               </div>
               <div className="flex items-center gap-2">
                 <div>

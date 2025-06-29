@@ -15,7 +15,11 @@ const CreateVideo = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const { data: userCredits } = useQuery({
+  const {
+    data: userCredits,
+    isLoading: isCreditsLoading,
+    isError: isCreditsError,
+  } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -47,8 +51,8 @@ const CreateVideo = () => {
     <div className="flex-1 p-8 bg-background">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center mb-8">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => navigate("/")}
             className="mr-4 text-white hover:bg-white/10"
           >
@@ -58,54 +62,69 @@ const CreateVideo = () => {
           <h1 className="text-3xl font-bold text-white">Product Video</h1>
         </div>
         
-        <Card className="p-6 glass-card">
-          <div className="text-center space-y-4">
-            <div className="p-3 rounded-full bg-white/10 inline-block">
-              <Plus className="w-6 h-6 text-white" />
-            </div>
-            <h2 className="text-xl font-semibold text-white">Start Creating</h2>
-            
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-gray-400">
-                You have {userCredits?.credits_remaining || 0} credits available
-              </p>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 cursor-help">
-                      <Info className="w-3.5 h-3.5" />
-                      <span>Credit usage info</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-gray-800 border-gray-700 text-white">
-                    <p>Each video requires 20 credits</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            
-            <Button 
-              onClick={handleCreateVideo}
-              disabled={!hasEnoughCredits}
-              className="bg-white/10 hover:bg-white/20 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create New Video
-            </Button>
-            
-            {!hasEnoughCredits && (
-              <div className="text-sm text-amber-400">
-                <Button 
-                  variant="link" 
-                  onClick={() => navigate("/plans")}
-                  className="text-amber-400 hover:text-amber-300 p-0 h-auto font-normal underline"
-                >
-                  Get more credits
-                </Button>
+        <Card className="p-6 glass-card min-h-[320px] flex items-center justify-center">
+          {isCreditsLoading ? (
+            <div className="w-full flex flex-col items-center justify-center space-y-4 animate-pulse">
+              <div className="p-3 rounded-full bg-white/10 inline-block">
+                <Plus className="w-6 h-6 text-white opacity-50" />
               </div>
-            )}
-          </div>
+              <div className="h-6 w-40 bg-white/10 rounded mb-2" />
+              <div className="h-4 w-32 bg-white/10 rounded" />
+              <div className="h-10 w-48 bg-white/10 rounded mt-4" />
+            </div>
+          ) : isCreditsError ? (
+            <div className="text-center text-red-400">
+              Failed to load credits. Please refresh the page.
+            </div>
+          ) : (
+            <div className="text-center space-y-4">
+              <div className="p-3 rounded-full bg-white/10 inline-block">
+                <Plus className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-xl font-semibold text-white">Start Creating</h2>
+              
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-gray-400">
+                  You have {userCredits?.credits_remaining || 0} credits available
+                </p>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 cursor-help">
+                        <Info className="w-3.5 h-3.5" />
+                        <span>Credit usage info</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-gray-800 border-gray-700 text-white">
+                      <p>Each video requires 20 credits</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              
+              <Button
+                onClick={handleCreateVideo}
+                disabled={!hasEnoughCredits}
+                className="bg-white/10 hover:bg-white/20 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Video
+              </Button>
+              
+              {!hasEnoughCredits && (
+                <div className="text-sm text-amber-400">
+                  <Button
+                    variant="link"
+                    onClick={() => navigate("/plans")}
+                    className="text-amber-400 hover:text-amber-300 p-0 h-auto font-normal underline"
+                  >
+                    Get more credits
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
 
         <CreateVideoDialog

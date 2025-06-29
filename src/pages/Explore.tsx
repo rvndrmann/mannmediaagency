@@ -49,6 +49,7 @@ const Explore = () => {
         console.error('Error fetching public stories:', JSON.stringify(storiesError, null, 2));
         throw storiesError;
       }
+      console.log("Fetched public stories:", stories);
       return stories || [];
     },
   });

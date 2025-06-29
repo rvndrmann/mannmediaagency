@@ -23,6 +23,7 @@ import CreateVideo from "./pages/CreateVideo";
 import ProfileSettings from "./pages/ProfileSettings";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { Button } from "./components/ui/button";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Helper component for protected admin routes
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
@@ -55,44 +56,48 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Wrapper component to handle projectId extraction for MultiAgentChat route
 
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <MCPProvider>
-      <ProjectProvider>
-        <Routes>
-          {/* Main routes */}
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Navigate to="/" replace />} />
-          
-          {/* Admin routes */}
-          <Route path="/canvas" element={<AdminRoute><Canvas /></AdminRoute>} />
-          <Route path="/canvas/:projectId" element={<AdminRoute><Canvas /></AdminRoute>} />
-          <Route path="/video-projects" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
-          <Route path="/video-projects/:projectId" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
-          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+    <QueryClientProvider client={queryClient}>
+      <MCPProvider>
+        <ProjectProvider>
+          <Routes>
+            {/* Main routes */}
+            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            
+            {/* Admin routes */}
+            <Route path="/canvas" element={<AdminRoute><Canvas /></AdminRoute>} />
+            <Route path="/canvas/:projectId" element={<AdminRoute><Canvas /></AdminRoute>} />
+            <Route path="/video-projects" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
+            <Route path="/video-projects/:projectId" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
+            <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
 
-          {/* Public routes */}
-          <Route path="/custom-orders" element={<CustomOrders />} />
-          <Route path="/plans" element={<Plans />} />
-          <Route path="/explore" element={<Explore />} />
-          <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+            {/* Public routes */}
+            <Route path="/custom-orders" element={<CustomOrders />} />
+            <Route path="/plans" element={<Plans />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
 
-          {/* Auth routes */}
-          <Route path="/auth/login" element={<LoginForm />} />
-          <Route path="/auth/signup" element={<SignupForm />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
+            {/* Auth routes */}
+            <Route path="/auth/login" element={<LoginForm />} />
+            <Route path="/auth/signup" element={<SignupForm />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
-          {/* Payment routes */}
-          <Route path="/payment" element={<Payment />} />
-          
-          {/* Fallback routes */}
-          <Route path="/not-found" element={<NotFound />} />
-          <Route path="*" element={<Navigate to="/not-found" replace />} />
-        </Routes>
-        <Toaster position="top-right" closeButton />
-      </ProjectProvider>
-    </MCPProvider>
+            {/* Payment routes */}
+            <Route path="/payment" element={<Payment />} />
+            
+            {/* Fallback routes */}
+            <Route path="/not-found" element={<NotFound />} />
+            <Route path="*" element={<Navigate to="/not-found" replace />} />
+          </Routes>
+          <Toaster position="top-right" closeButton />
+        </ProjectProvider>
+      </MCPProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { ImageIcon } from "lucide-react";
 
+import React, { useState } from "react";
+
 interface ExploreGridProps {
   contentItems?: any[];
   isLoading: boolean;
@@ -14,6 +16,7 @@ export const ExploreGrid = ({
   contentType,
   searchQuery,
 }: ExploreGridProps) => {
+  const [modalImage, setModalImage] = useState<string | null>(null);
   const filterBySearch = (content: any) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -75,8 +78,19 @@ export const ExploreGrid = ({
                     Your browser does not support the video tag.
                   </video>
                 )}
-                <div className="text-[7px] sm:text-xs text-muted-foreground truncate mt-1">
-                  by {item.profiles?.username || "Anonymous"}
+                <div className="flex items-center gap-2 mt-2">
+                  {item["PRODUCT IMAGE"] && (
+                    <img
+                      src={item["PRODUCT IMAGE"]}
+                      alt="Product"
+                      className="w-8 h-8 object-cover rounded border cursor-pointer"
+                      style={{ minWidth: 32, minHeight: 32 }}
+                      onClick={() => setModalImage(item["PRODUCT IMAGE"])}
+                    />
+                  )}
+                  <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                    {item.story_type?.name ? `Type: ${item.story_type.name}` : ""}
+                  </span>
                 </div>
               </>
             )}
@@ -102,5 +116,22 @@ export const ExploreGrid = ({
         </div>
       ))}
     </div>
+  );
+  // Modal for enlarged product image
+  return (
+    <>
+      {modalImage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+          onClick={() => setModalImage(null)}
+        >
+          <img
+            src={modalImage}
+            alt="Full Size"
+            className="max-w-[90vw] max-h-[90vh] rounded-lg"
+          />
+        </div>
+      )}
+    </>
   );
 };

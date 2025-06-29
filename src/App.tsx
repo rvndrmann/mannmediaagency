@@ -8,10 +8,6 @@ import { MCPProvider } from "./contexts/MCPContext";
 import { CanvasMcpProvider } from "./contexts/CanvasMcpContext";
 import Canvas from "./pages/Canvas";
 import ProductShot from "./pages/ProductShot";
-import ProductShootV2 from "./pages/ProductShootV2";
-import ImageToVideo from "./pages/ImageToVideo";
-import BrowserUse from "./pages/BrowserUse";
-import TraceAnalytics from "./pages/TraceAnalytics";
 import CustomOrders from "./pages/CustomOrders";
 import NotFound from "./pages/NotFound";
 import { ProjectProvider } from "@/hooks/multi-agent/project-context";
@@ -20,11 +16,9 @@ import LoginForm from "./components/auth/LoginForm";
 import SignupForm from "./components/auth/SignupForm";
 import AuthCallback from "./components/auth/AuthCallback";
 import Admin from "./pages/Admin";
-import AdminTaskManagement from "./pages/AdminTaskManagement";
 import Plans from "./pages/Plans";
 import Payment from "./pages/Payment";
 import { useUser } from "./hooks/use-user";
-import { ChatPage } from "./pages/ChatPage";
 import CreateVideo from "./pages/CreateVideo";
 import ProfileSettings from "./pages/ProfileSettings";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -73,15 +67,9 @@ function App() {
           {/* Admin routes */}
           <Route path="/canvas" element={<AdminRoute><Canvas /></AdminRoute>} />
           <Route path="/canvas/:projectId" element={<AdminRoute><Canvas /></AdminRoute>} />
-          <Route path="/product-shoot" element={<AdminRoute><ProductShot /></AdminRoute>} />
-          <Route path="/product-shoot-v2" element={<AdminRoute><ProductShootV2 /></AdminRoute>} />
-          <Route path="/image-to-video" element={<AdminRoute><ImageToVideo /></AdminRoute>} />
-          <Route path="/browser-use" element={<AdminRoute><BrowserUse /></AdminRoute>} />
-          <Route path="/trace-analytics" element={<AdminRoute><TraceAnalytics /></AdminRoute>} />
           <Route path="/video-projects" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
           <Route path="/video-projects/:projectId" element={<AdminRoute><VideoProjectPage /></AdminRoute>} />
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-          <Route path="/admin/tasks" element={<AdminRoute><AdminTaskManagement /></AdminRoute>} />
 
           {/* Public routes */}
           <Route path="/custom-orders" element={<CustomOrders />} />
@@ -89,7 +77,6 @@ function App() {
           <Route path="/explore" element={<Explore />} />
           <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-          <Route path="/chat" element={<ChatPage />} />
 
           {/* Auth routes */}
           <Route path="/auth/login" element={<LoginForm />} />

@@ -183,24 +183,6 @@ export const Navigation = () => {
       icon: Compass,
     },
     {
-      name: "Product Shot V1",
-      subtext: "Basic Product Photography",
-      to: "/product-shoot",
-      icon: Camera,
-    },
-    {
-      name: "Advanced Shot",
-      subtext: "Enhanced Product Photography",
-      to: "/product-shoot-v2",
-      icon: ImagePlus,
-    },
-    {
-      name: "Image to Video",
-      subtext: "Convert Images to Videos",
-      to: "/image-to-video",
-      icon: Film,
-    },
-    {
       name: "Product Video",
       subtext: "Create Videos from Products",
       to: "/create-video",
@@ -216,13 +198,6 @@ export const Navigation = () => {
       name: "Profile Settings",
       to: "/settings", // Updated path to match the new route
       icon: User,
-    },
-    {
-      name: "Chat",
-      subtext: "Chat with Admin",
-      to: "/chat",
-      icon: MessageSquare,
-      current: location.pathname === "/chat",
     },
   ];
 
@@ -280,7 +255,7 @@ export const Navigation = () => {
   const mainNavigation: NavigationItem[] = isUserLoading
     ? baseNavigation.filter(item => nonAdminAllowedNames.includes(item.name)) // Show filtered base items while loading
     : isAdmin
-      ? [...combinedNavigation, browserWorkerItem, traceAnalyticsItem, adminItem, adminTasksItem, integrationsItem] // If admin (and not loading), show all combined + admin items
+      ? [...combinedNavigation, adminItem, integrationsItem] // If admin (and not loading), show all combined + admin items (removed Browser Worker AI, Trace Analytics, Admin Tasks)
       : [...baseNavigation.filter(item => nonAdminAllowedNames.includes(item.name)), integrationsItem]; // If not admin (and not loading), show filtered base items + integrations
 
   const legalNavigation: BaseNavigationItem[] = [

@@ -102,28 +102,28 @@ const LoginForm = () => {
   return (
     <>
       {error && (
-        <div className="flex items-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+        <div className="flex items-center bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded mb-4" role="alert">
           <AlertCircle className="w-5 h-5 mr-2" />
           <span className="block">{error.message || "Authentication error. Please try again later."}</span>
         </div>
       )}
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center px-4">
-      <Card className="w-full max-w-md p-8 space-y-6 bg-gray-800/50 backdrop-blur-xl border-gray-700">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <Card className="w-full max-w-md p-8 space-y-6 bg-card text-card-foreground border-border">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-          <p className="text-gray-400">Sign in to continue to MANNMEDIAAGENCY</p>
+          <h2 className="text-3xl font-bold text-foreground mb-2">Welcome Back</h2>
+          <p className="text-muted-foreground">Sign in to continue to MANNMEDIAAGENCY</p>
         </div>
 
         <div className="space-y-4">
           <Button
             onClick={handleGoogleLogin}
-            className="w-full bg-white hover:bg-gray-100 text-gray-900"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             disabled={isLoading}
           >
             {isLoading ? (
-              <span className="size-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mr-2" />
+              <span className="size-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
             ) : (
-              <img 
+              <img
                 src="https://www.google.com/favicon.ico"
                 alt=""
                 className="w-4 h-4 mr-2"
@@ -135,7 +135,7 @@ const LoginForm = () => {
           {/* Phone Login Removed */}
           {/* Email Login Form Removed */}
 
-          <div className="flex items-center gap-2 py-2 px-3 bg-blue-500/10 text-blue-300 rounded-md text-sm">
+          <div className="flex items-center gap-2 py-2 px-3 bg-primary/10 text-primary rounded-md text-sm">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <p>For Google login, please use Chrome or Google browser.</p>
           </div>
@@ -144,7 +144,7 @@ const LoginForm = () => {
         <div className="text-center">
           <Button
             variant="link"
-            className="text-purple-400 hover:text-purple-300"
+            className="text-primary hover:text-primary/80"
             onClick={() => navigate("/auth/signup")}
           >
             Don't have an account? Sign up
@@ -154,7 +154,7 @@ const LoginForm = () => {
         <div className="text-center">
           <Button
             variant="ghost"
-            className="text-gray-400 hover:text-gray-300"
+            className="text-muted-foreground hover:text-foreground"
             onClick={() => navigate("/")}
           >
             Back to home

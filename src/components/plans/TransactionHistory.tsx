@@ -21,7 +21,7 @@ const getStatusIcon = (status: string, payment_status: string) => {
   if (status === 'completed' && payment_status === 'success') {
     return <Check className="w-4 h-4 text-green-500" />;
   } else if (status === 'failed' || payment_status === 'failure') {
-    return <X className="w-4 h-4 text-red-500" />;
+    return <X className="w-4 h-4 text-destructive" />;
   }
   return <Clock className="w-4 h-4 text-yellow-500" />;
 };
@@ -34,20 +34,20 @@ export const TransactionHistory = ({ transactions, isLoading }: TransactionHisto
 
   return (
     <div className="mt-8">
-      <h2 className="text-xl font-bold mb-4">Transaction History</h2>
+      <h2 className="text-xl font-bold mb-4 text-foreground">Transaction History</h2>
       {isLoading ? (
-        <div className="text-center py-4">Loading transactions...</div>
+        <div className="text-center py-4 text-muted-foreground">Loading transactions...</div>
       ) : successfulTransactions.length === 0 ? (
-        <div className="text-center py-4 text-gray-500">No successful transactions found</div>
+        <div className="text-center py-4 text-muted-foreground">No successful transactions found</div>
       ) : (
-        <Card className="w-full">
+        <Card className="w-full bg-card text-card-foreground border-border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Transaction ID</TableHead>
+                <TableHead className="text-foreground">Date</TableHead>
+                <TableHead className="text-foreground">Amount</TableHead>
+                <TableHead className="text-foreground">Status</TableHead>
+                <TableHead className="text-foreground">Transaction ID</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

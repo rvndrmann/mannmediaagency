@@ -36,7 +36,7 @@ export const StyleSelectorSection = ({
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="style" className="text-xl text-purple-600">
+      <Label htmlFor="style" className="text-xl text-primary">
         Style
       </Label>
       <Select value={style} onValueChange={onStyleChange}>

@@ -1,33 +1,12 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import './themes/light.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 223 28% 13%;
-    --foreground: 0 0% 100%;
-    --card: 222 25% 16%;
-    --card-foreground: 0 0% 100%;
-    --popover: 223 28% 13%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 262 58% 75%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 222 24% 20%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 222 24% 20%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 222 24% 20%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 100%;
-    --input: 222 24% 20%;
-    --ring: 262 58% 75%;
-    --radius: 0.75rem;
-  }
 
   /* Custom styles for larger Sonner toasts */
   [data-sonner-toast] {

@@ -38,10 +38,7 @@ const Plans = () => {
     {
       title: "Credit Usage Breakdown",
       items: [
-        { name: "Product Video", cost: "20 credits" },
-        { name: "AI Agent", cost: "0.07 credits per message" },
-        { name: "Product Image", cost: "0.2 credits" },
-        { name: "Image to Video", cost: "1 credit" }
+        { name: "AI Video", cost: "20 credits" },
       ]
     }
   ];
@@ -53,10 +50,7 @@ const Plans = () => {
       price: 600,
       billing: "One-time payment",
       features: [
-        "Product Video: 20 credits",
-        "AI Agent: 0.07 credits per message",
-        "Product Image: 0.2 credits per image",
-        "Image to Video: 1 credit per video"
+        "AI Video: 20 credits",
       ]
     },
     {
@@ -65,10 +59,7 @@ const Plans = () => {
       price: 2499,
       billing: "One-time payment",
       features: [
-        "Product Video: 20 credits",
-        "AI Agent: 0.07 credits per message",
-        "Product Image: 0.2 credits per image",
-        "Image to Video: 1 credit per video",
+        "AI Video: 20 credits",
         "Priority Support"
       ]
     }
@@ -199,18 +190,18 @@ const Plans = () => {
           <Button 
             variant="ghost" 
             onClick={() => navigate("/")}
-            className="mr-4 text-white hover:bg-white/10"
+            className="mr-4 text-foreground hover:bg-accent"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-xl md:text-2xl font-bold text-white">Choose Your Plan</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Choose Your Plan</h1>
         </div>
         
-        <div className="flex items-center gap-2 bg-[#222222]/60 backdrop-blur-xl rounded-full p-1 mb-6 md:mb-8">
-          <Button 
-            variant="default" 
-            className="rounded-full bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
+        <div className="flex items-center gap-2 bg-card rounded-full p-1 mb-6 md:mb-8">
+          <Button
+            variant="default"
+            className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             One-time
           </Button>
@@ -222,18 +213,18 @@ const Plans = () => {
               placeholder="Enter discount code"
               value={discountCode}
               onChange={(e) => setDiscountCode(e.target.value)}
-              className="bg-white/10 border-white/20 text-white"
+              className="bg-input border-border text-foreground"
             />
             <Button
               onClick={handleApplyDiscount}
               disabled={isValidatingCode}
-              className="bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               Apply
             </Button>
           </div>
           {activeDiscount && (
-            <p className="text-green-400 text-sm mt-2">
+            <p className="text-green-500 text-sm mt-2">
               {activeDiscount.discount_percentage}% discount applied!
             </p>
           )}
@@ -252,19 +243,6 @@ const Plans = () => {
           ))}
         </div>
 
-        {!isMobile && (
-          <div className="mt-8 p-6 bg-[#1A1A1A]/60 rounded-xl">
-            <h2 className="text-xl font-bold text-white mb-4">Credit Usage Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {creditCosts[0].items.map((item, idx) => (
-                <div key={idx} className="p-4 bg-[#222222]/60 rounded-lg">
-                  <h3 className="font-medium text-white mb-2">{item.name}</h3>
-                  <p className="text-2xl font-bold text-blue-400">{item.cost}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <TransactionHistory 
           transactions={transactions}

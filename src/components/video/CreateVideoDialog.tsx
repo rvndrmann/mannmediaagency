@@ -181,7 +181,7 @@ export const CreateVideoDialog = ({
           />
     
           <div className="flex items-center justify-between">
-            <Label htmlFor="readyToGo" className="text-xl text-purple-600">
+            <Label htmlFor="readyToGo" className="text-xl text-primary">
               Ready to Go
             </Label>
             <Switch

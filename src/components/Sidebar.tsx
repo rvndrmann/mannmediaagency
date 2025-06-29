@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
@@ -9,6 +10,7 @@ import { Navigation } from "./sidebar/Navigation";
 
 export const Sidebar = () => {
   const { signOut } = useAuth(); // Call useAuth at the top level
+  const [isSigningOut, setIsSigningOut] = useState(false);
   return (
     <SidebarComponent>
       <SidebarHeader>
@@ -27,11 +29,15 @@ export const Sidebar = () => {
           <Button
             variant="ghost"
             className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-            onClick={async () => {
-              await signOut(); // Use the signOut function obtained from the hook
+            disabled={isSigningOut}
+            onClick={() => {
+              setIsSigningOut(true);
+              setTimeout(async () => {
+                await signOut();
+              }, 1500);
             }}
           >
-            <LogOut className="mr-2 h-4 w-4" /> Sign out
+            <LogOut className="mr-2 h-4 w-4" /> {isSigningOut ? "Signing out..." : "Sign out"}
           </Button>
         </div>
       </SidebarFooter>

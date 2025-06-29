@@ -48,12 +48,12 @@ const Auth = () => {
         {/* Main Heading */}
         <div className="text-center mb-12">
           <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-4">
-            Get an AI Product Video in 30 Minutes
+            AI Ads that win.
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
-            From product image to video with voiceover, script, and music — all automated.
+            Winning creative, made and tested for you.
             <br />
-            Starts at just ₹600.
+            (yes, it’s really that simple)
           </p>
           <Button
             onClick={() => navigate("/auth/signup")}
@@ -73,7 +73,7 @@ const Auth = () => {
               <div className="bg-purple-800/50 p-4 rounded-full mb-4">
                 <Upload className="h-8 w-8 text-purple-200" />
               </div>
-              <p className="text-lg text-gray-300">Upload your product image</p>
+              <p className="text-lg text-gray-300">Upload product image, character image, or product with character</p>
             </div>
             {/* Step 2 */}
             <div className="flex flex-col items-center">
@@ -87,7 +87,7 @@ const Auth = () => {
               <div className="bg-purple-800/50 p-4 rounded-full mb-4">
                 <Clock className="h-8 w-8 text-purple-200" />
               </div>
-              <p className="text-lg text-gray-300">Get your video in 30 mins — right in your dashboard</p>
+              <p className="text-lg text-gray-300">Get your video in minutes — right in your dashboard</p>
             </div>
           </div>
           <p className="text-lg text-gray-400">No calls. No waiting. 100% automated.</p>

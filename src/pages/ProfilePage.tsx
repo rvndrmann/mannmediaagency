@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 const ProfilePage = () => {
   const navigate = useNavigate();
   const [user, setUser] = React.useState<any>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   React.useEffect(() => {
     const fetchUser = async () => {
@@ -36,11 +37,15 @@ const ProfilePage = () => {
           {user ? (
             <div>
               <p>Email: {user.email}</p>
-              <Button 
-                onClick={() => supabase.auth.signOut()}
+              <Button
+                disabled={isSigningOut}
+                onClick={() => {
+                  setIsSigningOut(true);
+                  setTimeout(() => supabase.auth.signOut(), 1500);
+                }}
                 className="mt-4 bg-red-500 hover:bg-red-600"
               >
-                Sign Out
+                {isSigningOut ? "Signing out..." : "Sign Out"}
               </Button>
             </div>
           ) : (

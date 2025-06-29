@@ -5,6 +5,7 @@ import { ProfileForm } from "./ProfileForm";
 import Plans from "@/pages/Plans";
 import { supabase } from "@/integrations/supabase/client";
 import { LogOut } from "lucide-react";
+import { useState } from "react";
 
 interface MobileSettingsTabsProps {
   activeTab: string;
@@ -17,6 +18,7 @@ export const MobileSettingsTabs = ({
   setActiveTab,
   profileFormProps,
 }: MobileSettingsTabsProps) => {
+  const [isSigningOut, setIsSigningOut] = useState(false);
   return (
     <Tabs
       value={activeTab}
@@ -36,11 +38,15 @@ export const MobileSettingsTabs = ({
           <Button
             variant="ghost"
             className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-            onClick={async () => {
-              await supabase.auth.signOut();
+            disabled={isSigningOut}
+            onClick={() => {
+              setIsSigningOut(true);
+              setTimeout(async () => {
+                await supabase.auth.signOut();
+              }, 1500);
             }}
           >
-            <LogOut className="mr-2 h-4 w-4" /> Sign out
+            <LogOut className="mr-2 h-4 w-4" /> {isSigningOut ? "Signing out..." : "Sign out"}
           </Button>
         </div>
       </TabsContent>

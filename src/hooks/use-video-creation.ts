@@ -13,6 +13,7 @@ interface CreateVideoParams {
   backgroundMusicUrl: string | null;
   productPhotoUrl: string | null;
   style: string;
+  voice: string;
 }
 
 export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
@@ -24,7 +25,8 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
     readyToGo,
     backgroundMusicUrl,
     productPhotoUrl,
-    style
+    style,
+    voice
   }: CreateVideoParams) => {
     if (!source.trim()) {
       toast({
@@ -56,6 +58,7 @@ export const useVideoCreation = ({ onSuccess }: UseVideoCreationProps) => {
         // background_music: backgroundMusicUrl, // Remove direct assignment here
         story_type_id: story_type_id,
         user_id: user.id,
+        "choose voice": voice,
       } as any; // Use 'as any' temporarily to allow adding property conditionally
 
       // Only add background_music if a URL exists

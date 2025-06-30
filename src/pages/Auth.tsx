@@ -14,7 +14,7 @@ const Auth = () => {
       {/* Navigation Bar */}
       <div className="w-full px-6 lg:px-12 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10">
         <div className="flex items-center gap-4 w-full sm:w-auto text-center sm:text-left">
-          {/* Removed MANN logo and text */}
+          <div className="text-xl font-bold">Mann Media Agency</div>
         </div>
         <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-end">
           <Button

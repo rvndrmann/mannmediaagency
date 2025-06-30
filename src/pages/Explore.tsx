@@ -89,6 +89,7 @@ const Explore = () => {
       <div className="flex h-screen overflow-hidden pb-16 md:pb-0">
         {!isMobile && <Sidebar />}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <h1 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Mann Media Agency</h1>
           <FilterBar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}

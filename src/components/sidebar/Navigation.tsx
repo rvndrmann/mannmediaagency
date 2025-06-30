@@ -177,12 +177,6 @@ export const Navigation = () => {
       current: location.pathname === "/" || location.pathname === "/dashboard",
     },
     {
-      name: "Explore",
-      subtext: "Discover Amazing Content",
-      to: "/explore",
-      icon: Compass,
-    },
-    {
       name: "Product Video",
       subtext: "Create Videos from Products",
       to: "/create-video",

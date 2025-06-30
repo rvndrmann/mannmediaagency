@@ -10,6 +10,7 @@ import { StyleSelectorSection } from "./dialog/StyleSelectorSection";
 import { MusicUploaderSection } from "./dialog/MusicUploaderSection";
 import { ProductPhotoSection } from "./dialog/ProductPhotoSection";
 import { DialogActionsSection } from "./dialog/DialogActionsSection";
+import { VoiceSelectorSection } from "./dialog/VoiceSelectorSection";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import { useVideoCreation } from "@/hooks/use-video-creation";
 
@@ -23,6 +24,7 @@ interface CreateVideoDialogProps {
   initialReadyToGo?: boolean;
   initialBackgroundMusic?: string | null;
   initialProductPhoto?: string | null;
+  initialVoice?: string;
 }
 
 export const CreateVideoDialog = ({
@@ -35,10 +37,12 @@ export const CreateVideoDialog = ({
   initialReadyToGo = false,
   initialBackgroundMusic = null,
   initialProductPhoto = null,
+  initialVoice = "1",
 }: CreateVideoDialogProps) => {
   const [source, setSource] = useState(initialScript);
   const [readyToGo, setReadyToGo] = useState(initialReadyToGo);
   const [style, setStyle] = useState<string>(initialStyle);
+  const [voice, setVoice] = useState<string>(initialVoice);
   const [backgroundMusicUrl, setBackgroundMusicUrl] = useState<string | null>(initialBackgroundMusic);
   const [productPhotoUrl, setProductPhotoUrl] = useState<string | null>(null);
   const [isLocallySubmitting, setIsLocallySubmitting] = useState(false); // Add local loading state
@@ -110,6 +114,7 @@ export const CreateVideoDialog = ({
           backgroundMusicUrl,
           productPhotoUrl,
           style,
+          voice,
         }),
         timeoutPromise,
       ]);
@@ -160,6 +165,11 @@ export const CreateVideoDialog = ({
           <ScriptInputSection
             source={source}
             onSourceChange={setSource}
+          />
+          
+          <VoiceSelectorSection
+           voice={voice}
+           onVoiceChange={setVoice}
           />
     
           <ProductPhotoSection

@@ -185,7 +185,6 @@ const ProfileSettings = () => {
     <SidebarProvider>
       <div className="flex flex-col min-h-screen w-full bg-background">
         <div className="flex flex-1">
-          <Sidebar />
           <div className="flex-1 p-8">
             {isMobile ? (
               <MobileSettingsTabs

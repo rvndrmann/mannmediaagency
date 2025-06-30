@@ -22,6 +22,10 @@ import { useUser } from "./hooks/use-user";
 import CreateVideo from "./pages/CreateVideo";
 import ProfileSettings from "./pages/ProfileSettings";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import AboutUs from "./pages/AboutUs";
+import Contact from "./pages/Contact";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import { Button } from "./components/ui/button";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -90,6 +94,12 @@ function App() {
             {/* Payment routes */}
             <Route path="/payment" element={<Payment />} />
             
+            {/* Legal routes */}
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+
             {/* Fallback routes */}
             <Route path="/not-found" element={<NotFound />} />
             <Route path="*" element={<Navigate to="/not-found" replace />} />

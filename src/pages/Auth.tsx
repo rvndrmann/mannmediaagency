@@ -1,5 +1,4 @@
-
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogIn, RocketIcon, TagIcon, Camera, Video, Play, RefreshCw, Check, Upload, CreditCard, Clock } from "lucide-react";
 import { VideoShowcase } from "@/components/auth/VideoShowcase";
@@ -184,6 +183,13 @@ const Auth = () => {
           </Button>
         </div>
       </div>
+      {/* Footer */}
+      <footer className="w-full px-6 lg:px-12 py-6 text-center text-muted-foreground">
+        <div className="flex justify-center gap-4">
+          <Link to="/privacy" className="hover:text-foreground">Privacy Policy</Link>
+          <Link to="/terms" className="hover:text-foreground">Terms & Conditions</Link>
+        </div>
+      </footer>
     </div>
   );
 };

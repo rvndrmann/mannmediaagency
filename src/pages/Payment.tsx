@@ -196,21 +196,21 @@ const Payment = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <Card className="max-w-md w-full glass-card">
         <CardHeader>
-          <CardTitle className="text-white">Complete Your Payment</CardTitle>
-          <CardDescription className="text-gray-400">Secure payment processing with PayU</CardDescription>
+          <CardTitle>Complete Your Payment</CardTitle>
+          <CardDescription>Secure payment processing with PayU</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex justify-between text-white">
+            <div className="flex justify-between">
               <span>Plan</span>
               <span className="font-medium">{paymentDetails.planName}</span>
             </div>
-            <div className="flex justify-between text-white">
+            <div className="flex justify-between">
               <span>Amount</span>
               <span className="font-medium">₹{paymentDetails.amount}</span>
             </div>
             {paymentDetails.orderId && (
-              <div className="flex justify-between text-white">
+              <div className="flex justify-between">
                 <span>Order ID</span>
                 <span className="font-medium text-xs">{paymentDetails.orderId}</span>
               </div>
@@ -221,13 +221,11 @@ const Payment = () => {
           <Button 
             variant="ghost" 
             onClick={() => paymentDetails.orderId ? navigate("/") : navigate("/plans")}
-            className="text-white hover:bg-white/10"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={initiatePayment}
-            className="bg-white/10 hover:bg-white/20 text-white"
           >
             Proceed to Payment
           </Button>

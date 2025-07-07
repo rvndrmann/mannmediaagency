@@ -183,8 +183,8 @@ export const Navigation = () => {
       icon: Compass,
     },
     {
-      name: "Product Video",
-      subtext: "Create Videos from Products",
+      name: "AI UGC Video",
+      subtext: "powered by context flux",
       to: "/create-video",
       icon: Film, // Using Film icon as Video icon wasn't imported
       current: location.pathname === "/create-video",
@@ -249,7 +249,7 @@ export const Navigation = () => {
   };
 
   // Define allowed item names for non-admins
-  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings", "Product Video", "Explore"];
+  const nonAdminAllowedNames = ["Dashboard", "Custom Orders", "Plans & Billing", "Profile Settings", "AI UGC Video", "Explore"];
 
   // Construct mainNavigation based on user loading state and admin status
   const mainNavigation: NavigationItem[] = isUserLoading

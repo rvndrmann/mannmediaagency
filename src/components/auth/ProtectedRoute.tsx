@@ -9,12 +9,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, isLoading } = useUser();
 
-  if (isLoading) {
-    // Optional: Replace with a more sophisticated loading spinner/component
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
-
-  if (!user) {
+  if (!user && !isLoading) {
     // User not logged in, redirect to login page
     // Pass the current location to redirect back after login (optional)
     return <Navigate to="/auth/login" replace />;

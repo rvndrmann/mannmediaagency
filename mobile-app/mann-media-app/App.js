@@ -1,52 +1,26 @@
-import React, { useState } from 'react';
-import { SafeAreaView, StyleSheet, ActivityIndicator, Linking } from 'react-native';
+import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
+import * as Linking from 'expo-linking';
 
-const App = () => {
-  const [loading, setLoading] = useState(true);
-  const webviewUrl = 'https://mannmediaagency.com';
-
+export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <WebView
-        source={{ uri: webviewUrl }}
-        style={styles.webview}
-        onLoad={() => setLoading(false)}
-        onShouldStartLoadWithRequest={(event) => {
-          if (!event.url.startsWith(webviewUrl)) {
-            Linking.openURL(event.url);
-            return false;
-          }
-          return true;
-        }}
-      />
-      {loading && (
-        <ActivityIndicator
-          style={styles.loading}
-          size="large"
-          color="#0000ff"
-        />
+    <WebView
+      source={{ uri: 'https://mannmediaagency.com' }}
+      startInLoadingState={true}
+      renderLoading={() => (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" />
+        </View>
       )}
-    </SafeAreaView>
+      onShouldStartLoadWithRequest={(event) => {
+        if (event.url.startsWith('https://mannmediaagency.com')) {
+          return true;
+        } else {
+          Linking.openURL(event.url);
+          return false;
+        }
+      }}
+    />
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  webview: {
-    flex: 1,
-  },
-  loading: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
-
-export default App;
+}

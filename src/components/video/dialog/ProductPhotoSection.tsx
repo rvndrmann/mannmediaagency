@@ -40,7 +40,7 @@ export const ProductPhotoSection = ({
   return (
     <div className="space-y-4">
       <Label htmlFor="productPhoto" className="text-xl text-primary">
-        Product Photo
+        Add avatar image / avtar image with product / product image
       </Label>
       <div className="space-y-2">
         <Input

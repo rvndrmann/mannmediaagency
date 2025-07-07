@@ -8,28 +8,32 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-user";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const CreateVideo = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useUser();
 
   const {
     data: userCredits,
     isLoading: isCreditsLoading,
     isError: isCreditsError,
   } = useQuery({
-    queryKey: ["userCredits"],
+    queryKey: ["userCredits", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_credits")
         .select("credits_remaining")
+        .eq("user_id", user!.id)
         .maybeSingle();
 
       if (error) throw error;
       return data;
     },
+    enabled: !!user,
   });
 
   const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
@@ -59,7 +63,7 @@ const CreateVideo = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold text-foreground">Product Video</h1>
+          <h1 className="text-3xl font-bold text-foreground">AI UGC Video</h1>
         </div>
         
         <Card className="p-6 bg-card text-card-foreground border-border min-h-[320px] flex items-center justify-center">

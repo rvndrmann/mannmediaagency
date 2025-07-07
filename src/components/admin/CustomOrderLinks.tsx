@@ -216,7 +216,7 @@ export const CustomOrderLinks = () => {
                   name="title"
                   value={form.title}
                   onChange={handleFormChange}
-                  placeholder="Product Photo Editing"
+                  placeholder="Avatar Image Editing"
                 />
               </div>
               <div className="grid gap-2">

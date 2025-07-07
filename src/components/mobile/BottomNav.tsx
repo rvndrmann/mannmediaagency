@@ -46,7 +46,7 @@ const navItems = [
     icon: Settings,
     href: "/profile"
   }
-  // Multi-Agent Chat and Product Video items removed
+  // Multi-Agent Chat and AI UGC Video items removed
 ];
 
 export const BottomNav = () => {

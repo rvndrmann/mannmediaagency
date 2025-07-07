@@ -56,71 +56,24 @@ export const useUser = () => {
   }, []); // useCallback dependency array is empty
 
   useEffect(() => {
-    let isMounted = true; // Flag to prevent state updates on unmounted component
-
-    const fetchInitialData = async () => {
-      setIsLoading(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const currentUser = session?.user ?? null;
-
-        if (isMounted) {
-          setUser(currentUser);
-          if (currentUser) {
-            // Call checkAdminStatus and set state
-            const adminStatus = await checkAdminStatus(currentUser.id);
-            if (isMounted) setIsAdmin(adminStatus);
-            await fetchCredits(currentUser.id);
-          } else {
-             // If no user, not admin
-             setIsAdmin(false);
-             setUserCredits(null);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching initial user data:", error);
-         if (isMounted) {
-             setUser(null);
-             setIsAdmin(false); // Reset admin status on error
-             setUserCredits(null);
-         }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchInitialData();
-
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!isMounted) return; // Don't run if component is unmounted
-
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-
       if (currentUser) {
-        // Call checkAdminStatus on auth change
         const adminStatus = await checkAdminStatus(currentUser.id);
-         if (isMounted) setIsAdmin(adminStatus);
+        setIsAdmin(adminStatus);
         await fetchCredits(currentUser.id);
       } else {
-         // If no user, not admin
-         if (isMounted) {
-             setIsAdmin(false);
-             setUserCredits(null);
-         }
+        setIsAdmin(false);
+        setUserCredits(null);
       }
-       // Ensure loading state is false after auth change is processed
-       if (isLoading) setIsLoading(false);
+      setIsLoading(false);
     });
 
-    // Cleanup function
     return () => {
-      isMounted = false; // Set flag on unmount
       authListener?.subscription?.unsubscribe();
     };
-  }, [checkAdminStatus, fetchCredits]); // Removed isLoading from dependencies
+  }, [checkAdminStatus, fetchCredits]);
 
   return { user, userCredits, isAdmin, isLoading };
 };
